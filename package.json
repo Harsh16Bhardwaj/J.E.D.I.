@@ -1,0 +1,28 @@
+{
+  "name": "jedi",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "vercel dev",
+    "dev:web": "pnpm --dir frontend dev",
+    "dev:api": "python -m uvicorn backend.main:app --reload --port 8000",
+    "build": "pnpm --dir frontend build",
+    "lint": "pnpm --dir frontend lint",
+    "typecheck": "pnpm --dir frontend typecheck",
+    "db:format": "prisma format",
+    "db:validate": "prisma validate",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio"
+  },
+  "devDependencies": {
+    "dotenv": "latest",
+    "prisma": "latest",
+    "tsx": "latest",
+    "vercel": "latest"
+  }
+}

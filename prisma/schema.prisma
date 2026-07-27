@@ -1,0 +1,361 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../frontend/src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BatchStatus {
+  UPLOADED
+  VALIDATING
+  NORMALIZING
+  DEDUPLICATING
+  SCORING
+  EMAILING
+  COMPLETED
+  PARTIAL_FAILED
+  FAILED
+}
+
+enum CanonicalJobStatus {
+  ACTIVE
+  EXPIRED
+  MERGED
+  ARCHIVED
+}
+
+enum ObservationDecision {
+  NEW_CANONICAL
+  EXACT_MERGE
+  SIMILARITY_MERGE
+  REJECTED
+}
+
+enum RelevanceLabel {
+  DREAM
+  STRONG_APPLY
+  CONSIDER
+  REJECT
+}
+
+enum ReviewStatus {
+  NEW
+  VIEWED
+  SAVED
+  DISMISSED
+}
+
+enum ApplicationStatus {
+  NOT_STARTED
+  PREPARING
+  APPLIED
+  ASSESSMENT
+  INTERVIEW
+  OFFER
+  REJECTED
+  WITHDRAWN
+}
+
+enum PredictionReliability {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum ProcessingStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum ModelKind {
+  PREFERENCE
+  SEMANTIC
+  NORMALIZER
+}
+
+model SourceDefinition {
+  id             String           @id @default(cuid())
+  name           String           @unique
+  allowedDomains String[]
+  enabled        Boolean          @default(true)
+  priority       Int              @default(0)
+  observations   JobObservation[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model ImportBatch {
+  id                       String           @id @default(cuid())
+  externalBatchId          String           @unique
+  contentHash              String           @unique
+  schemaVersion            String
+  promptVersion            String?
+  windowStart              DateTime
+  windowEnd                DateTime
+  generatedAt              DateTime
+  rawEnvelope              Json
+  status                   BatchStatus      @default(UPLOADED)
+  receivedCount            Int              @default(0)
+  validCount               Int              @default(0)
+  rejectedCount            Int              @default(0)
+  duplicateCount           Int              @default(0)
+  canonicalCount           Int              @default(0)
+  validationReport         Json?
+  processingLeaseToken     String?
+  processingLeaseExpiresAt DateTime?
+  observations             JobObservation[]
+  predictions              JobPrediction[]
+  processingRuns           ProcessingRun[]
+  emailDeliveries          EmailDelivery[]
+  createdAt                DateTime         @default(now())
+  completedAt              DateTime?
+
+  @@index([status, createdAt])
+}
+
+model CanonicalJob {
+  id          String             @id @default(cuid())
+  displayCode String             @unique
+  status      CanonicalJobStatus @default(ACTIVE)
+
+  mergedIntoJobId String?
+  mergedInto      CanonicalJob?  @relation("JobMerges", fields: [mergedIntoJobId], references: [id], onDelete: SetNull)
+  mergedJobs      CanonicalJob[] @relation("JobMerges")
+
+  companyName           String
+  companyNameNormalized String
+  roleTitle             String
+  roleTitleNormalized   String
+  roleFamily            String?
+  seniority             String?
+
+  location       String?
+  city           String?
+  country        String?
+  locationBucket String?
+  workMode       String?
+  employmentType String?
+
+  descriptionFull  String
+  responsibilities String?
+  skills           String[]
+  requiredSkills   String[]
+  preferredSkills  String[]
+
+  experienceMinYears Float?
+  experienceMaxYears Float?
+
+  compensationMin      Decimal? @db.Decimal(14, 2)
+  compensationMax      Decimal? @db.Decimal(14, 2)
+  compensationCurrency String?
+  compensationPeriod   String?
+  isStipend            Boolean?
+
+  postedAt            DateTime?
+  applicationDeadline DateTime?
+  canApplyNow         Boolean?
+  applyUrlPreferred   String?
+
+  education        String?
+  eligibility      String?
+  recruiterContact Json?
+  extras           Json?
+  fieldProvenance  Json?
+
+  descriptionEmbedding Float[]
+
+  observations         JobObservation[]
+  candidateEvaluations DedupEvaluation[]
+  predictions          JobPrediction[]
+  state                JobState?
+  events               JobEvent[]
+
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyNameNormalized])
+  @@index([companyNameNormalized, roleTitleNormalized])
+  @@index([status, postedAt])
+  @@index([mergedIntoJobId])
+}
+
+model JobObservation {
+  id                 String               @id @default(cuid())
+  batchId            String
+  batch              ImportBatch          @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  canonicalJobId     String?
+  canonicalJob       CanonicalJob?        @relation(fields: [canonicalJobId], references: [id], onDelete: SetNull)
+  sourceDefinitionId String
+  sourceDefinition   SourceDefinition     @relation(fields: [sourceDefinitionId], references: [id])
+  externalJobId      String?
+  sourceUrl          String
+  applyUrl           String?
+  urlKind            String?
+  observationHash    String               @unique
+  capturedAt         DateTime
+  postedAt           DateTime?
+  rawPayload         Json
+  normalizedSnapshot Json?
+  decision           ObservationDecision?
+  rejectionReason    String?
+  dedupEvaluations   DedupEvaluation[]
+  createdAt          DateTime             @default(now())
+
+  @@index([batchId])
+  @@index([canonicalJobId])
+  @@index([sourceDefinitionId, externalJobId])
+}
+
+model DedupEvaluation {
+  id                      String              @id @default(cuid())
+  observationId           String
+  observation             JobObservation      @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  candidateCanonicalJobId String
+  candidateCanonicalJob   CanonicalJob        @relation(fields: [candidateCanonicalJobId], references: [id], onDelete: Cascade)
+  companyMatch            Boolean
+  roleMatch               Boolean
+  locationMatch           Boolean
+  workModeMatch           Boolean
+  experienceMatch         Boolean
+  compensationMatch       Boolean
+  descriptionMatch        Boolean
+  yesCount                Int
+  descriptionSimilarity   Float?
+  dedupVersion            String
+  decision                ObservationDecision
+  createdAt               DateTime            @default(now())
+
+  @@index([observationId])
+  @@index([candidateCanonicalJobId])
+}
+
+model ProfileVersion {
+  id                String          @id @default(cuid())
+  contentHash       String          @unique
+  resumeText        String
+  structuredProfile Json
+  active            Boolean         @default(false)
+  predictions       JobPrediction[]
+  createdAt         DateTime        @default(now())
+
+  @@index([active])
+}
+
+model ModelVersion {
+  id                   String    @id @default(cuid())
+  name                 String    @unique
+  kind                 ModelKind
+  artifactManifest     Json
+  featureSchemaVersion String
+  metrics              Json?
+  active               Boolean   @default(false)
+
+  preferencePredictions JobPrediction[] @relation("PreferenceModel")
+  semanticPredictions   JobPrediction[] @relation("SemanticModel")
+
+  createdAt DateTime @default(now())
+
+  @@index([kind, active])
+}
+
+model JobPrediction {
+  id                       String         @id @default(cuid())
+  canonicalJobId           String
+  canonicalJob             CanonicalJob   @relation(fields: [canonicalJobId], references: [id], onDelete: Cascade)
+  batchId                  String
+  batch                    ImportBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  profileVersionId         String
+  profileVersion           ProfileVersion @relation(fields: [profileVersionId], references: [id])
+  preferenceModelVersionId String
+  preferenceModelVersion   ModelVersion   @relation("PreferenceModel", fields: [preferenceModelVersionId], references: [id])
+  semanticModelVersionId   String
+  semanticModelVersion     ModelVersion   @relation("SemanticModel", fields: [semanticModelVersionId], references: [id])
+
+  applyPreferenceProbability Float
+  jediPreferenceScore        Float
+  resumeJobSuitability       Float
+  predictionReliability      PredictionReliability
+
+  rank               Int
+  rankBand           Int
+  predictedFitScores Json
+  positiveReasons    Json
+  negativeReasons    Json
+  featureSnapshot    Json
+  fallbackLevel      String
+  createdAt          DateTime @default(now())
+
+  @@unique([canonicalJobId, batchId, profileVersionId, preferenceModelVersionId])
+  @@index([batchId, rank])
+}
+
+model JobState {
+  canonicalJobId    String            @id
+  canonicalJob      CanonicalJob      @relation(fields: [canonicalJobId], references: [id], onDelete: Cascade)
+  relevanceLabel    RelevanceLabel?
+  reviewStatus      ReviewStatus      @default(NEW)
+  applicationStatus ApplicationStatus @default(NOT_STARTED)
+  notes             String?
+  updatedAt         DateTime          @updatedAt
+}
+
+model JobEvent {
+  id             String       @id @default(cuid())
+  canonicalJobId String
+  canonicalJob   CanonicalJob @relation(fields: [canonicalJobId], references: [id], onDelete: Cascade)
+  eventType      String
+  previousValue  String?
+  newValue       String?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([canonicalJobId, createdAt])
+}
+
+model ProcessingRun {
+  id             String           @id @default(cuid())
+  batchId        String
+  batch          ImportBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  idempotencyKey String           @unique
+  status         ProcessingStatus @default(QUEUED)
+  stage          String
+  attempt        Int              @default(0)
+  errorCode      String?
+  errorMessage   String?
+  startedAt      DateTime?
+  heartbeatAt    DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime         @default(now())
+
+  @@index([batchId, status])
+}
+
+model EmailDelivery {
+  id              String      @id @default(cuid())
+  batchId         String
+  batch           ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  digestType      String
+  recipient       String
+  status          EmailStatus @default(PENDING)
+  attempts        Int         @default(0)
+  gmailMessageId  String?
+  payloadSnapshot Json
+  lastError       String?
+  sentAt          DateTime?
+  createdAt       DateTime    @default(now())
+
+  @@unique([batchId, digestType, recipient])
+}

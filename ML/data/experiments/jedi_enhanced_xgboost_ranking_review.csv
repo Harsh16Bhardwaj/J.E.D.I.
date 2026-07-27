@@ -1,0 +1,10 @@
+model,k,precision_at_k,recall_at_k,ndcg_at_k
+raw_enhanced_xgboost,10,1.0,0.03278688524590164,1.0
+raw_enhanced_xgboost,20,1.0,0.06557377049180328,1.0
+raw_enhanced_xgboost,50,0.96,0.15737704918032788,0.9709523067664448
+stacked_ridge_scores_enhanced_xgboost,10,1.0,0.03278688524590164,1.0
+stacked_ridge_scores_enhanced_xgboost,20,1.0,0.06557377049180328,1.0
+stacked_ridge_scores_enhanced_xgboost,50,0.94,0.1540983606557377,0.9556636173985565
+oracle_true_scores_enhanced_xgboost,10,1.0,0.03278688524590164,1.0
+oracle_true_scores_enhanced_xgboost,20,1.0,0.06557377049180328,1.0
+oracle_true_scores_enhanced_xgboost,50,0.98,0.16065573770491803,0.9861910928322911

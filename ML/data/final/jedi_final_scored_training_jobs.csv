@@ -1,0 +1,692 @@
+row_id,company_name,role_title,applied,jedi_preference_score,apply_probability,apply_prediction,actual_yes
+352,Arena Investors India,SDE I - Full Stack Engineer - Data Products,yes,96.8,0.9817,yes,1
+347,Stealth IVF AI,Junior Full Stack Developer - Data Products,yes,96.64,0.9938,yes,1
+340,LawVriksh,New Grad Software Engineer - Web Platform - Data Products,yes,96.44,0.9295,yes,1
+343,Opendoor India,New Grad Software Engineer - Web Platform - AI Tools,yes,96.29,0.9949,yes,1
+415,TerraPay,SDE I - Full Stack Engineer - Growth Platform,yes,96.27,0.9949,yes,1
+441,Delta Exchange,SDE I - Full Stack Engineer - SaaS Platform,yes,96.24,0.9917,yes,1
+409,Instacart,New Grad Software Engineer - Web Platform - Data Products,yes,96.24,0.9906,yes,1
+341,ShopBack,New Grad Software Engineer - Web Platform - Data Products,yes,96.23,0.9915,yes,1
+475,6sense India,New Grad Software Engineer - Web Platform - Product Team,yes,96.04,0.9943,yes,1
+430,Stealth IVF AI,New Grad Software Engineer - Web Platform,yes,96.04,0.9925,yes,1
+436,Langslide,Junior Full Stack Developer - Core Platform,yes,96.04,0.9835,yes,1
+467,Veeam India,SDE I - Full Stack Engineer - Marketplace,yes,95.9,0.9909,yes,1
+522,Stealth IVF AI,New Grad Software Engineer - Web Platform - Product Team,yes,95.87,0.9942,yes,1
+473,StarApps Studio,SDE I - Full Stack Engineer - Core Platform,yes,95.85,0.9921,yes,1
+378,BotSpace,New Grad Software Engineer - Web Platform - AI Tools,yes,95.85,0.9803,yes,1
+345,Stealth IVF AI,New Grad Software Engineer - Web Platform - Marketplace,yes,95.84,0.9792,yes,1
+519,Jar App,SDE I - Full Stack Engineer - Growth Platform,yes,95.8,0.9923,yes,1
+499,Renan,Junior Full Stack Developer - Growth Platform,yes,95.77,0.9922,yes,1
+458,Boock.ai,New Grad Software Engineer - Web Platform - Marketplace,yes,95.64,0.9834,yes,1
+517,Harness India,Associate Software Engineer - Frontend - Product Team,yes,95.64,0.9781,yes,1
+371,Stripe,SDE I - Full Stack Engineer - Growth Platform,yes,95.63,0.9942,yes,1
+442,Mercari India,SDE I - Full Stack Engineer,yes,95.62,0.9805,yes,1
+440,Alchemyst AI,Junior Full Stack Developer - Growth Platform,yes,95.6,0.992,yes,1
+444,Veeam India,Associate Software Engineer - Frontend - Data Products,yes,95.56,0.9846,yes,1
+453,Apna,Software Engineer Intern - Fullstack Product - SaaS Platform,yes,95.56,0.8467,yes,1
+503,BotSpace,Software Engineer Intern - Fullstack Product - Core Platform,yes,95.54,0.9392,yes,1
+487,Gyrus.AI,Junior Full Stack Developer - Core Platform,yes,95.52,0.9923,yes,1
+405,Stealth IVF AI,Junior Full Stack Developer,yes,95.47,0.9938,yes,1
+493,Noida SaaS Labs,Junior Full Stack Developer - Growth Platform,yes,95.4,0.9938,yes,1
+510,Gyrus.AI,Frontend Engineer Intern - Product Team,yes,95.22,0.6086,yes,1
+338,Sprinto,Frontend Engineer Intern,yes,95.21,0.9401,yes,1
+395,Postman,Junior Full Stack Developer - Data Products,yes,95.2,0.9968,yes,1
+382,ClickPost,Junior Full Stack Developer - Product Team,yes,95.2,0.9964,yes,1
+373,Binance,New Grad Software Engineer - Web Platform - Growth Platform,yes,95.2,0.9943,yes,1
+429,Postman,Product Engineer Intern - AI Features - Core Platform,no,95.18,0.3957,yes,0
+471,Proximity Works,Product Engineer Intern - AI Features - Product Team,yes,95.14,0.6177,yes,1
+456,CipherSchools,New Grad Software Engineer - Web Platform - Core Platform,yes,95.12,0.9962,yes,1
+402,WATI.io,New Grad Software Engineer - Web Platform - Core Platform,yes,95.0,0.9955,yes,1
+360,Weekday AI,Associate Software Engineer - Frontend - Product Team,yes,94.99,0.991,yes,1
+507,BotSpace,Frontend Engineer Intern - Product Team,no,94.96,0.9507,yes,0
+518,Binance,SDE I - Full Stack Engineer - Core Platform,yes,94.9,0.9868,yes,1
+491,Weekday AI,New Grad Software Engineer - Web Platform - Data Products,yes,94.84,0.9951,yes,1
+508,Weekday AI,Associate Software Engineer - Frontend - Marketplace,yes,94.84,0.9926,yes,1
+531,TerraPay,Product Engineer Intern - AI Features,no,94.81,0.6248,yes,0
+372,Arena Investors India,Associate Software Engineer - Frontend - Marketplace,yes,94.73,0.9865,yes,1
+379,WATI.io,New Grad Software Engineer - Web Platform - Growth Platform,yes,94.71,0.9957,yes,1
+332,Fynd Platform,Associate Software Engineer - Frontend - SaaS Platform,yes,94.71,0.9902,yes,1
+426,Jar App,Frontend Engineer Intern - Growth Platform,yes,94.67,0.9822,yes,1
+494,dCortex,SDE I - Full Stack Engineer - AI Tools,yes,94.66,0.9678,yes,1
+392,Bengaluru Product Labs,Associate Software Engineer - Frontend - Data Products,yes,94.59,0.9778,yes,1
+355,Databricks,Associate Software Engineer - Frontend - Product Team,yes,94.56,0.9854,yes,1
+339,Dobbe AI,Frontend Engineer Intern - SaaS Platform,yes,94.52,0.7377,yes,1
+353,M32 AI,Associate Software Engineer - Frontend - Growth Platform,yes,94.45,0.9924,yes,1
+478,Apna,Junior Full Stack Developer - SaaS Platform,yes,94.39,0.9948,yes,1
+528,CipherSchools,Product Engineer Intern - AI Features - SaaS Platform,yes,94.33,0.5163,yes,1
+496,Coupa India,Frontend Engineer Intern - Product Team,yes,94.17,0.6638,yes,1
+411,Fynd Platform,Product Engineer Intern - AI Features - Product Team,no,94.16,0.4232,yes,0
+485,Dozee,Associate Software Engineer - Frontend - Core Platform,yes,94.14,0.9648,yes,1
+334,Smallcase,Associate Software Engineer - Frontend - Product Team,yes,94.09,0.9832,yes,1
+511,Keka HR,Frontend Engineer Intern - SaaS Platform,yes,94.09,0.9802,yes,1
+258,Weekday,Founding Engineer,yes,93.98,0.9949,yes,1
+362,Hasura,New Grad Software Engineer - Web Platform - Product Team,yes,93.93,0.9932,yes,1
+469,Gatik AI,Associate Software Engineer - Frontend - Core Platform,yes,93.87,0.9888,yes,1
+460,Alchemyst AI,SDE I - Full Stack Engineer - Core Platform,yes,93.8,0.9949,yes,1
+335,Renan,Software Engineer Intern - Fullstack Product,yes,93.65,0.9393,yes,1
+391,JumpCloud India,Junior Full Stack Developer - Data Products,yes,93.63,0.9944,yes,1
+483,Langslide,New Grad Software Engineer - Web Platform - Core Platform,yes,93.5,0.992,yes,1
+446,Excelya India,Frontend Engineer Intern - SaaS Platform,yes,93.46,0.9786,yes,1
+156,NoScrubs,Full Stack Engineer,yes,93.3,0.9934,yes,1
+348,WATI.io,Product Engineer Intern - AI Features - Data Products,yes,93.3,0.6995,yes,1
+157,OpenVector,Full-Stack Engineer,yes,93.28,0.9884,yes,1
+495,Weekday AI,Product Engineer Intern - AI Features - Growth Platform,yes,93.25,0.7979,yes,1
+463,Delta Exchange,Frontend Engineer Intern - Data Products,no,93.18,0.9932,yes,0
+342,Coupa India,SDE I - Full Stack Engineer - SaaS Platform,yes,93.16,0.9951,yes,1
+498,Smallcase,Product Engineer Intern - AI Features - AI Tools,yes,93.09,0.7227,yes,1
+363,WEKA,Software Engineer Intern - Fullstack Product - Core Platform,yes,93.05,0.4122,yes,1
+267,CloudSEK,SDE Intern - Frontend,yes,93.01,0.935,yes,1
+521,Langslide,Associate Software Engineer - Frontend - Marketplace,yes,92.97,0.9737,yes,1
+390,Stealth IVF AI,Software Engineer Intern - Fullstack Product - SaaS Platform,yes,92.95,0.9505,yes,1
+423,Gyrus.AI,Junior Full Stack Developer - SaaS Platform,yes,92.94,0.9925,yes,1
+351,AQR India,Software Engineer Intern - Fullstack Product - Growth Platform,yes,92.93,0.9737,yes,1
+457,Stripe,Software Engineer Intern - Fullstack Product - Marketplace,no,92.86,0.8613,yes,0
+401,orqum.ai,Frontend Engineer Intern - SaaS Platform,yes,92.77,0.8072,yes,1
+159,Autodraft,Full-Stack Engineer,yes,92.75,0.9937,yes,1
+368,Gravity AI,Product Engineer Intern - AI Features - Data Products,yes,92.68,0.6655,yes,1
+422,Postman,Software Engineer Intern - Fullstack Product - Product Team,no,92.67,0.2829,no,0
+479,Boock.ai,New Grad Software Engineer - Web Platform - SaaS Platform,yes,92.39,0.9956,yes,1
+389,GreenChoice,New Grad Software Engineer - Web Platform - SaaS Platform,yes,92.39,0.9912,yes,1
+504,Gyrus.AI,Product Engineer Intern - AI Features - SaaS Platform,no,92.32,0.4605,yes,0
+257,Weekday,AI Accelerated App Developer,yes,92.3,0.989,yes,1
+294,Tortoise,Software Developer (Full stack),yes,92.29,0.9577,yes,1
+329,Naukri Search Seed - Noida,Frontend Developer Fresher,yes,92.27,0.9926,yes,1
+51,Netomi,SDE I (FullStack),yes,92.12,0.7684,yes,1
+435,Razorpay,Associate Software Engineer - Frontend - Data Products,yes,92.08,0.9968,yes,1
+160,Autodraft,Front-End Engineer,yes,92.06,0.9919,yes,1
+255,Weekday,Backend Engineer,yes,92.05,0.9867,yes,1
+490,Instacart,New Grad Software Engineer - Web Platform,yes,92.03,0.9821,yes,1
+421,BotSpace,Product Engineer Intern - AI Features - Marketplace,no,92.01,0.1896,no,0
+489,Delta Exchange,Product Engineer Intern - AI Features - Core Platform,no,92.0,0.0868,no,0
+408,Smallcase,Associate Software Engineer - Frontend - Core Platform,yes,91.88,0.994,yes,1
+196,Binocs.co,Frontend Engineer,yes,91.86,0.9864,yes,1
+500,Jar App,Frontend Engineer Intern,yes,91.74,0.9709,yes,1
+259,Weekday,GTM Engineer,yes,91.7,0.9699,yes,1
+530,Arena Investors India,Software Engineer Intern - Fullstack Product - Core Platform,no,91.35,0.8655,yes,0
+461,TerraPay,SDE I - Backend Platform - Data Products,no,91.23,0.9797,yes,0
+337,Stripe,Software Engineer Intern - Fullstack Product,yes,91.17,0.7141,yes,1
+203,Patronus,Full stack Engineer (AI & Data Pipelines),yes,91.16,0.9838,yes,1
+425,6sense India,SDE I - Backend Platform - SaaS Platform,yes,91.12,0.9912,yes,1
+350,TerraPay,Junior Backend Developer - Product Team,yes,90.65,0.9977,yes,1
+455,Gruve AI,Junior Backend Developer - Data Products,yes,90.65,0.9927,yes,1
+502,orqum.ai,SDE I - Backend Platform - Product Team,yes,90.65,0.9103,yes,1
+188,Sentra.World,FrontEnd Developer,yes,90.62,0.9849,yes,1
+364,Smallcase,SDE I - Backend Platform - Data Products,yes,90.59,0.9027,yes,1
+413,Gruve AI,SDE I - Backend Platform - AI Tools,yes,90.56,0.907,yes,1
+484,Binance,SDE I - Backend Platform - Growth Platform,yes,90.55,0.9575,yes,1
+376,Alchemyst AI,SDE I - Backend Platform - Growth Platform,yes,90.53,0.9786,yes,1
+344,Airbnb India,Junior Backend Developer - AI Tools,yes,90.33,0.993,yes,1
+387,BrowserStack,Junior AI/ML Engineer - Product Team,yes,90.33,0.9779,yes,1
+309,Lokal App,Backend SDE-1,yes,90.27,0.9578,yes,1
+450,Sprinto,Junior AI/ML Engineer - Product Team,yes,90.23,0.9761,yes,1
+523,Arena Investors India,Junior Backend Developer - AI Tools,yes,90.22,0.9936,yes,1
+375,Coupa India,Junior Backend Developer,yes,90.2,0.997,yes,1
+336,BotSpace,Junior Backend Developer - Data Products,yes,90.2,0.9916,yes,1
+516,Jar App,Junior Backend Developer - Marketplace,yes,90.19,0.9952,yes,1
+385,HRT India,Backend Engineer Intern - APIs - Core Platform,yes,90.19,0.9541,yes,1
+427,Harness India,Junior AI/ML Engineer - AI Tools,yes,90.17,0.9792,yes,1
+161,Rankscope,Full Stack Engineer,yes,90.15,0.9794,yes,1
+305,Vitraga,"Software Engineer Intern (Next.js, Supabase & AI)",yes,90.15,0.9119,yes,1
+445,Keka HR,Junior AI/ML Engineer - Data Products,yes,90.08,0.9841,yes,1
+417,Calyb AI,Backend Engineer Intern - APIs - Core Platform,yes,90.08,0.958,yes,1
+295,Taskwiser,Software Engineer,yes,89.88,0.9328,yes,1
+419,TerraPay,AI Engineer Intern - LLM Apps - AI Tools,yes,89.84,0.9923,yes,1
+464,Stealth IVF AI,AI Engineer Intern - LLM Apps - AI Tools,no,89.76,0.7377,yes,0
+359,SFR,AI Engineer Intern - LLM Apps - Marketplace,yes,89.74,0.9747,yes,1
+399,Stripe,AI Engineer Intern - LLM Apps - Product Team,yes,89.73,0.9544,yes,1
+414,Harness India,Junior Backend Developer - Core Platform,yes,89.72,0.9933,yes,1
+185,WeKnow Group,Backend Engineer,yes,89.71,0.9887,yes,1
+204,Spenza,Frontend Engineer Intern – ReactJS,yes,89.71,0.9681,yes,1
+447,Jar App,AI Engineer Intern - LLM Apps - AI Tools,yes,89.69,0.9734,yes,1
+470,Postman,Junior AI/ML Engineer - SaaS Platform,no,89.65,0.9955,yes,0
+482,Binance,Junior AI/ML Engineer,yes,89.64,0.9689,yes,1
+477,Smallcase,AI Engineer Intern - LLM Apps - Product Team,yes,89.6,0.9641,yes,1
+357,Langslide,AI Engineer Intern - LLM Apps,yes,89.56,0.9355,yes,1
+79,Tandems,Software Engineer (Fullstack),no,89.55,0.1147,no,0
+488,Delta Exchange,Junior AI/ML Engineer - SaaS Platform,yes,89.48,0.8803,yes,1
+459,Mercari India,Junior AI/ML Engineer - Marketplace,no,89.43,0.9951,yes,0
+412,Coupa India,AI Engineer Intern - LLM Apps - Core Platform,no,89.43,0.9874,yes,0
+377,Apna,AI Engineer Intern - LLM Apps,yes,89.41,0.9665,yes,1
+53,Netomi,SDE I - Frontend (Analytics team),yes,89.35,0.4692,yes,1
+388,AQR India,AI Engineer Intern - LLM Apps - Product Team,yes,89.33,0.7157,yes,1
+166,Ctruh,Full Stack Engineer,yes,89.33,0.5611,yes,1
+289,TopGrep Tech,FS MERN Developers - 1-3 Years Experienced,yes,89.28,0.9557,yes,1
+404,kwiqreply,AI Engineer Intern - LLM Apps - Core Platform,yes,89.26,0.5703,yes,1
+6,Conga,"Associate Software Engineer, TS",yes,89.25,0.9877,yes,1
+291,DEVSOMEWARE,Software Engineer Intern,yes,89.24,0.9477,yes,1
+439,orqum.ai,SDE I - Backend Platform - SaaS Platform,yes,89.23,0.9505,yes,1
+474,CipherSchools,Product Engineer Intern - AI Features - Data Products,no,89.23,0.9041,yes,0
+407,Fynd Platform,Backend Engineer Intern - APIs - Data Products,no,89.05,0.736,yes,0
+505,GreenChoice,SDE I - Backend Platform - Data Products,yes,88.98,0.8049,yes,1
+314,Antarctica,Junior Fullstack Developer (Node/React),yes,88.96,0.9778,yes,1
+361,Langslide,Junior AI/ML Engineer,yes,88.92,0.9827,yes,1
+52,Netomi,SDE I - Backend,no,88.81,0.7748,yes,0
+312,CrewBloom,Junior Full Stack Developer,yes,88.8,0.9859,yes,1
+497,Neo4j India,AI Engineer Intern - LLM Apps - SaaS Platform,yes,88.61,0.99,yes,1
+288,TopGrep Tech,Full Stack Mern Developer,yes,88.54,0.9831,yes,1
+299,Saras Finance,Full Stack Engineer Intern,yes,88.51,0.8344,yes,1
+527,Weekday AI,GenAI Engineer Intern - Agentic Workflows - AI Tools,no,88.46,0.8182,yes,0
+383,Gurgaon Product Labs,AI Engineer Intern - LLM Apps - Marketplace,yes,88.45,0.9908,yes,1
+78,Mytos,Junior/Mid Software Engineer,no,88.43,0.7149,yes,0
+437,ClickPost,SDE I - Backend Platform - Product Team,yes,88.38,0.9125,yes,1
+251,Drivetrain,Engineering Intern – Gen AI for FP&A Platform,yes,88.37,0.9045,yes,1
+5,Energy Exemplar,Associate Software Engineer - Python,yes,88.35,0.9827,yes,1
+520,WATI.io,SDE I - Backend Platform - Data 189,yes,88.3,0.9179,yes,1
+381,dCortex,GenAI Engineer Intern - Agentic Workflows,yes,88.28,0.4405,yes,1
+84,Drivetrain,Backend Engineer,no,88.24,0.6067,yes,0
+433,Coupa India,Junior AI/ML Engineer - Product Team,yes,88.22,0.9774,yes,1
+452,Alchemyst AI,SDE I - Backend Platform - Growth 121,yes,88.22,0.9669,yes,1
+465,M32 AI,GenAI Engineer Intern - Agentic Workflows,no,88.21,0.2277,no,0
+328,Naukri Search Seed - Gurgaon,Backend Developer 0-2 Years,yes,88.12,0.9704,yes,1
+397,Stripe,Junior Backend Developer - Product Team,yes,88.11,0.9938,yes,1
+256,Weekday,Data Engineer (Hybrid),yes,88.08,0.9837,yes,1
+393,Lokal App,Junior Backend Developer - Growth Platform,yes,88.08,0.9758,yes,1
+192,Pocketpills,Frontend Engineer,yes,88.07,0.4612,yes,1
+358,SFR,Junior Backend Developer - Core Platform,yes,88.06,0.987,yes,1
+293,BUIMB Research,Web Developer Intern,yes,88.05,0.9802,yes,1
+197,Merge,Frontend Engineer - Fintech,yes,88.05,0.5086,yes,1
+524,Razorpay,Backend Engineer Intern - APIs - Growth Platform,no,88.0,0.8953,yes,0
+492,kwiqreply,Junior Data Engineer - Pipelines - AI Tools,yes,87.98,0.9397,yes,1
+290,TrueBuilt Software,Full-Stack Engineer,yes,87.93,0.9276,yes,1
+333,Calyb AI,AI Engineer Intern - LLM Apps - Data Products,yes,87.89,0.9915,yes,1
+187,Sentra.World,Backend Engineer,yes,87.89,0.9782,yes,1
+418,Coupa India,Junior Backend Developer - Marketplace,yes,87.81,0.9939,yes,1
+168,vaiu.ai,Full Stack Engineer - Voice AI,yes,87.78,0.9105,yes,1
+281,Zynga,Software Engineering Intern,yes,87.75,0.9924,yes,1
+182,FOXO,Intern Frontend Engineering (React.js),yes,87.69,0.983,yes,1
+365,Delta Exchange,Backend Engineer Intern - APIs - Growth Platform,yes,87.67,0.4714,yes,1
+428,Gyrus.AI,GenAI Engineer Intern - Agentic Workflows - AI Tools,yes,87.63,0.4813,yes,1
+434,HRT India,AI Engineer Intern - LLM Apps - Growth Platform,yes,87.56,0.6517,yes,1
+191,Slikk,Backend Engineer,yes,87.53,0.9903,yes,1
+349,dCortex,AI Engineer Intern - LLM Apps - Data Products,yes,87.52,0.895,yes,1
+292,BUIMB Research,Software Engineer Intern,yes,87.51,0.9397,yes,1
+529,Postman,Junior Data Engineer - Pipelines - Product Team,yes,87.49,0.8986,yes,1
+301,Shortfundly,FullStack Developer,yes,87.45,0.9957,yes,1
+400,M32 AI,Backend Engineer Intern - APIs - Marketplace,yes,87.42,0.9374,yes,1
+95,Netomi,SDE II - Python Developer,no,87.36,0.0742,no,0
+506,M32 AI,Junior Data Engineer - Pipelines,yes,87.28,0.9844,yes,1
+171,Rahee AI,Full Stack Engineer,yes,87.26,0.9295,yes,1
+386,Jobgether,Junior Backend Developer - Marketplace,yes,87.22,0.9879,yes,1
+296,BundleGenie (Repcus Labs),Software Developer Intern,yes,87.2,0.9859,yes,1
+144,Entefy,Full Stack Engineer (Remote Position),no,87.19,0.2083,no,0
+449,Binance,Junior AI/ML Engineer - AI Tools,yes,87.17,0.9762,yes,1
+96,Netomi,Backend Engineer II – Data Platform,no,87.16,0.2625,no,0
+468,Alchemyst AI,SDE I - Backend Platform - SaaS Platform,yes,87.14,0.9779,yes,1
+509,Gravity AI,Data Engineering Intern - AI Tools,yes,87.06,0.9729,yes,1
+394,Dozee,GenAI Engineer Intern - Agentic Workflows - Core Platform,yes,87.06,0.4073,yes,1
+218,Avani Infosoft,Machine Learning,yes,87.04,0.994,yes,1
+173,360customizer,Backend Engineer,yes,87.04,0.99,yes,1
+273,AQR Capital India,Engineering - Quant Research Development - PI - Java Developer - Associate,no,87.03,0.8454,yes,0
+172,360customizer,Backend Engineer,yes,86.98,0.9947,yes,1
+410,Mercari India,SDE I - Backend Platform - Core Platform,no,86.9,0.9675,yes,0
+416,Pune DataWorks,Junior AI/ML Engineer - Marketplace,yes,86.89,0.8433,yes,1
+432,Hyderabad Backend Systems,Junior AI/ML Engineer - AI Tools,yes,86.82,0.9802,yes,1
+403,Alchemyst AI,GenAI Engineer Intern - Agentic Workflows - Growth Platform,no,86.82,0.4063,yes,0
+406,Databricks,Junior AI/ML Engineer - AI Tools,yes,86.74,0.9616,yes,1
+194,Modstack.dev,Frontend engineer,yes,86.74,0.935,yes,1
+202,Patronus,Fullstack Engineer (Django + NextJs),yes,86.7,0.6964,yes,1
+398,Opendoor India,GenAI Engineer Intern - Agentic Workflows - Marketplace,no,86.7,0.3328,no,0
+286,Cyreton,Junior Backend Developer,yes,86.67,0.9923,yes,1
+327,Naukri Search Seed - Bengaluru,Software Engineer Fresher / SDE I,yes,86.65,0.9895,yes,1
+451,M32 AI,Data Engineering Intern - Data Products,yes,86.65,0.5959,yes,1
+476,WATI.io,Data Engineering Intern - Data Products,no,86.64,0.9288,yes,0
+462,M32 AI,Junior Data Engineer - Pipelines - Core Platform,no,86.59,0.9892,yes,0
+321,Two95 International Inc.,React Developer,yes,86.52,0.988,yes,1
+514,WATI.io,SDE I - Backend Platform - AI Tools,yes,86.51,0.821,yes,1
+486,Proximity Works,Junior Data Engineer - Pipelines - Core Platform,yes,86.41,0.9641,yes,1
+330,Naukri Search Seed - Hyderabad,SDE 1 / Software Developer,yes,86.39,0.9866,yes,1
+374,Renan,Junior Data Engineer - Pipelines,yes,86.33,0.9849,yes,1
+356,Jobgether,Junior Data Engineer - Pipelines - Marketplace,yes,86.32,0.9836,yes,1
+515,Hevo Data,Data Engineering Intern,yes,86.21,0.5617,yes,1
+384,Gravity AI,GenAI Engineer Intern - Agentic Workflows - Data Products,yes,86.2,0.5125,yes,1
+346,Keka HR,Data Engineering Intern - Growth Platform,yes,86.2,0.4946,yes,1
+287,TopGrep Tech,Software Engineer Intern to hire,yes,86.14,0.9009,yes,1
+438,Arena Investors India,GenAI Engineer Intern - Agentic Workflows - Data Products,yes,86.04,0.867,yes,1
+472,Arena Investors India,GenAI Engineer Intern - Agentic Workflows - SaaS Platform,no,86.04,0.7426,yes,0
+431,Binance,Data Engineering Intern - SaaS Platform,yes,86.02,0.8085,yes,1
+54,ValGenesis,"Junior Software Engineer, AI/ML",yes,86.0,0.8511,yes,1
+80,HighLevel,Software Development Engineer II - Fullstack,no,85.96,0.0297,no,0
+526,Mercari India,Data Engineering Intern - SaaS Platform,no,85.9,0.5799,yes,0
+367,Delhi AI Labs,Junior AI/ML Engineer - Product Team,yes,85.87,0.954,yes,1
+501,ShopBack,Data Engineering Intern - Marketplace,yes,85.81,0.8991,yes,1
+512,Jar App,Junior Data Engineer - Pipelines - Product Team,yes,85.75,0.9719,yes,1
+298,Indore Startup,Associate Software Engineer,yes,85.73,0.9143,yes,1
+424,Pune DataWorks,GenAI Engineer Intern - Agentic Workflows - SaaS Platform,no,85.71,0.2664,no,0
+3,Anaplan,Associate Software Engineer,yes,85.68,0.9852,yes,1
+83,AHEAD,Full Stack Engineer- IAM Solutions,no,85.66,0.2654,no,0
+120,Glass Health,Founding Product Engineer (Remote),no,85.57,0.0382,no,0
+199,HelioAI,Frontend Engineer Intern,yes,85.49,0.9239,yes,1
+277,EarnIn,Platform Software Engineer,yes,85.48,0.9846,yes,1
+480,Dobbe AI,Junior Data Engineer - Pipelines - Product Team,yes,85.42,0.9692,yes,1
+354,M32 AI,Data Engineering Intern - Growth Platform,yes,85.42,0.7745,yes,1
+370,Observe.AI,GenAI Engineer Intern - Agentic Workflows - Growth Platform,yes,85.37,0.73,yes,1
+369,Smallcase,AI Engineer Intern - LLM Apps - Marketplace,yes,85.31,0.9553,yes,1
+285,Textify,Full-Stack Mobile Dev Intern (React Native + Python),yes,85.29,0.9674,yes,1
+16,Conga,"Software Engineer, AI",yes,85.19,0.1164,no,1
+86,Lingaro,"ML/AI Engineer - GCP, Azure",no,85.13,0.0325,no,0
+223,Quinncia Inc,Frontend Developer,no,84.96,0.6466,yes,0
+183,FOXO,Intern Backend Engineering (Python),yes,84.9,0.9351,yes,1
+443,ShopBack,Junior Data Engineer - Pipelines - Marketplace,yes,84.88,0.9127,yes,1
+201,Patronus,Frontend Engineer/NextJs Developer,yes,84.72,0.7882,yes,1
+210,ParallelDots,Machine Learning Engineer,yes,84.56,0.8315,yes,1
+513,Gatik AI,GenAI Engineer Intern - Agentic Workflows - SaaS Platform,no,84.56,0.635,yes,0
+481,Sprinto,Data Engineering Intern,yes,84.47,0.7954,yes,1
+454,Renan,Data Engineering Intern - SaaS Platform,yes,84.43,0.9386,yes,1
+448,Dobbe AI,Data Engineering Intern,no,84.38,0.9168,yes,0
+525,Opendoor India,Data Engineering Intern - SaaS Platform,no,84.3,0.7909,yes,0
+297,Better,Associate Software Engineer,yes,84.25,0.9191,yes,1
+272,AQR Capital India,Engineering - Portfolio Analytics - Java Developer - Analyst,yes,84.21,0.4525,yes,1
+420,Hevo Data,Data Engineering Intern - Marketplace,no,84.07,0.7665,yes,0
+313,Antarctica,Junior Backend Developer (Node.JS),yes,84.0,0.9606,yes,1
+209,Augury,GenAI Engineer,yes,83.84,0.5223,yes,1
+55,Hevo Data,SDE-I,yes,83.81,0.718,yes,1
+165,Ctruh,WebGL/Three.js/OpenGL/Graphics Engineer,no,83.72,0.4761,yes,0
+396,Boock.ai,Data Engineering Intern - SaaS Platform,yes,83.68,0.8309,yes,1
+174,Aris Investing,Backend Engineer,yes,83.59,0.6657,yes,1
+366,Delhi AI Labs,Junior Data Engineer - Pipelines - SaaS Platform,yes,83.5,0.9593,yes,1
+56,Turvo,Software Engineer - AI,yes,83.49,0.3545,yes,1
+303,FactWise,Junior Backend Engineer,yes,83.41,0.9756,yes,1
+190,Sardine,Software Backend Engineer,yes,83.36,0.603,yes,1
+155,GreenChoice,Full Stack Engineer,no,83.36,0.3109,no,0
+81,HighLevel,Software Development Engineer III (Fullstack) - Workflows,no,83.27,0.0569,no,0
+130,Binance,Frontend Engineer - Web3 Wallet,no,83.23,0.005,no,0
+320,Stadium,Javascript Developer (React.js),no,83.18,0.8717,yes,0
+310,Lokal App,React Native Intern,yes,82.93,0.9672,yes,1
+217,Entrupy,ML Intern,no,82.92,0.9718,yes,0
+77,JamLoop,Full-Stack Next.js Engineer,no,82.58,0.0052,no,0
+179,Federis,Security & Policy Engineer,yes,82.55,0.4169,yes,1
+253,Drivetrain,Software Engineer (Data Engineering),yes,82.4,0.9796,yes,1
+260,Weekday,BODS Data Engineer,yes,82.36,0.9858,yes,1
+380,Apna,Data Engineering Intern - SaaS Platform,yes,82.34,0.7751,yes,1
+311,Mindera,Junior Java Engineer - Java/Kotlin (Azure),yes,82.14,0.9736,yes,1
+236,Proximity Works,AI Development Engineer - contractual role,yes,82.14,0.2645,no,1
+126,Anovium,Full Stack Product Engineer [REMOTE],no,82.13,0.0064,no,0
+466,Harness India,Data Engineering Intern - AI Tools,no,82.11,0.804,yes,0
+268,Rubrik,Application Security Intern,yes,82.08,0.9155,yes,1
+82,HighLevel,Software Development Engineer III - Opportunities Platform (Frontend),no,82.02,0.2249,no,0
+69,Secureframe,"New Grad Software Engineer, Growth",no,82.01,0.0742,no,0
+129,Supermove,"Software Engineer, Backend & Integrations (Remote)",yes,81.98,0.206,no,1
+2,CloudSEK,SDE - Backend - Intern,yes,81.52,0.8716,yes,1
+64,ION Group,Software Developer/Engineer - Graduate Development Program,no,81.37,0.0347,no,0
+186,REPLACI,Devops & Backend engineer,yes,81.35,0.6595,yes,1
+119,Onboarded,Product Engineer (Full-stack),no,81.29,0.0176,no,0
+164,Neverinstall,Full -Stack Engineer,no,81.27,0.2134,no,0
+167,BotSpace,Full Stack Engineer,no,81.25,0.1522,no,0
+59,Quantcast,Software Engineer (Full Stack),yes,81.25,0.0509,no,1
+97,Netomi,Agentic Engineer,no,81.03,0.2422,no,0
+216,Biosky Space Innovations,Machine‑Learning Scientist,no,81.01,0.8634,yes,0
+306,LawVriksh,GenAI Intern,yes,80.94,0.9154,yes,1
+152,Oliv AI,Full stack Engineer,no,80.75,0.2228,no,0
+304,Cynapto Technologies,Artificial Intelligence (AI) Intern,yes,80.68,0.7605,yes,1
+153,Wynd Labs,Full Stack Engineer,yes,80.68,0.3195,no,1
+300,Navtech,Software Engineer,yes,80.67,0.9851,yes,1
+270,Energy Exemplar,Algorithm Developer,yes,80.61,0.9856,yes,1
+132,Relay,"Frontend Developer (React, TypeScript)",no,80.29,0.0199,no,0
+122,Spotify,Full Stack Engineer - Podcast,no,80.27,0.0048,no,0
+150,Collate,AI Engineer,yes,80.2,0.0793,no,1
+207,ARCLOGIQ Software,Frontend Engineer | React.js | Next.js | React Native | Multilingual UI,no,80.2,0.0508,no,0
+13,SingleStore,Software Engineer | Cloud Foundations,no,80.17,0.5928,yes,0
+254,Drivetrain,SDE (Automation & Quality Focus),yes,80.04,0.9792,yes,1
+213,Arbix AI Solutions,Full-Stack AI Engineer,no,80.03,0.0535,no,0
+151,Aviate,Full-Stack Engineer,no,79.95,0.0655,no,0
+1,Nirmata,"Software Engineer Intern, India",no,79.89,0.9642,yes,0
+68,Secureframe,"New Grad Software Engineer, Product",no,79.8,0.4538,yes,0
+100,LandingAI / AI Fund,Software Development Engineer (Fullstack),no,79.76,0.0322,no,0
+14,PhonePe,"Software Engineer, Android",yes,79.54,0.2244,no,1
+302,Securitybulls Intelligence,Backend Engineer Intern / Fresher – Python,yes,79.39,0.836,yes,1
+162,Kongu Engineering and Software Systems,Full-Stack Engineer,no,79.31,0.1328,no,0
+118,Nimbus,Full-Stack Data Scientist (US - Remote),no,79.26,0.0103,no,0
+195,Binocs.co,Frontend Engineer,no,79.25,0.1638,no,0
+85,Drivetrain,Frontend Engineer,no,79.22,0.0082,no,0
+133,EnGen,Full-Stack Software Engineer,no,79.11,0.0184,no,0
+67,Lalamove,Graduate Software Engineer - Class of 2026 (Frontend),no,79.02,0.1358,no,0
+117,Included Health,Data Scientist II,no,78.99,0.3148,no,0
+121,Salvo Health,Software Engineer,no,78.81,0.0112,no,0
+331,Naukri Search Seed - Pune,Junior Data Engineer,yes,78.4,0.9599,yes,1
+74,Dream Games,Software Engineer (New Grad),no,78.35,0.4194,yes,0
+70,Symmetry Systems,Full Stack Software Engineer - 2026 Summer Intern,no,78.2,0.1441,no,0
+319,Bahwan Cybertek Group,Intern,yes,78.06,0.838,yes,1
+316,Origin,CVAT Annotation Intern,no,77.94,0.9386,yes,0
+65,PolicyMe,Junior Software Engineer (Remote),no,77.66,0.0288,no,0
+307,SIRPI Products and Services,Frontend Developer,yes,77.65,0.6235,yes,1
+66,WebFX,Jr. Back-End Software Engineer,no,77.64,0.5664,yes,0
+206,EPYC,Senior Frontend Engineer (React) (3+ Years),no,77.63,0.0216,no,0
+57,Mistral AI,"Software Engineer, New Grad",yes,77.57,0.0543,no,1
+123,Firstup,"Software Engineer, Fullstack (UK)",no,77.46,0.0095,no,0
+158,Miro Biotech,Full-stack Engineer,no,77.39,0.3921,yes,0
+131,Binance,Backend Engineer - Payment (Java),no,77.09,0.006,no,0
+145,Tinybird,"Product Engineer (SDK, CLI & Interfaces)",no,76.74,0.0391,no,0
+125,Xsolla,Backend Software Engineer (Infrastructure-Focused),no,76.58,0.0162,no,0
+262,ShopBack,Product Security Engineer,yes,76.37,0.9483,yes,1
+184,FOXO,Backend Engineer (Python),no,76.33,0.1773,no,0
+76,FINN,Associate SAP Software Engineer (m/f/x),no,76.31,0.5317,yes,0
+62,Veeva Systems,Associate Software Engineer - Seeking 2025 & 2026 Grads,no,76.25,0.1892,no,0
+58,Binance,Binance Accelerator Program - Software Engineer (AI/LLM Experience a Plus),yes,76.11,0.0658,no,1
+140,AHEAD,Full Stack Engineer,no,75.94,0.0078,no,0
+137,Scott Logic,Graduate Software Developer,no,75.88,0.0218,no,0
+136,Scott Logic,Graduate Software Developer,no,75.81,0.0347,no,0
+7,Precision Medicine Group,Software Engineer I - Data,yes,75.78,0.9639,yes,1
+170,Myntiq Tech,Full Stack Engineer,no,75.7,0.0578,no,0
+181,FloBiz,Backend Engineer,no,75.34,0.2545,no,0
+72,PlusAI,Software Engineer Intern - Data Infrastructure and Tools,no,75.16,0.3885,yes,0
+244,Hire Overseas,Backend Software Engineer (Technical API),no,75.13,0.2105,no,0
+227,nooro,iOS Developer,no,75.08,0.0698,no,0
+111,Whoop,"Software Engineer II (Backend, AI Experiences & AI Platform)",no,75.04,0.0484,no,0
+275,Instabase,"Software Engineer, Backend (mid level)",no,74.98,0.0912,no,0
+546,Apna,Full Stack Developer - MERN + AWS - Payments Team,yes,74.95,0.384,yes,1
+211,Arivihan Technologies,Junior Machine Learning Engineer,yes,74.91,0.7834,yes,1
+278,EarnIn,Software Engineer II,yes,74.89,0.3685,yes,1
+239,Space Inch,AI Engineer - LATAM,no,74.84,0.1266,no,0
+124,Xsolla,Full-Stack Engineer,no,74.63,0.0064,no,0
+61,Whoop,"Software Engineer I (Frontend, Growth)",yes,74.28,0.0753,no,1
+149,Influur,AI Engineer,no,74.25,0.0685,no,0
+252,Drivetrain,Quality Assurance Engineering (QAE) - Intern,yes,74.19,0.8898,yes,1
+134,Zencore,Software Engineer (Short Term Contract),no,74.17,0.0537,no,0
+107,Mistral AI,"Applied AI, Forward Deployed Machine Learning Engineer - Palo Alto",no,74.1,0.025,no,0
+549,ClickPost,Software Engineer II - Fullstack,no,74.09,0.1457,no,0
+588,Proximity Works,Full Stack Developer - MERN + AWS - Cloud Integrations,yes,74.02,0.3439,no,1
+4,Redwood Software,Associate Software Engineer,no,73.77,0.7336,yes,0
+22,Perch Energy,Software Engineer III,no,73.71,0.6954,yes,0
+9,Perch Energy,Software Engineer II,yes,73.7,0.1488,no,1
+99,DeepLearning.AI / AI Fund,AI Engineer,no,73.68,0.0263,no,0
+135,Field Nation,Software Engineer,no,73.6,0.0505,no,0
+610,Hevo Data,Software Engineer II - Fullstack - Data Platform,no,73.57,0.0876,no,0
+60,Whoop,Software Engineer I (Backend),no,73.47,0.304,no,0
+73,Apex.AI,Software Engineer — Software Platform & Middleware (Early Career),no,73.47,0.0958,no,0
+200,HelioAI,Senior Frontend Engineer,no,73.37,0.0539,no,0
+75,FINN,Associate Product Engineer (m/f/x),no,73.34,0.0142,no,0
+128,Patch My PC,"Software Engineer, Backend",no,73.18,0.0564,no,0
+317,Blue Machines AI,"Evaluation & Insights Intern, AI Delivery",yes,73.08,0.6724,yes,1
+63,Veeva Systems,Associate Software Engineer - Test Automation,no,72.88,0.1297,no,0
+215,Ixana,Machine Learning Engineer - Chip Design Automation,no,72.82,0.0662,no,0
+628,Delhi AI Labs,Software Engineer II - Fullstack - Payments Team,no,72.79,0.1495,no,0
+537,HRT India,Full Stack Developer - MERN + AWS - Data Platform,no,72.77,0.6127,yes,0
+154,Mirian AI,Full Stack Engineer,no,72.74,0.0181,no,0
+322,Setara Networks,Product Engineer (Android),no,72.73,0.8991,yes,0
+214,Uservox,Infrastructure and Machine Learning Engineer,yes,72.52,0.8969,yes,1
+163,MaxHome.ai,Full-stack engineer,no,72.48,0.1505,no,0
+115,Robotic Assistance Devices,AI Research Engineer - Agentic AI & Intelligent Automation,no,72.32,0.0258,no,0
+318,Funding Societies | Modalku Group,Product Security Intern,yes,72.31,0.5418,yes,1
+146,Employ,AI Product Engineer,no,72.3,0.0175,no,0
+274,GoDaddy,Machine Learning Scientist,no,72.16,0.2211,no,0
+169,Evam Labs,Senior Full Stack Engineer,yes,71.93,0.0239,no,1
+280,Anaplan,Associate DevOps Engineer,no,71.91,0.9783,yes,0
+269,Rubrik,Product Management Intern,yes,71.87,0.8458,yes,1
+193,Marvin,Senior Frontend Engineer,no,71.75,0.0777,no,0
+624,MoEngage,Full Stack Developer - MERN + AWS - Customer Platform,no,71.66,0.5112,yes,0
+189,The Product Highway,Forward-Deployed Software Engineer (FDSE),no,71.65,0.0383,no,0
+564,WATI.io,Full Stack Developer - MERN + AWS - Customer Platform,no,71.58,0.3767,yes,0
+261,Wahed,Join Our Internship Program,yes,71.45,0.7399,yes,1
+561,JumpCloud India,Software Engineer II - Fullstack,no,71.4,0.1395,no,0
+71,ShopBack,Software Engineer Intern - Backend (May - Dec 2026),no,71.35,0.2806,no,0
+110,Patch My PC,"Software Engineer, AI",no,71.21,0.0538,no,0
+148,KUBRA,AI Engineer,no,71.15,0.0494,no,0
+212,Arbix AI Solutions,Machine Learning Engineer – Credit Scoring & MLOps,no,71.08,0.084,no,0
+208,Simplismart,Machine Learning Engineer,no,71.03,0.083,no,0
+26,SonicWall,Full Stack Software Engineer - Networking exp is a must,no,71.02,0.0801,no,0
+282,Forma.ai,Analytics Engineer Intern,yes,70.89,0.3118,no,1
+116,WorkWave,Applied Data Scientist / Machine Learning Engineer (Decision Intelligence),no,70.83,0.0061,no,0
+582,Lokal App,Software Engineer II - Fullstack - Payments Team,no,70.59,0.3389,no,0
+12,Glean,"Software Engineer, Backend",yes,70.57,0.7527,yes,1
+563,GreenChoice,Software Engineer II - Fullstack - Payments Team,yes,70.53,0.158,no,1
+323,Egon Zehnder,Senior Frontend Developer (Angular),no,70.45,0.0095,no,0
+315,Origin,Program Management Intern - Data,yes,70.43,0.6214,yes,1
+606,Hasura,AI Application Engineer - Cloud Integrations,no,70.38,0.0309,no,0
+28,New Relic,Software Engineer - Fullstack,no,70.22,0.1753,no,0
+574,Postman,Full Stack Developer - MERN + AWS,no,70.18,0.0742,no,0
+570,Airbnb India,Full Stack Developer - MERN + AWS - Internal Tools,yes,70.07,0.4645,yes,1
+177,Simplismart,Lead Frontend Engineer,no,69.93,0.0207,no,0
+264,Jobgether,QA Engineer,yes,69.9,0.6478,yes,1
+266,Match Group,"Full-stack Engineer, Trust & Safety",no,69.83,0.1711,no,0
+43,Okta,Senior Software Engineer Fullstack,no,69.72,0.0137,no,0
+326,Tresata,Senior Frontend Engineer,no,69.72,0.0084,no,0
+603,Bengaluru Product Labs,Full Stack Developer - MERN + AWS - Customer Platform,no,69.42,0.6272,yes,0
+626,Pune DataWorks,AI Application Engineer - Cloud Integrations,no,69.4,0.0783,no,0
+547,C3 AI,AI Application Engineer - Payments Team,no,69.34,0.0744,no,0
+93,CSC Generation,Senior Full Stack Engineer,no,69.32,0.0033,no,0
+617,ClickPost,Software Engineer II - Fullstack - Internal Tools,yes,69.3,0.5019,yes,1
+92,CSC Generation,Senior Frontend Engineer,no,69.21,0.01,no,0
+608,Apna,AI Application Engineer - Cloud Integrations,no,69.14,0.2065,no,0
+205,EPYC,Backend Engineer - Senior (Javascript) (3+ Years),no,69.14,0.025,no,0
+625,kwiqreply,AI Application Engineer - Cloud Integrations,no,69.09,0.3385,no,0
+198,Marmeto,Frontend Engineer: ReactJs,no,68.97,0.0266,no,0
+103,Mistral AI,"Applied AI Engineer, Fullstack Software Engineer - EMEA",no,68.89,0.0077,no,0
+10,Karat,Software Engineer (SWE3) (India),yes,68.73,0.3364,no,1
+147,Istari Digital,Sr. Product Engineer,no,68.7,0.0045,no,0
+565,Excelya India,Full Stack Developer - MERN + AWS - Cloud Integrations,no,68.68,0.0256,no,0
+104,Mistral AI,"Applied AI Engineer, Prototyping",no,68.63,0.0233,no,0
+671,Harness India,Founding Agentic AI Engineer - Senior - Enterprise Platform,no,68.58,0.0027,no,0
+25,Envoy Global,Software Engineer / Senior Software Engineer – Full Stack (.NET & Angular),no,68.54,0.0631,no,0
+575,Dozee,AI Application Engineer - Data Platform,no,68.49,0.0686,no,0
+102,Epoch AI,Data Scientist (Contract),no,68.46,0.1261,no,0
+612,Razorpay,Software Engineer II - Fullstack - Cloud Integrations,yes,68.41,0.5513,yes,1
+596,Fynd Platform,Frontend Developer - React + Angular - Internal Tools,no,68.39,0.0353,no,0
+233,Checkmate,Senior Full Stack Engineer - Python & React JS (India),no,68.38,0.0526,no,0
+127,Anovium,Senior Full Stack Javascript Node Backend Engineer [REMOTE],no,68.33,0.0085,no,0
+245,Proximity Works,Sr. Backend Engineer (NodeJS),yes,68.22,0.0819,no,1
+263,ShopBack,Data Engineering Intern,yes,67.96,0.654,yes,1
+105,Mistral AI,"Applied AI Engineer, CyberSecurity",no,67.96,0.0043,no,0
+635,Noida SaaS Labs,Founding Agentic AI Engineer - Senior - Core Infra,no,67.95,0.0036,no,0
+569,Delta Exchange,Data Engineer - Python + Spark - Cloud Integrations,no,67.93,0.0206,no,0
+621,Lokal App,ML Engineer - MLOps Focus - Data Platform,no,67.92,0.0472,no,0
+550,Gurgaon Product Labs,Software Engineer II - Fullstack - Customer Platform,no,67.9,0.3288,no,0
+30,LivePerson,Software Development Engineer III - Node JS/Python,no,67.88,0.1009,no,0
+325,Weekday AI,Senior Backend Engineer (Node.js),no,67.87,0.0587,no,0
+562,Noida SaaS Labs,Frontend Developer - React + Angular,yes,67.86,0.0279,no,1
+557,Gravity AI,Full Stack Developer - MERN + AWS - Data Platform,no,67.83,0.313,no,0
+615,Fynd Platform,Data Engineer - Python + Spark,no,67.79,0.1097,no,0
+592,Delhi AI Labs,Full Stack Developer - MERN + AWS - Data Platform,no,67.76,0.0303,no,0
+651,Jar App,Lead Full Stack Engineer - Enterprise Platform,no,67.7,0.0094,no,0
+613,Neo4j India,Full Stack Developer - MERN + AWS - Cloud Integrations,no,67.67,0.1819,no,0
+17,Zinnia,Software Engineer II - AI and ML,no,67.67,0.0086,no,0
+235,Zenara Health,Senior Software Engineer (AI-Native) - Healthcare Platform,no,67.66,0.0128,no,0
+560,Binance,ML Engineer - MLOps Focus - Payments Team,no,67.54,0.0128,no,0
+89,Everbridge,Senior Software Engineer-Backend,no,67.45,0.0526,no,0
+555,Fynd Platform,Frontend Developer - React + Angular - Customer Platform,no,67.28,0.0855,no,0
+644,TerraPay,Quantitative Researcher - Fresh PhD,no,67.18,0.0124,no,0
+678,AQR India,Lead Full Stack Engineer - Realtime Systems,no,67.17,0.0128,no,0
+581,Jar App,Data Engineer - Python + Spark,no,67.05,0.0218,no,0
+87,3Pillar,Senior AI ML Engineer,no,67.05,0.0024,no,0
+541,Postman,Full Stack Developer - MERN + AWS - Data Platform,yes,66.92,0.3176,no,1
+11,BitGo,Backend Engineer E2 - Trade,no,66.86,0.1478,no,0
+8,DoorDash India,"Software Engineer, Backend",yes,66.75,0.4739,yes,1
+175,Aris Investing,Senior AI Engineer,no,66.55,0.0324,no,0
+324,Weekday AI,Senior Frontend Developer (React.js),no,66.47,0.0111,no,0
+602,Jobgether,AI Application Engineer - Data Platform,no,66.45,0.0154,no,0
+532,Gyrus.AI,AI Application Engineer - Internal Tools,yes,66.37,0.006,no,1
+533,Veeam India,Data Engineer - Python + Spark - Internal Tools,yes,66.31,0.0325,no,1
+639,Jar App,Senior ML Engineer - GenAI Platform - Enterprise Platform,no,66.13,0.0059,no,0
+234,Brightplan,Applied AI Engineer,no,65.97,0.0062,no,0
+682,Neo4j India,Senior ML Engineer - GenAI Platform - Realtime Systems,no,65.91,0.0085,no,0
+685,Veeam India,Founding Agentic AI Engineer - Senior,no,65.91,0.0022,no,0
+655,Intrinsic Robotics,Senior ML Engineer - GenAI Platform - Security Platform,no,65.9,0.0041,no,0
+106,Mistral AI,"Applied AI, Forward Deployed Machine Learning Engineer - EMEA",no,65.82,0.0314,no,0
+35,Point72,"Software Engineer, Middle Office Systems - AI/ML",no,65.7,0.2171,no,0
+29,Abnormal Security,Software Engineer II - Entity Intelligence,no,65.57,0.0469,no,0
+243,"Pulse Labs AI, Inc.",Senior Backend Engineer,no,65.56,0.0301,no,0
+636,GreenChoice,Senior ML Engineer - GenAI Platform - Security Platform,no,65.53,0.0111,no,0
+24,Poppulo,Senior Software Engineer - Full Stack,no,65.26,0.0686,no,0
+668,Smallcase,Senior ML Engineer - GenAI Platform - Core Infra,no,65.26,0.0124,no,0
+536,ShopBack,ML Engineer - MLOps Focus - Data Platform,no,65.24,0.026,no,0
+622,Excelya India,Data Engineer - Python + Spark - Data Platform,no,65.11,0.0552,no,0
+614,Jar App,Frontend Developer - React + Angular,no,65.08,0.1531,no,0
+45,OneTrust,Senior Staff Software Engineer (Full Stack),no,65.07,0.0666,no,0
+232,"Clerky, Inc.",Customer Operations & Writing Specialist,no,64.87,0.0767,no,0
+580,Hevo Data,Data Engineer - Python + Spark,no,64.8,0.0173,no,0
+590,Delta Exchange,Data Engineer - Python + Spark - Internal Tools,no,64.79,0.0636,no,0
+176,Simplismart,Backend Engineer,no,64.69,0.0482,no,0
+31,Cleartelligence,AI Engineer,no,64.66,0.1034,no,0
+27,Epic Kids,"Senior Software Engineer, Full-Stack — Content Tools",no,64.64,0.0186,no,0
+271,Energy Exemplar,Senior Software Engineer - GenAI,no,64.63,0.0702,no,0
+586,Jar App,Data Engineer - Python + Spark - Internal Tools,no,64.59,0.0561,no,0
+576,BrowserStack,Frontend Developer - React + Angular - Cloud Integrations,no,64.55,0.3157,no,0
+178,Infocusp Innovations,Senior Backend Engineer,no,64.55,0.0435,no,0
+230,TELUS Digital,Online Data Analyst Canada,no,64.53,0.0313,no,0
+598,Excelya India,Frontend Developer - React + Angular - Payments Team,no,64.47,0.0219,no,0
+15,Addepar,"Software Engineer, Backend – AI Platform",yes,64.44,0.3871,yes,1
+573,Veeam India,Data Engineer - Python + Spark - Cloud Integrations,no,64.24,0.2007,no,0
+94,Smart Working,"Senior Software Engineer (Remote, Full-Time) [AS264]",no,64.22,0.0605,no,0
+90,JumpCloud,"Senior Software Engineer, Security Engineering - India",no,63.99,0.2263,no,0
+630,Smallcase,Frontend Developer - React + Angular - Data Platform,no,63.93,0.0122,no,0
+240,Mindera,Senior Fullstack Applied AI Engineer,no,63.92,0.0077,no,0
+308,WealthKernel / Similar AI SaaS,Senior Software Development Engineer (Payments),no,63.82,0.0627,no,0
+101,Outreach,Senior Data Scientist,no,63.76,0.0076,no,0
+545,WATI.io,Data Engineer - Python + Spark - Cloud Integrations,no,63.71,0.0035,no,0
+673,HRT India,Mobile Engineer - Native iOS/Android - Core Infra,no,63.67,0.0277,no,0
+554,Coupa India,ML Engineer - MLOps Focus - Internal Tools,no,63.51,0.0384,no,0
+593,AQR India,Frontend Developer - React + Angular - Customer Platform,yes,63.51,0.0096,no,1
+180,Federis,Staff Backend Engineer,no,63.46,0.0446,no,0
+567,BotSpace,ML Engineer - MLOps Focus - Cloud Integrations,no,63.37,0.0297,no,0
+548,Fynd Platform,ML Engineer - MLOps Focus - Internal Tools,no,63.35,0.0115,no,0
+539,Razorpay,Software Engineer - Backend Java - Internal Tools,no,63.18,0.1738,no,0
+656,Neo4j India,Senior ML Engineer - GenAI Platform - Enterprise Platform,no,63.13,0.0041,no,0
+88,Bolster,"Senior Software Engineer, Backend - India",no,63.08,0.0607,no,0
+620,Razorpay,Frontend Developer - React + Angular - Cloud Integrations,no,62.97,0.1343,no,0
+47,Genea,Senior Software Engineer I/II (Backend),yes,62.92,0.1071,no,1
+583,Veeam India,AI Application Engineer - Data Platform,no,62.82,0.0293,no,0
+585,Sprinto,Frontend Developer - React + Angular - Data Platform,no,62.7,0.0689,no,0
+619,Smallcase,Backend Engineer - Go Services - Internal Tools,no,62.44,0.0534,no,0
+50,ClickHouse,Core Software Engineer (C++) - Remote,yes,62.44,0.0364,no,1
+578,MoEngage,ML Engineer - MLOps Focus,no,62.39,0.0038,no,0
+591,Gyrus.AI,Frontend Developer - React + Angular - Internal Tools,no,62.35,0.0922,no,0
+284,Pure Storage,"Member of Technical Staff - C/C++, Networking",no,62.19,0.0847,no,0
+23,Truveta,Senior Software Engineer (Full-Stack),no,62.04,0.048,no,0
+18,Particle41,AI Engineer,no,61.78,0.0246,no,0
+559,Alchemyst AI,Software Engineer - Backend Java - Cloud Integrations,no,61.69,0.0264,no,0
+91,H1,Sr. Product Engineer - API Developer,no,61.54,0.1795,no,0
+568,Delta Exchange,Software Engineer - Backend Java - Data Platform,no,61.53,0.0292,no,0
+572,Gatik AI,Backend Engineer - Go Services,no,61.4,0.0182,no,0
+611,Razorpay,Frontend Developer - React + Angular - Customer Platform,no,61.35,0.0876,no,0
+98,LandingAI / AI Fund,Applied AI Engineer,no,61.29,0.0039,no,0
+19,TEGNA India,AI Engineer,no,61.26,0.1555,no,0
+607,Delta Exchange,Data Engineer - Python + Spark - Customer Platform,no,61.19,0.0487,no,0
+21,Fresh Prints,ML Engineer - Signal Processing / ASR,no,61.12,0.007,no,0
+49,G-P / Globalization Partners,Senior Software Engineer (Data Platform),no,60.97,0.1007,no,0
+571,Delhi AI Labs,ML Engineer - MLOps Focus - Internal Tools,no,60.89,0.0151,no,0
+237,QuantumLoopAI,Technical Lead - India Remote,no,60.69,0.0175,no,0
+584,Fynd Platform,Software Engineer - Backend Java - Cloud Integrations,no,60.68,0.0311,no,0
+594,Stealth IVF AI,Software Engineer - Backend Java - Cloud Integrations,no,60.42,0.0271,no,0
+556,Delhi AI Labs,Backend Engineer - Go Services - Internal Tools,no,60.38,0.0428,no,0
+276,Dialpad,"Software Engineer, Observability",no,60.24,0.0115,no,0
+279,EarnIn,Senior AI Dev Platform Engineer,no,60.08,0.0175,no,0
+113,Mango Languages,Sr. Agentic AI Software Engineer,no,59.81,0.0043,no,0
+686,Jobgether,Data Scientist - PhD Research - Realtime Systems,no,59.79,0.0276,no,0
+48,Definitive Healthcare India,Senior Software Engineer,yes,59.43,0.0609,no,1
+534,Jar App,Backend Engineer - Go Services - Customer Platform,yes,59.35,0.0082,no,1
+265,Xsolla,Junior QA Engineer,no,59.17,0.5473,yes,0
+629,Delhi AI Labs,Backend Engineer - Go Services,no,59.17,0.1705,no,0
+544,Fynd Platform,Software Engineer - Backend Java - Data Platform,no,59.16,0.1061,no,0
+141,Mediafly,Senior Software Engineer (AI & Fullstack),no,59.11,0.005,no,0
+632,Arena Investors India,Lead Full Stack Engineer - Enterprise Platform,no,59.01,0.0395,no,0
+231,Workada,Data Labeling Specialists,no,58.92,0.0191,no,0
+112,Noodle,Senior Full-Stack Software Engineer,no,58.76,0.0033,no,0
+543,orqum.ai,Software Engineer - Backend Java,no,58.74,0.0163,no,0
+631,Pune DataWorks,Software Engineer - Backend Java - Payments Team,no,58.63,0.0068,no,0
+674,Noida SaaS Labs,Lead Full Stack Engineer - Enterprise Platform,no,58.57,0.0044,no,0
+248,Jobgether,Senior PHP Backend Engineer - Remote from anywhere,no,58.47,0.0301,no,0
+553,Razorpay,Software Engineer - Backend Java - Payments Team,no,58.45,0.0151,no,0
+33,Fluxon,Senior Software Engineer (AI Engineer),no,58.44,0.0533,no,0
+579,WATI.io,Backend Engineer - Go Services - Payments Team,no,58.43,0.0315,no,0
+20,ConnectWise,Sr. Software Engineer - AI,no,58.28,0.0305,no,0
+143,Kitman Labs,Senior Frontend Engineer,no,58.07,0.0027,no,0
+638,Mercari India,Senior Backend Engineer - Distributed Systems - Core Infra,no,57.9,0.0028,no,0
+675,6sense India,Data Scientist - PhD Research - Enterprise Platform,no,57.72,0.0058,no,0
+222,A.Team,Senior Independent Software Developer,no,57.6,0.0756,no,0
+589,BrowserStack,Backend Engineer - Go Services - Data Platform,no,57.58,0.0094,no,0
+142,Instrumentl,Senior Full Stack Software Engineer,no,57.25,0.0883,no,0
+42,AlphaSense,Staff Software Engineer,no,56.68,0.0903,no,0
+46,GitLab,"Senior Backend Engineer (Go), Continuous Delivery",no,56.67,0.0437,no,0
+283,Cloudflare,Security Engineer - Bengaluru,no,56.64,0.0103,no,0
+627,TerraPay,Software Engineer - Backend Java - Internal Tools,no,56.48,0.067,no,0
+242,Worth AI,Senior Agentic (AI) Engineer,no,56.36,0.004,no,0
+241,Brightplan,Senior Applied AI Engineer,no,56.14,0.0088,no,0
+648,Proximity Works,Founding Agentic AI Engineer - Senior - Realtime Systems,no,55.79,0.001,no,0
+670,Stripe,Senior ML Engineer - GenAI Platform - Enterprise Platform,no,55.76,0.0151,no,0
+44,Okta,"Principal Software Engineer, AI Engineering",no,55.74,0.0199,no,0
+599,Stealth IVF AI,Backend Engineer - Go Services,no,55.64,0.0036,no,0
+220,LawnStarter,Staff Product Engineer (São Paulo),no,55.63,0.04,no,0
+246,Workana,Senior Python Backend Engineer,no,55.21,0.0293,no,0
+32,TEGNA India,Senior AI Engineer,no,55.14,0.0266,no,0
+36,Sumo Logic,Senior Machine Learning Engineer,no,54.91,0.0031,no,0
+663,Razorpay,Founding Agentic AI Engineer - Senior - Enterprise Platform,no,54.91,0.0019,no,0
+684,Dozee,Senior ML Engineer - GenAI Platform - Security Platform,no,54.88,0.0047,no,0
+667,Postman,Senior Backend Engineer - Distributed Systems - Core Infra,no,54.63,0.0031,no,0
+228,LawnStarter,"Staff Software Engineer, Product (Belo Horizonte)",no,54.55,0.048,no,0
+229,LawnStarter,"Staff Software Engineer, Product (Florianópolis)",no,54.54,0.0202,no,0
+38,Twilio,Staff Machine Learning Engineer (L4),no,54.4,0.0023,no,0
+108,Mistral AI,"Applied AI Engineer, ML Infrastructure Engineer / Devops - EMEA",no,54.2,0.0032,no,0
+535,Razorpay,Software Engineer - Backend Java,no,53.68,0.014,no,0
+238,Chipply,AI Engineer,no,53.67,0.0105,no,0
+634,Veeam India,Senior ML Engineer - GenAI Platform - AI Infrastructure,no,53.4,0.0037,no,0
+247,InnovationTeam,Senior JAVA Backend Engineer - Remote,no,53.06,0.0245,no,0
+641,Opendoor India,Senior Security Engineer - Backend,no,52.95,0.0035,no,0
+666,Razorpay,Quantitative Researcher - Fresh PhD,no,52.9,0.0051,no,0
+633,Opendoor India,Founding Agentic AI Engineer - Senior - Enterprise Platform,no,52.73,0.002,no,0
+224,Mitre Media,Tech Lead Full-Stack Rails Engineer,no,52.66,0.0154,no,0
+681,Jar App,Mobile Engineer - Native iOS/Android - Realtime Systems,no,52.44,0.0055,no,0
+676,Delta Exchange,Senior Security Engineer - Backend - Security Platform,no,52.4,0.0026,no,0
+609,Sprinto,Junior Platform Engineer - Customer Platform,no,52.34,0.1646,no,0
+34,Point72,"Machine Learning Engineer, GenAI Technology",no,52.24,0.0311,no,0
+616,Smallcase,Junior Platform Engineer,no,51.89,0.1085,no,0
+114,Insider One,Senior Machine Learning Engineer (Agentic AI),no,51.53,0.002,no,0
+249,Employment Hero,Senior Backend Engineer,no,50.95,0.0444,no,0
+37,Gather AI,Senior Machine Learning Engineer (Ops),no,50.95,0.0068,no,0
+250,LanguageWire,Senior Backend Engineer,no,50.84,0.0828,no,0
+664,Jobgether,Quantitative Researcher - Fresh PhD,no,50.83,0.0036,no,0
+672,BrowserStack,Senior Backend Engineer - Distributed Systems - AI Infrastructure,no,50.81,0.0048,no,0
+542,Stripe,Junior Platform Engineer - Internal Tools,no,50.37,0.0186,no,0
+551,Lokal App,Junior Platform Engineer,no,50.24,0.0303,no,0
+552,Fynd Platform,Associate DevOps Engineer - Internal Tools,no,49.88,0.0209,no,0
+566,Delhi AI Labs,Junior Platform Engineer,no,49.67,0.0603,no,0
+687,Jar App,Staff Software Engineer - Platform - AI Infrastructure,no,49.29,0.0047,no,0
+601,Dobbe AI,Junior Platform Engineer,yes,49.19,0.0115,no,1
+577,Hasura,Associate DevOps Engineer - Data Platform,no,49.05,0.0063,no,0
+600,Weekday AI,Associate DevOps Engineer - Data Platform,no,48.96,0.0076,no,0
+683,StarApps Studio,Quantitative Researcher - Fresh PhD - AI Infrastructure,no,48.82,0.0042,no,0
+623,Stealth IVF AI,Junior Platform Engineer - Internal Tools,no,48.78,0.0036,no,0
+538,Smallcase,Associate DevOps Engineer - Customer Platform,no,48.77,0.012,no,0
+691,Stealth IVF AI,Senior Security Engineer - Backend - Core Infra,no,48.61,0.0026,no,0
+640,WEKA,Quantitative Researcher - Fresh PhD - Enterprise Platform,no,48.39,0.0074,no,0
+679,Mercari India,SRE / DevOps Engineer - Kubernetes Heavy - AI Infrastructure,no,48.08,0.0052,no,0
+605,Binance,Junior Platform Engineer,no,48.06,0.123,no,0
+597,Airbnb India,Junior Platform Engineer - Customer Platform,no,47.69,0.0188,no,0
+643,Bengaluru Product Labs,Senior Security Engineer - Backend - Enterprise Platform,no,47.59,0.0027,no,0
+587,Neo4j India,Associate DevOps Engineer - Payments Team,no,47.58,0.0091,no,0
+657,Veeam India,Founding Agentic AI Engineer - Senior - AI Infrastructure,no,47.41,0.0014,no,0
+659,WeRide,Senior Security Engineer - Backend - Core Infra,no,47.33,0.0028,no,0
+660,Harness India,Staff Software Engineer - Platform - Enterprise Platform,no,47.08,0.0075,no,0
+226,Lemon.io,Senior Data Scientist,no,47.08,0.0042,no,0
+39,Agoda,"Staff Machine Learning Engineer (India based, relocation)",no,47.01,0.0088,no,0
+604,Smallcase,Associate DevOps Engineer,no,46.99,0.0087,no,0
+618,Jobgether,Associate DevOps Engineer - Customer Platform,no,46.58,0.0159,no,0
+658,SFR,Senior Security Engineer - Backend - Realtime Systems,no,46.4,0.0043,no,0
+558,TerraPay,Associate DevOps Engineer - Internal Tools,no,46.13,0.0078,no,0
+219,EverAI,Mid/Senior AI Cinematic Video Editor,no,46.04,0.0074,no,0
+41,Accordion India,Lead AI Engineer – Artificial Intelligence,no,46.0,0.0103,no,0
+677,Mercari India,Senior Backend Engineer - Distributed Systems - Realtime Systems,no,45.84,0.0034,no,0
+680,Gatik AI,SRE / DevOps Engineer - Kubernetes Heavy - Enterprise Platform,no,44.99,0.0014,no,0
+653,BrowserStack,Staff Software Engineer - Platform,no,44.93,0.0035,no,0
+669,TerraPay,Senior Security Engineer - Backend - Realtime Systems,no,44.76,0.0031,no,0
+540,Mercari India,Associate DevOps Engineer - Data Platform,no,44.68,0.0067,no,0
+40,Accordion India,Senior AI Engineer – Artificial Intelligence,no,44.49,0.0114,no,0
+139,Scott Logic,Lead Agentic Software Engineer,no,43.81,0.0164,no,0
+221,A.Team,Senior Independent AI Engineer / Architect,no,43.41,0.0095,no,0
+649,Razorpay,Staff Software Engineer - Platform - Enterprise Platform,no,43.34,0.0025,no,0
+138,Scott Logic,Lead Agentic Software Engineer,no,43.23,0.004,no,0
+665,Apna,SRE / DevOps Engineer - Kubernetes Heavy - Core Infra,no,42.11,0.0028,no,0
+109,Mistral AI,"Applied AI, Forward Deployed Machine Learning Engineer - Munich",no,42.07,0.0044,no,0
+654,Bengaluru Product Labs,Staff Software Engineer - Platform - Realtime Systems,no,42.0,0.0062,no,0
+595,WATI.io,Associate DevOps Engineer - Internal Tools,no,41.73,0.0109,no,0
+652,Jobgether,Quantitative Researcher - Fresh PhD - Core Infra,no,41.61,0.0024,no,0
+647,Harness India,SRE / DevOps Engineer - Kubernetes Heavy - Growth 16,no,41.54,0.0018,no,0
+646,Airbnb India,SRE / DevOps Engineer - Kubernetes Heavy - Realtime Systems,no,41.06,0.0019,no,0
+650,Stripe,Senior Security Engineer - Backend - Security Platform,no,40.08,0.0025,no,0
+661,Binance,SRE / DevOps Engineer - Kubernetes Heavy - Enterprise Platform,no,38.03,0.0018,no,0
+688,Hyderabad Backend Systems,Senior Security Engineer - Backend - Realtime Systems,no,37.85,0.0013,no,0
+645,ShopBack,Staff Software Engineer - Platform - Core Infra,no,37.32,0.0018,no,0
+690,6sense India,SRE / DevOps Engineer - Kubernetes Heavy - Realtime Systems,no,36.98,0.0022,no,0
+642,Neo4j India,Staff Software Engineer - Platform - Core Infra,no,35.01,0.002,no,0
+689,Intrinsic Robotics,Senior Security Engineer - Backend - Security Platform,no,33.99,0.0025,no,0
+662,Keka HR,Staff Software Engineer - Platform,no,33.61,0.0013,no,0
+225,Lemon.io,Head of Engineering,no,32.06,0.0044,no,0
+637,Harness India,SRE / DevOps Engineer - Kubernetes Heavy - Core Infra,no,30.72,0.0011,no,0

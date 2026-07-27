@@ -1,0 +1,16 @@
+node_modules/
+.next/
+.vercel/
+.env
+.env.*
+!.env.example
+.venv/
+**/.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+*.egg-info/
+frontend/src/generated/prisma/
+ML/models/**/*.joblib
+ML/models/**/*.onnx

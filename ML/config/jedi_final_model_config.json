@@ -1,0 +1,67 @@
+{
+  "project": "JEDI",
+  "dataset": "jedi_final_model_dataset.csv",
+  "final_notebook": "jedi_final_model_workbook.ipynb",
+  "score_model": {
+    "type": "Ridge regression",
+    "alpha": 2,
+    "targets": [
+      "role_title_preference_score",
+      "role_family_preference_score",
+      "seniority_profile_fit_score",
+      "location_profile_fit_score",
+      "work_mode_fit_score",
+      "experience_profile_fit_score",
+      "skills_profile_fit_score",
+      "salary_profile_fit_score",
+      "overall_preference_score"
+    ]
+  },
+  "ranking_score": {
+    "name": "jedi_preference_score",
+    "scale": "0-100",
+    "weights": {
+      "role_title_preference_score": 0.18,
+      "role_family_preference_score": 0.12,
+      "skills_profile_fit_score": 0.18,
+      "experience_profile_fit_score": 0.14,
+      "location_profile_fit_score": 0.12,
+      "work_mode_fit_score": 0.07,
+      "salary_profile_fit_score": 0.07,
+      "seniority_profile_fit_score": 0.05,
+      "overall_preference_score": 0.07
+    }
+  },
+  "classifier": {
+    "type": "XGBoost",
+    "variant": "xgb_deeper + stacked predicted score features + drop20",
+    "threshold": 0.35,
+    "purpose": "apply-worthy guardrail; not the primary ranking score"
+  },
+  "selected_results": {
+    "best_default_f1": {
+      "model": "xgb_balanced",
+      "variant": "stacked_drop20",
+      "accuracy": 0.8769888437,
+      "f1_yes": 0.8612850652,
+      "roc_auc": 0.9320095205,
+      "average_precision": 0.9033336256
+    },
+    "best_operating_threshold": {
+      "model": "xgb_deeper",
+      "variant": "stacked_drop20",
+      "threshold": 0.35,
+      "f1_yes": 0.8726481467,
+      "precision": 0.8488704473,
+      "recall": 0.8983606557,
+      "balanced_accuracy": 0.8857271144
+    },
+    "best_ranking": {
+      "model": "xgb_conservative",
+      "variant": "raw_drop0",
+      "precision_at_50": 0.908,
+      "recall_at_50": 0.7442622951,
+      "ndcg_at_50": 0.9244203536
+    }
+  }
+}

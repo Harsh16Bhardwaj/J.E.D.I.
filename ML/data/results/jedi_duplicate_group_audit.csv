@@ -1,0 +1,9 @@
+evaluation_group,row_id,company_name,role_title,location,applied,apply_url,near_duplicate_key,group_size,group_has_conflicting_labels
+job_scott_logic|graduate_software_developer|unknown,136,Scott Logic,Graduate Software Developer,Bristol,no,https://jobs.lever.co/scottlogic,scott_logic|graduate_software_developer|unknown,2,False
+job_scott_logic|graduate_software_developer|unknown,137,Scott Logic,Graduate Software Developer,Newcastle,no,https://jobs.lever.co/scottlogic,scott_logic|graduate_software_developer|unknown,2,False
+job_scott_logic|lead_agentic_software_engineer|unknown,138,Scott Logic,Lead Agentic Software Engineer,Bristol,no,https://jobs.lever.co/scottlogic,scott_logic|lead_agentic_software_engineer|unknown,2,False
+job_scott_logic|lead_agentic_software_engineer|unknown,139,Scott Logic,Lead Agentic Software Engineer,Edinburgh,no,https://jobs.lever.co/scottlogic,scott_logic|lead_agentic_software_engineer|unknown,2,False
+job_360customizer|backend_engineer|pune,172,360customizer,Backend Engineer,In office • Pune,yes,https://wellfound.com/role/l/backend-engineer/india,360customizer|backend_engineer|pune,2,False
+job_360customizer|backend_engineer|pune,173,360customizer,Backend Engineer,In office • Pune,yes,https://wellfound.com/role/l/backend-engineer/india,360customizer|backend_engineer|pune,2,False
+job_binocs_co|frontend_engineer|bengaluru,195,Binocs.co,Frontend Engineer,In office • Bengaluru,no,https://wellfound.com/role/l/frontend-engineer/india,binocs_co|frontend_engineer|bengaluru,2,True
+job_binocs_co|frontend_engineer|bengaluru,196,Binocs.co,Frontend Engineer,In office • Bangalore Urban,yes,https://wellfound.com/role/l/frontend-engineer/india,binocs_co|frontend_engineer|bengaluru,2,True

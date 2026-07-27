@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>JEDI Screener</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">JEDI</p>
+          <h1>Job Screener</h1>
+        </div>
+        <div class="status-cluster">
+          <span id="saveStatus" class="save-status">Saved</span>
+          <button id="modeToggle" class="ghost-button" type="button">Review mode</button>
+          <button id="clearButton" class="danger-button" type="button">Clear cache</button>
+        </div>
+      </header>
+
+      <section class="controls" aria-label="File controls">
+        <label class="upload-target">
+          <input
+            id="csvInput"
+            type="file"
+            accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            multiple
+          />
+          <span>Upload CSV / XLSX</span>
+          <small>Multiple files append into one screener table</small>
+        </label>
+        <div class="control-grid">
+          <label>
+            Search
+            <input id="searchInput" type="search" placeholder="company, title, skill, location" />
+          </label>
+          <label>
+            Applied column
+            <select id="appliedFilter">
+              <option value="">All</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+              <option value="blank">Blank</option>
+            </select>
+          </label>
+          <label>
+            Rows
+            <select id="pageSize">
+              <option>25</option>
+              <option selected>50</option>
+              <option>100</option>
+              <option>250</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions">
+          <button id="addColumnButton" type="button">Add column</button>
+          <button id="downloadButton" type="button">Download annotated CSV</button>
+        </div>
+      </section>
+
+      <section class="stats" aria-live="polite">
+        <span id="rowCount">0 rows</span>
+        <span id="columnCount">0 columns</span>
+        <span id="fileCount">0 uploads</span>
+      </section>
+
+      <section id="tableView" class="table-wrap" aria-label="Editable CSV table">
+        <table id="jobTable"></table>
+      </section>
+
+      <section id="reviewView" class="review-view is-hidden" aria-label="Review mode">
+        <aside class="review-list" id="reviewList"></aside>
+        <article class="review-detail" id="reviewDetail">
+          <p class="empty-state">Upload a CSV to start reviewing jobs.</p>
+        </article>
+      </section>
+
+      <nav class="pager" aria-label="Pagination">
+        <button id="prevPage" type="button">Previous</button>
+        <span id="pageInfo">Page 1</span>
+        <button id="nextPage" type="button">Next</button>
+      </nav>
+    </main>
+
+    <menu id="columnMenu" class="context-menu">
+      <button id="addColumnRight" type="button">Add column to right</button>
+      <button id="renameColumn" type="button">Rename column</button>
+      <button id="fillUnknown" type="button">Missing values -> unknown</button>
+      <button id="fillZero" type="button">Missing values -> 0</button>
+      <button id="fillCustom" type="button">Missing values -> custom...</button>
+      <button id="deleteColumn" type="button">Delete column</button>
+    </menu>
+
+    <script src="app.js"></script>
+  </body>
+</html>
