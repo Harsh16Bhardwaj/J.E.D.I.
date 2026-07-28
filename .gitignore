@@ -1,4 +1,5 @@
 node_modules/
+npm-debug.log*
 .next/
 .vercel/
 .env
@@ -11,6 +12,8 @@ __pycache__/
 .ruff_cache/
 *.pyc
 *.egg-info/
+*.tsbuildinfo
+**/next-env.d.ts
 frontend/src/generated/prisma/
 ML/models/**/*.joblib
 ML/models/**/*.onnx

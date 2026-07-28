@@ -1,78 +1,185 @@
 # JEDI
 
-JEDI is a private job-discovery command center. This foundation separates the
-web product, the ML service boundary, the database contract, and the existing
-modeling evidence without implementing product behavior prematurely.
+JEDI is a private job-discovery and application command center. The repository
+contains a Next.js dashboard, a small FastAPI service boundary, the Prisma
+database schema, and the existing machine-learning work.
 
-## Repository map
+## Why `package.json` is at the root
 
-| Path | Purpose |
+This is an npm workspace. The root `package.json` is intentionally the control
+panel for JavaScript tooling:
+
+- it installs root tools such as Prisma;
+- it installs the `frontend` workspace;
+- it exposes one set of commands for starting and checking the project.
+
+The frontend still has its own `frontend/package.json` because it is the actual
+Next.js application. Python remains independent in `backend/pyproject.toml`;
+npm does not manage Python packages.
+
+## Repository structure
+
+```text
+JEDI/
+├── frontend/        Next.js dashboard
+├── backend/         FastAPI service
+├── prisma/          Database schema and schema guide
+├── ML/              Datasets, notebooks, results, and ML tools
+├── archive/         Previous vanilla screener
+├── package.json     npm workspace commands
+├── package-lock.json
+├── prisma.config.ts
+├── vercel.json
+└── .env.example
+```
+
+The old root `.venv` is retained only for historical notebooks. The backend
+uses `backend/.venv`.
+
+## Requirements
+
+- Node.js 22
+- npm 11
+- Python 3.12
+
+Verify them:
+
+```powershell
+node --version
+npm --version
+python --version
+```
+
+## First-time setup
+
+Run these commands from `D:\ML\JEDI`:
+
+```powershell
+Copy-Item .env.example .env
+npm install
+npm run setup:api
+npm run db:generate
+```
+
+The copied `.env` contains safe placeholders for local foundation checks.
+`npm install` installs both root dependencies and the `frontend` workspace.
+`setup:api` creates `backend/.venv` and installs only the FastAPI foundation
+dependencies.
+
+The ignored local `.env` contains non-live PostgreSQL placeholders so Prisma can
+format, validate, and generate. Replace them only when a real Neon development
+database is ready.
+
+## Start both servers
+
+The easiest command is:
+
+```powershell
+npm run dev
+```
+
+It starts:
+
+- Next.js on `http://localhost:3000`
+- FastAPI on `http://localhost:8000`
+
+Press `Ctrl+C` once to stop both.
+
+### Start the servers separately
+
+Terminal 1:
+
+```powershell
+npm run dev:web
+```
+
+Terminal 2:
+
+```powershell
+npm run dev:api
+```
+
+## Useful URLs
+
+| URL | Purpose |
 | --- | --- |
-| `frontend/` | Next.js 16 App Router dashboard |
-| `backend/` | FastAPI foundation and future ML-facing endpoints |
-| `ML/` | Datasets, notebooks, evaluation results, tools, and future bundles |
-| `prisma/` | PostgreSQL schema and future migrations |
-| `archive/legacy-screener/` | Previous vanilla screener retained for reference |
+| `http://localhost:3000` | JEDI dashboard |
+| `http://localhost:3000/api/health` | Next.js health check |
+| `http://localhost:8000` | FastAPI service metadata |
+| `http://localhost:8000/docs` | Interactive FastAPI documentation |
+| `http://localhost:8000/health/live` | FastAPI process health |
+| `http://localhost:8000/health/ready` | FastAPI foundation readiness |
 
-The historical root `.venv` remains available for notebook work. The backend
-uses its own isolated `backend/.venv`.
-
-## Local development
-
-Copy `.env.example` to `.env` and replace the placeholders when connecting to
-Neon. The checked-out local `.env` is ignored and contains non-live values so
-Prisma can format, validate, and generate without contacting a database.
+Quick PowerShell checks:
 
 ```powershell
-pnpm install
-pnpm db:generate
-pnpm dev:web
+Invoke-RestMethod http://localhost:3000/api/health
+Invoke-RestMethod http://localhost:8000/health/live
 ```
 
-In a second terminal:
+## Validation commands
 
 ```powershell
-backend\.venv\Scripts\python -m uvicorn backend.main:app --reload --port 8000
+npm run lint
+npm run typecheck
+npm run test
+npm run build
 ```
 
-Local URLs:
-
-- Web application: `http://localhost:3000`
-- Frontend health: `http://localhost:3000/api/health`
-- FastAPI service: `http://localhost:8000`
-- FastAPI docs: `http://localhost:8000/docs`
-- FastAPI live health: `http://localhost:8000/health/live`
-
-## Production routing
-
-A Vercel project will expose:
-
-- `https://<project>.vercel.app/api/health`
-- `https://<project>.vercel.app/svc/ml/`
-- `https://<project>.vercel.app/svc/ml/health/live`
-- `https://<project>.vercel.app/svc/ml/v1/normalize`
-- `https://<project>.vercel.app/svc/ml/v1/embed`
-- `https://<project>.vercel.app/svc/ml/v1/score`
-
-## Database workflow
-
-Prisma 7 reads database URLs from `prisma.config.ts`. Use the pooled Neon URL at
-application runtime and the direct URL for migrations.
+Run every foundation check in sequence:
 
 ```powershell
-pnpm db:format
-pnpm db:validate
-pnpm db:generate
+npm run check
 ```
 
-No initial migration is included because this foundation does not contain live
-database credentials. When a real PostgreSQL database is supplied, create a
-development migration deliberately. Production must use `pnpm db:deploy`;
-never use `db push` as a deployment workflow.
+Database-only checks:
 
-## Scope boundary
+```powershell
+npm run db:format
+npm run db:validate
+npm run db:generate
+```
 
-This phase intentionally contains no authentication, database CRUD,
-deduplication, embeddings, model inference, scoring, email delivery, or job
-application automation. The routes and schema establish stable contracts for
-those later phases.
+Do not run `npm run db:migrate` until `.env` points to an approved Neon
+development branch. Production deployments use `npm run db:deploy`; never use
+`prisma db push` as the production workflow.
+
+## Understanding the database
+
+Every field in [prisma/schema.prisma](prisma/schema.prisma) has an inline
+description explaining why it exists. [prisma/README.md](prisma/README.md)
+explains the model relationships in plain English.
+
+## Common setup problems
+
+### `backend/.venv` or Python packages are missing
+
+```powershell
+npm run setup:api
+```
+
+### Prisma Client is missing
+
+```powershell
+npm run db:generate
+```
+
+### Port 3000 or 8000 is already occupied
+
+Stop the earlier development process with `Ctrl+C`, then run `npm run dev`
+again.
+
+### Dependencies appear inconsistent
+
+Keep `package-lock.json`, remove only the generated `node_modules` directory,
+then run:
+
+```powershell
+npm ci
+```
+
+## Current scope
+
+The repository currently provides foundation routes and contracts. It does not
+yet implement authentication, database CRUD, deduplication, embeddings, model
+inference, scoring, email delivery, or application automation.

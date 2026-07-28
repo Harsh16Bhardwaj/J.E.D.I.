@@ -1,17 +1,28 @@
 {
   "name": "jedi",
+  "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "npm@11.1.0",
+  "engines": {
+    "node": ">=22 <23",
+    "npm": ">=11 <12"
+  },
   "workspaces": [
     "frontend"
   ],
   "scripts": {
-    "dev": "vercel dev",
-    "dev:web": "pnpm --dir frontend dev",
-    "dev:api": "python -m uvicorn backend.main:app --reload --port 8000",
-    "build": "pnpm --dir frontend build",
-    "lint": "pnpm --dir frontend lint",
-    "typecheck": "pnpm --dir frontend typecheck",
+    "dev": "concurrently --kill-others-on-fail --names WEB,API --prefix-colors green,magenta \"npm run dev:web\" \"npm run dev:api\"",
+    "dev:web": "npm run dev --workspace=frontend",
+    "dev:api": "backend\\.venv\\Scripts\\python.exe -m uvicorn backend.main:app --reload --port 8000",
+    "start:web": "npm run start --workspace=frontend",
+    "setup:api": "python -m venv backend/.venv && backend\\.venv\\Scripts\\python.exe -m pip install -e \"backend[dev]\"",
+    "build": "npm run build --workspace=frontend",
+    "lint": "npm run lint --workspace=frontend",
+    "lint:api": "backend\\.venv\\Scripts\\python.exe -m ruff check backend",
+    "typecheck": "npm run typecheck --workspace=frontend",
+    "test": "npm run test:api",
+    "test:api": "backend\\.venv\\Scripts\\python.exe -m pytest backend/tests",
+    "check": "npm run db:validate && npm run lint && npm run typecheck && npm run test:api && npm run lint:api && npm run build",
     "db:format": "prisma format",
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",
@@ -20,9 +31,9 @@
     "db:studio": "prisma studio"
   },
   "devDependencies": {
-    "dotenv": "latest",
-    "prisma": "latest",
-    "tsx": "latest",
-    "vercel": "latest"
+    "concurrently": "10.0.4",
+    "dotenv": "17.4.2",
+    "prisma": "7.9.1",
+    "tsx": "4.23.1"
   }
 }
