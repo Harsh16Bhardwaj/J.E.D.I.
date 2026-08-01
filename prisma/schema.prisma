@@ -1,42 +1,17 @@
-// Prisma generates the type-safe database client used by the Next.js frontend.
-generator client {
-  provider     = "prisma-client"
-  output       = "../frontend/src/generated/prisma"
-  moduleFormat = "esm"
-}
-
-// PostgreSQL is the canonical store; its connection URL lives in prisma.config.ts.
+// PostgreSQL is the application database; its URL lives in prisma.config.ts.
 datasource db {
   provider = "postgresql"
 }
 
-/// Tracks the current stage of one imported batch.
+/// The current processing step for an uploaded JSON batch.
 enum BatchStatus {
-  UPLOADED /// JSON was received and stored but processing has not started.
-  VALIDATING /// Envelope and job fields are being checked.
-  NORMALIZING /// Source-specific fields are being converted to the canonical shape.
-  DEDUPLICATING /// Observations are being compared with existing canonical jobs.
-  SCORING /// Valid canonical jobs are being ranked for the active profile.
-  EMAILING /// The daily digest is being prepared or sent.
-  COMPLETED /// Every required batch stage finished successfully.
-  PARTIAL_FAILED /// Useful output exists, but at least one non-fatal stage failed.
-  FAILED /// Processing stopped without a usable result.
-}
-
-/// Describes whether a durable canonical job is still usable.
-enum CanonicalJobStatus {
-  ACTIVE /// The job is open or still relevant for review.
-  EXPIRED /// Its deadline passed or the source no longer lists it.
-  MERGED /// This record was identified as a duplicate of another canonical job.
-  ARCHIVED /// The job is retained for history but hidden from active workflows.
-}
-
-/// Records what deduplication decided for one source observation.
-enum ObservationDecision {
-  NEW_CANONICAL /// No suitable existing job was found, so create a canonical job.
-  EXACT_MERGE /// Deterministic identifiers or exact fields matched an existing job.
-  SIMILARITY_MERGE /// A rule or semantic comparison found a sufficiently similar job.
-  REJECTED /// The observation was unusable and should not create or update a job.
+  READY /// Validation and deduplication finished; the retained jobs can be reviewed.
+  NORMALIZING /// Model preprocessing is currently running.
+  NORMALIZED /// Versioned model-ready rows exist for every retained job.
+  RANK_PENDING /// A ranking request exists but no model worker has executed it.
+  RANKING /// A model worker currently owns the ranking run.
+  RANKED /// Real model results were stored successfully.
+  FAILED /// The latest processing attempt failed and may be retried.
 }
 
 /// The explicit preference label supplied by the user.
@@ -49,345 +24,723 @@ enum RelevanceLabel {
 
 /// Tracks personal review progress independently of application progress.
 enum ReviewStatus {
-  NEW /// The user has not opened the job yet.
+  NEW /// The job has not been opened yet.
   VIEWED /// The job has been inspected.
   SAVED /// The job was intentionally kept for later.
-  DISMISSED /// The job was hidden from the active review queue.
+  DISMISSED /// The job was hidden from the active review list.
 }
 
-/// Tracks the real-world application funnel for a job.
+/// Tracks the real application funnel for a job.
 enum ApplicationStatus {
   NOT_STARTED /// No application work has begun.
   PREPARING /// Resume, answers, or supporting material are being prepared.
   APPLIED /// An application was submitted.
+  SCREENING /// Recruiter or employer screening is in progress.
   ASSESSMENT /// A test, task, or screening assessment is in progress.
   INTERVIEW /// At least one interview stage has been reached.
   OFFER /// An offer was received.
+  ACCEPTED /// An offer was accepted and the application is complete.
   REJECTED /// The employer rejected the application.
-  WITHDRAWN /// The user deliberately stopped the application.
+  WITHDRAWN /// The application was deliberately stopped.
 }
 
-/// Communicates how much trust the UI should place in a prediction.
-enum PredictionReliability {
-  HIGH /// Input completeness and model conditions are strong.
-  MEDIUM /// The prediction is useful but contains material uncertainty.
-  LOW /// Missing fields, fallback logic, or distribution shift reduced trust.
+/// The kind of company-specific step recorded inside an application.
+enum ApplicationMilestoneType {
+  SCREENING /// Recruiter call, eligibility check, or other screening step.
+  ASSESSMENT /// Coding test, take-home task, or aptitude assessment.
+  INTERVIEW /// Any interview round; the title carries the round name.
+  FOLLOW_UP /// A reminder to follow up with the company or recruiter.
+  OTHER /// A useful step that does not fit the fixed milestone types.
 }
 
-/// Describes the lifecycle of a retryable background processing attempt.
+/// The user-controlled lifecycle of one application milestone.
+enum ApplicationMilestoneStatus {
+  PLANNED /// The milestone is expected but has not been completed.
+  COMPLETED /// The milestone happened or its action was finished.
+  CANCELLED /// The milestone was intentionally cancelled but remains in history.
+}
+
+/// The lifecycle of a retryable background processing attempt.
 enum ProcessingStatus {
   QUEUED /// The run is waiting for a worker.
   RUNNING /// A worker currently owns the run.
-  SUCCEEDED /// The requested stage completed successfully.
+  SUCCEEDED /// The requested step completed successfully.
   FAILED /// The run stopped and recorded an error.
 }
 
-/// Tracks delivery of a generated email digest.
+/// The delivery state of an email digest.
 enum EmailStatus {
-  PENDING /// The delivery has not succeeded yet.
-  SENT /// The provider accepted the email.
-  FAILED /// All current attempts failed.
+  UNTOUCHED /// The personalized mail event is waiting for its first claim.
+  SENDING /// One sender owns a short delivery lease.
+  SENT /// The email provider accepted the message.
+  FAILED /// The current delivery attempts failed.
+  CANCELLED /// The recipient was disabled before this queued delivery was sent.
 }
 
-/// Separates model versions by responsibility.
-enum ModelKind {
-  PREFERENCE /// Predicts whether the user is likely to value or apply to a job.
-  SEMANTIC /// Measures resume-to-job meaning and skill suitability.
-  NORMALIZER /// Converts source-specific job data into the canonical representation.
+/// The aggregate lifecycle of one dated newsletter campaign.
+enum EmailCampaignStatus {
+  WAITING_FOR_RANKINGS /// The date exists, but no eligible successful ranking run exists yet.
+  PENDING /// The top-ten snapshot exists and recipient deliveries can be claimed.
+  SENDING /// At least one recipient delivery currently owns a sender lease.
+  SENT /// Every non-cancelled recipient delivery was accepted by the provider.
+  PARTIAL_FAILED /// Some recipients succeeded while others exhausted the current retry cycle.
+  FAILED /// No recipient delivery completed successfully.
+  SKIPPED /// Sending was disabled or the date had no eligible recipients or rankings.
+  EXPIRED /// An unsent campaign became stale and requires explicit owner action.
 }
 
-/// One approved place from which the discovery prompt or automation may collect jobs.
-model SourceDefinition {
-  id             String           @id @default(cuid()) /// Internal stable identifier used by relations.
-  name           String           @unique /// Human-readable source key supplied in imported JSON.
-  allowedDomains String[] /// Hostnames accepted for source and application URLs.
-  enabled        Boolean          @default(true) /// Allows a source to be disabled without deleting its history.
-  priority       Int              @default(0) /// Controls display or collection preference when sources compete.
-  observations   JobObservation[] /// All raw job sightings attributed to this source.
-  createdAt      DateTime         @default(now()) /// Records when the source was first configured.
-  updatedAt      DateTime         @updatedAt /// Records the latest source-configuration change.
+/// The single private account allowed to access JEDI.
+model User {
+  id           String       @id @default(cuid()) /// Internal identifier stored inside the signed login session.
+  email        String       @unique /// Lowercase email entered on the login page.
+  passwordHash String /// Argon2 password hash compared during login; plaintext is never stored.
+  ownedGroup   Group? /// The one shared JEDI group this user administers, when they are its owner.
+  membership   GroupMember? /// The user's single group membership in v1.
+  createdAt    DateTime     @default(now()) /// Records when the private account was created.
+  updatedAt    DateTime     @updatedAt /// Records the latest account or password change.
 }
 
-/// One JSON envelope imported for a specific discovery time window.
-model ImportBatch {
-  id                       String           @id @default(cuid()) /// Internal primary key used by related records.
-  externalBatchId          String           @unique /// Human-readable id supplied by the discovery automation.
-  contentHash              String           @unique /// Makes repeated uploads of identical JSON idempotent.
-  schemaVersion            String /// Identifies the expected JSON contract used by this batch.
-  promptVersion            String? /// Connects results to the discovery prompt that produced them.
-  windowStart              DateTime /// Beginning of the job-posting window requested from discovery.
-  generatedAt              DateTime /// Timestamp at which the upstream automation created the JSON.
-  rawEnvelope              Json /// Preserves the original import exactly for audit and reprocessing.
-  status                   BatchStatus      @default(UPLOADED) /// Shows the current pipeline stage in the dashboard.
-  receivedCount            Int              @default(0) /// Number of job entries present in the original envelope.
-  validCount               Int              @default(0) /// Number of entries that passed structural validation.
-  duplicateCount           Int              @default(0) /// Number of observations merged into previously known jobs.
-  canonicalCount           Int              @default(0) /// Number of canonical jobs represented by this batch.
-  validationReport         Json? /// Stores field-level errors and warnings without losing the raw input.
-  processingLeaseToken     String? /// Identifies the worker currently allowed to process the batch.
-  observations             JobObservation[] /// Raw source sightings accepted from this envelope.
-  predictions              JobPrediction[] /// Ranked model outputs produced specifically for this batch.
-  processingRuns           ProcessingRun[] /// Retry and failure history for each pipeline stage.
-  emailDeliveries          EmailDelivery[] /// Digest delivery attempts generated from this batch.
-  createdAt                DateTime         @default(now()) /// Server timestamp for when the batch was stored.
-  completedAt              DateTime? /// Timestamp when the full pipeline reached a terminal success state.
+/// The shared v1 workspace whose members use one ranking profile and model.
+model Group {
+  id                     String            @id @default(cuid()) /// Internal identifier returned with authenticated sessions.
+  name                   String            @default("JEDI") /// Friendly group name shown during onboarding and in settings.
+  ownerId                String            @unique /// Identifies the user allowed to create and revoke invitations.
+  owner                  User              @relation(fields: [ownerId], references: [id], onDelete: Restrict) /// Loads the group administrator without adding a role to User.
+  activeProfileVersionId String? /// Pins the shared profile used for every member's v1 ranking.
+  activeProfileVersion   ProfileVersion?   @relation("GroupActiveProfile", fields: [activeProfileVersionId], references: [id], onDelete: SetNull) /// Loads the shared ranking profile when configured.
+  activeModelVersionId   String? /// Pins the shared model used for every member's v1 ranking.
+  activeModelVersion     ModelVersion?     @relation("GroupActiveModel", fields: [activeModelVersionId], references: [id], onDelete: SetNull) /// Loads the shared ranking model when configured.
+  members                GroupMember[] /// Users who can access the shared workspace.
+  invitations            GroupInvitation[] /// Reusable short codes that can admit new members.
+  createdAt              DateTime          @default(now()) /// Records when the shared workspace was created.
+  updatedAt              DateTime          @updatedAt /// Records profile, model, name, or owner changes.
 
-  // Speeds up worker queries for recent batches in a particular state.
+  @@index([activeProfileVersionId])
+  @@index([activeModelVersionId])
+}
+
+/// Connects one user to the single shared JEDI group.
+model GroupMember {
+  id                    String            @id @default(cuid()) /// Internal membership identifier used by onboarding.
+  groupId               String /// Identifies the shared workspace the member joined.
+  group                 Group             @relation(fields: [groupId], references: [id], onDelete: Cascade) /// Loads shared profile, model, and members.
+  userId                String            @unique /// Enforces one group membership per user in v1.
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade) /// Loads login credentials and email from the unchanged User record.
+  onboardingCompletedAt DateTime? /// A null value forces the member through profile onboarding.
+  joinedAt              DateTime          @default(now()) /// Records when registration joined the group.
+  memberProfile         MemberProfile? /// Stores the member's future-personalization profile.
+  emailRecipient        EmailRecipient? /// Links this member to the only personalized newsletter destination allowed in v1.
+  emailDeliveries       EmailDelivery[] /// Personalized mail events owned by this member.
+  jobStates             JobState[] /// Private review state for shared jobs.
+  applications          Application[] /// Private application records for shared jobs.
+  annotations           JobAnnotation[] /// Private labels saved by this member.
+  trainingExamples      TrainingExample[] /// Training rows whose labels came from this member.
+
+  @@unique([groupId, userId])
+  @@index([groupId, joinedAt])
+}
+
+/// A reusable five-character code that admits users into one group.
+model GroupInvitation {
+  id         String    @id @default(cuid()) /// Internal identifier used to revoke an invitation.
+  groupId    String /// Identifies the group joined by successful registrations.
+  group      Group     @relation(fields: [groupId], references: [id], onDelete: Cascade) /// Loads the group and its member limit.
+  codeHash   String    @unique /// Stores only the keyed hash of the uppercase invitation code.
+  expiresAt  DateTime /// Stops the reusable code seven days after creation.
+  revokedAt  DateTime? /// Immediately disables the code when the owner revokes or replaces it.
+  usageCount Int       @default(0) /// Counts successful registrations without recording the raw code.
+  createdAt  DateTime  @default(now()) /// Records when the owner generated the code.
+
+  @@index([groupId, revokedAt, expiresAt])
+}
+
+/// Profile collected from a member for future personalized ranking in v2.
+model MemberProfile {
+  id                 String      @id @default(cuid()) /// Internal identifier for the member-owned onboarding profile.
+  groupMemberId      String      @unique /// Enforces one editable onboarding profile per member.
+  groupMember        GroupMember @relation(fields: [groupMemberId], references: [id], onDelete: Cascade) /// Loads the member whose future preferences these are.
+  contentHash        String /// Detects an unchanged onboarding replay for this member.
+  resumeText         String /// Full profile or resume content saved for future personalization.
+  preferredTitles    String[] /// Normalized desired job-title tags.
+  preferredLocations String[] /// Normalized desired location tags.
+  preferredSkills    String[] /// Normalized desired skill tags.
+  experienceMinYears Float? /// Lower bound of the member's desired experience range.
+  experienceMaxYears Float? /// Upper bound of the member's desired experience range.
+  salaryMin          Decimal?    @db.Decimal(14, 2) /// Lowest useful annual compensation.
+  salaryMax          Decimal?    @db.Decimal(14, 2) /// Highest useful annual compensation.
+  salaryCurrency     String? /// Currency required to interpret the compensation range.
+  createdAt          DateTime    @default(now()) /// Records initial onboarding submission.
+  updatedAt          DateTime    @updatedAt /// Records later onboarding-profile corrections.
+
+  @@index([contentHash])
+}
+
+/// One uploaded JSON payload and its processing summary.
+model Batch {
+  id              String      @id @default(cuid()) /// Internal database identifier used by relations.
+  displayName     String?     @unique /// Friendly generated label used in the interface while the external identifier remains immutable.
+  externalBatchId String      @unique /// Identifier supplied in the uploaded JSON for safe repeated submissions.
+  contentHash     String      @unique /// Prevents the exact same JSON payload from being imported twice.
+  schemaVersion   String /// Identifies the JSON contract used by this payload.
+  promptVersion   String? /// Identifies the discovery prompt that generated the jobs when available.
+  generatedAt     DateTime /// Records when the discovery automation generated the JSON.
+  rawEnvelope     Json /// Keeps the uploaded JSON intact so a failed batch can be inspected or retried.
+  status          BatchStatus @default(READY) /// Drives action availability and dashboard filtering.
+
+  receivedCount  Int @default(0) /// Number of job objects present in the uploaded JSON.
+  validCount     Int @default(0) /// Number of job objects that passed validation.
+  duplicateCount Int @default(0) /// Number of jobs automatically discarded as duplicates.
+  jobCount       Int @default(0) /// Number of unique jobs retained after validation and deduplication.
+
+  validationReport Json? /// Contains actionable validation errors for the batch when needed.
+
+  jobs             Job[] /// Unique jobs retained from this upload; each job belongs to one batch.
+  predictions      JobPrediction[] /// Ranking results produced for jobs in this batch.
+  processingRuns   ProcessingRun[] /// Retry and failure records for batch processing.
+  trainingExamples TrainingExample[] /// Training snapshots selected from this batch.
+  emailDeliveries  EmailDelivery[] /// Legacy batch-specific deliveries retained during the campaign transition.
+
+  createdAt DateTime  @default(now()) /// Records when the application accepted the upload.
+  rankedAt  DateTime? /// Records when real ranking results were accepted.
+
+  // Supports the dashboard and worker queries for recent batches by status.
   @@index([status, createdAt])
 }
 
-/// The durable, deduplicated representation of one real job opportunity.
-model CanonicalJob {
-  id          String             @id @default(cuid()) /// Internal primary key used throughout the product.
-  displayCode String             @unique /// Short readable code shown in URLs, emails, and the dashboard.
-  status      CanonicalJobStatus @default(ACTIVE) /// Controls whether the job participates in active workflows.
+/// One unique job retained after automatic deduplication.
+model Job {
+  id         String @id @default(cuid()) /// Internal database identifier.
+  code       String @unique /// Short readable identifier used in URLs, emails, and the dashboard.
+  dedupeKey  String @unique /// Deterministic normalized key used to reject an already-known job automatically.
+  companyKey String /// Indexed normalized company name used to retrieve duplicate candidates cheaply.
 
-  mergedIntoJobId String? /// Points to the surviving job when this record is merged as a duplicate.
-  mergedInto      CanonicalJob?  @relation("JobMerges", fields: [mergedIntoJobId], references: [id], onDelete: SetNull) /// Loads the surviving canonical job.
-  mergedJobs      CanonicalJob[] @relation("JobMerges") /// Loads duplicate records that were merged into this job.
+  batchId String /// Identifies the upload that first introduced this unique job.
+  batch   Batch  @relation(fields: [batchId], references: [id], onDelete: Cascade) /// Loads that owning batch.
 
-  companyName           String /// Best available company name displayed to the user.
-  companyNameNormalized String /// Comparison-safe company value used for search and deduplication.
-  roleTitle             String /// Best available job title displayed to the user.
-  roleTitleNormalized   String /// Comparison-safe title used for search and deduplication.
-  roleFamily            String? /// Broad category such as frontend, data, or product.
-  seniority             String? /// Normalized level such as intern, entry, mid, or senior.
+  companyName String /// Company name shown to the user and used by duplicate rules.
+  roleTitle   String /// Job title shown to the user and used by ranking.
+  roleFamily  String? /// Broad model category such as frontend, data, or product when available.
+  seniority   String? /// Normalized level such as intern, entry, mid, or senior when available.
 
-  location       String? /// Original or best combined location text shown in the UI.
-  city           String? /// Parsed city used by filters and suitability rules.
-  country        String? /// Parsed country used by eligibility and location filters.
-  locationBucket String? /// Coarse grouping such as local, remote, relocation, or international.
-  workMode       String? /// Onsite, hybrid, remote, or another source-provided arrangement.
-  employmentType String? /// Full-time, internship, contract, part-time, or another type.
+  location       String? /// Location text supplied for display and ranking.
+  workMode       String? /// Remote, hybrid, onsite, or another stated arrangement.
+  employmentType String? /// Full-time, internship, contract, part-time, or another stated type.
 
-  descriptionFull  String /// Complete job description used for review and semantic comparison.
-  responsibilities String? /// Extracted responsibilities shown separately when available.
-  skills           String[] /// Combined normalized skill list used for search and general display.
-  requiredSkills   String[] /// Explicit must-have skills used for suitability penalties.
-  preferredSkills  String[] /// Nice-to-have skills used as weaker positive ranking signals.
+  description String /// Full job description used for review, deduplication, and text features.
+  skills      String[] /// Normalized skills or requirements used by search and ranking.
 
-  experienceMinYears Float? /// Lowest experience requirement used for eligibility checks.
-  experienceMaxYears Float? /// Highest stated experience level used for fit calculations.
+  experienceMinYears Float? /// Lowest stated experience requirement when the listing provides one.
+  experienceMaxYears Float? /// Highest stated experience requirement when the listing provides one.
 
-  compensationMin      Decimal? @db.Decimal(14, 2) /// Lower bound of salary or stipend after parsing.
-  compensationMax      Decimal? @db.Decimal(14, 2) /// Upper bound of salary or stipend after parsing.
-  compensationCurrency String? /// Currency code required to interpret compensation numbers.
-  compensationPeriod   String? /// Period such as year, month, hour, or internship duration.
-  isStipend            Boolean? /// Distinguishes internship stipends from regular salary.
+  salaryMin      Decimal? @db.Decimal(14, 2) /// Lowest stated salary or stipend amount.
+  salaryMax      Decimal? @db.Decimal(14, 2) /// Highest stated salary or stipend amount.
+  salaryCurrency String? /// Currency required to interpret the salary amounts.
 
-  postedAt            DateTime? /// Best-known publication time used for recency ranking.
-  applicationDeadline DateTime? /// Last known date on which an application is accepted.
-  canApplyNow         Boolean? /// Quick eligibility result used to suppress unusable recommendations.
-  applyUrlPreferred   String? /// Best direct application URL selected from all observations.
+  postedAt            DateTime? /// Publication time used as an optional recency feature.
+  applicationDeadline DateTime? /// Stated last application date when the listing provides one.
+  canApplyNow         Boolean? /// Imported eligibility hint used to suppress unusable recommendations.
+  applyUrl            String /// Direct URL used when applying to the job.
 
-  education        String? /// Education requirements used for eligibility and explanation.
-  eligibility      String? /// Other restrictions such as graduation year or work authorization.
-  recruiterContact Json? /// Optional structured recruiter name, email, or contact metadata.
-  extras           Json? /// Source details not yet promoted to dedicated schema fields.
-  fieldProvenance  Json? /// Records which observation supplied each canonical field.
+  predictions      JobPrediction[] /// Prisma back-relation for ranking rows; this adds no field to the Job row.
+  states           JobState[] /// Per-member relevance, review status, and review notes.
+  applications     Application[] /// Per-member application plans for this shared job.
+  annotations      JobAnnotation[] /// Per-member labels used for future personalization.
+  preparedJobs     PreparedJob[] /// Versioned model-ready representations of this job.
+  trainingExamples TrainingExample[] /// Model-training snapshots selected from this job.
 
-  descriptionEmbedding Float[] /// Semantic vector used later for similarity and resume matching.
+  createdAt DateTime @default(now()) /// Records when the unique job was first stored.
+  updatedAt DateTime @updatedAt /// Records the last edit to the job data or dedupe key.
 
-  observations         JobObservation[] /// Every source sighting that contributed to this job.
-  candidateEvaluations DedupEvaluation[] /// Comparisons where this job was considered as a duplicate candidate.
-  predictions          JobPrediction[] /// Historical rankings of this job across batches and models.
-  state                JobState? /// Current personal label, review state, and application state.
-  events               JobEvent[] /// Append-only history of meaningful user changes.
-
-  firstSeenAt DateTime @default(now()) /// First time any source introduced this opportunity.
-  lastSeenAt  DateTime @default(now()) /// Most recent observation, used to detect stale jobs.
-  createdAt   DateTime @default(now()) /// Database creation timestamp.
-  updatedAt   DateTime @updatedAt /// Timestamp of the latest canonical-field update.
-
-  // These indexes support candidate retrieval before expensive duplicate comparisons.
-  @@index([companyNameNormalized])
-  @@index([companyNameNormalized, roleTitleNormalized])
-  @@index([status, postedAt])
-  @@index([mergedIntoJobId])
-}
-
-/// One raw sighting of a job from one source in one imported batch.
-model JobObservation {
-  id                 String               @id @default(cuid()) /// Internal primary key for this source sighting.
-  batchId            String /// Foreign key identifying the envelope that contained the sighting.
-  batch              ImportBatch          @relation(fields: [batchId], references: [id], onDelete: Cascade) /// Loads the owning import batch.
-  canonicalJobId     String? /// Foreign key assigned after this sighting is deduplicated.
-  canonicalJob       CanonicalJob?        @relation(fields: [canonicalJobId], references: [id], onDelete: SetNull) /// Loads the durable job selected by deduplication.
-  sourceDefinitionId String /// Foreign key for the approved source manifest entry.
-  sourceDefinition   SourceDefinition     @relation(fields: [sourceDefinitionId], references: [id]) /// Loads source rules such as allowed domains.
-  externalJobId      String? /// Provider-specific job id when the source exposes one.
-  sourceUrl          String /// URL where this particular listing was discovered.
-  applyUrl           String? /// Direct application URL found in this observation.
-  urlKind            String? /// Classifies the URL as direct, listing, aggregator, or another type.
-  observationHash    String               @unique /// Prevents the exact same observation from being stored twice.
-  capturedAt         DateTime /// Time at which discovery captured this version of the listing.
-  postedAt           DateTime? /// Publication time reported by this source.
-  rawPayload         Json /// Preserves every source field for future parsers and audits.
-  normalizedSnapshot Json? /// Stores the normalized result without overwriting the raw payload.
-  decision           ObservationDecision? /// Final deduplication outcome for this observation.
-  rejectionReason    String? /// Human-readable reason when the observation is unusable.
-  dedupEvaluations   DedupEvaluation[] /// Candidate comparisons considered before the final decision.
-  createdAt          DateTime             @default(now()) /// Server timestamp for when the observation was stored.
-
-  // These indexes support batch review, canonical history, and source-id lookup.
+  // Narrows automatic duplicate checks to jobs with the same company and title.
+  @@index([companyKey])
+  @@index([companyKey, roleTitle])
   @@index([batchId])
-  @@index([canonicalJobId])
-  @@index([sourceDefinitionId, externalJobId])
 }
 
-/// The auditable rule-by-rule comparison of an observation with one canonical candidate.
-model DedupEvaluation {
-  id                      String              @id @default(cuid()) /// Internal primary key for one comparison.
-  observationId           String /// Foreign key for the newly imported observation.
-  observation             JobObservation      @relation(fields: [observationId], references: [id], onDelete: Cascade) /// Loads the observation being evaluated.
-  candidateCanonicalJobId String /// Foreign key for the existing job considered as a match.
-  candidateCanonicalJob   CanonicalJob        @relation(fields: [candidateCanonicalJobId], references: [id], onDelete: Cascade) /// Loads the candidate canonical job.
-  companyMatch            Boolean /// Records whether normalized company values matched.
-  roleMatch               Boolean /// Records whether normalized role values matched.
-  locationMatch           Boolean /// Records whether location values were compatible.
-  workModeMatch           Boolean /// Records whether remote, hybrid, or onsite arrangements matched.
-  experienceMatch         Boolean /// Records whether experience ranges were compatible.
-  compensationMatch       Boolean /// Records whether comparable compensation details matched.
-  descriptionMatch        Boolean /// Records whether description similarity passed its threshold.
-  yesCount                Int /// Simple count of matched rule categories used by the decision policy.
-  descriptionSimilarity   Float? /// Continuous semantic or text-similarity score for audit.
-  dedupVersion            String /// Identifies the exact rule and threshold configuration used.
-  decision                ObservationDecision /// Outcome produced for this candidate comparison.
-  createdAt               DateTime            @default(now()) /// Timestamp of the comparison for reproducibility.
-
-  // These indexes make either side of a duplicate decision easy to audit.
-  @@index([observationId])
-  @@index([candidateCanonicalJobId])
-}
-
-/// An immutable snapshot of the resume and preferences used for scoring.
+/// One version of the resume and the small set of preferences used for ranking.
 model ProfileVersion {
-  id                String          @id @default(cuid()) /// Internal primary key referenced by predictions.
-  contentHash       String          @unique /// Prevents storing identical profile snapshots repeatedly.
-  resumeText        String /// Plain resume content supplied to suitability features.
-  structuredProfile Json /// Parsed skills, education, preferences, and constraints.
-  active            Boolean         @default(false) /// Marks the default profile for new scoring runs.
-  predictions       JobPrediction[] /// Historical predictions produced with this exact profile.
-  createdAt         DateTime        @default(now()) /// Timestamp used to order profile versions.
+  id          String @id @default(cuid()) /// Internal identifier referenced by ranking results.
+  contentHash String @unique /// Prevents an unchanged resume and preference set from being stored twice.
+  resumeText  String /// Resume content used by text and suitability features.
 
-  // Quickly locates the currently active profile.
+  preferredTitles    String[] /// Job titles or title keywords that should receive stronger matches.
+  preferredLocations String[] /// Locations that should receive stronger matches.
+  preferredSkills    String[] /// Skills and keywords used for resume-to-job matching.
+
+  experienceMinYears Float? /// Lower end of the preferred experience range.
+  experienceMaxYears Float? /// Upper end of the preferred experience range.
+  salaryMin          Decimal? @db.Decimal(14, 2) /// Lowest preferred compensation.
+  salaryMax          Decimal? @db.Decimal(14, 2) /// Highest useful compensation bound when one exists.
+  salaryCurrency     String? /// Currency used by the preferred salary range.
+
+  active           Boolean           @default(false) /// Marks the profile used for new ranking runs.
+  predictions      JobPrediction[] /// Prisma back-relation for results produced with this profile.
+  preparedJobs     PreparedJob[] /// Model-ready job rows built against this profile version.
+  trainingExamples TrainingExample[] /// Training snapshots created against this exact profile.
+  processingRuns   ProcessingRun[] /// Normalization and ranking attempts pinned to this profile.
+  activeForGroups  Group[]           @relation("GroupActiveProfile") /// Groups currently using this profile for shared ranking.
+  createdAt        DateTime          @default(now()) /// Orders profile versions and supports rollback.
+
+  // Finds the profile currently used for scoring.
   @@index([active])
 }
 
-/// A registered, immutable version of one production model or normalizer.
-model ModelVersion {
-  id                   String    @id @default(cuid()) /// Internal primary key stored with every prediction.
-  name                 String    @unique /// Human-readable version name such as preference-2026-07.
-  kind                 ModelKind /// Declares which responsibility this model performs.
-  artifactManifest     Json /// Stores artifact paths, checksums, libraries, and loading instructions.
-  featureSchemaVersion String /// Identifies the exact input feature contract expected by the model.
-  metrics              Json? /// Preserves offline evaluation results used during promotion.
-  active               Boolean   @default(false) /// Marks the default version for its model kind.
+/// One versioned model-input row produced from a job and profile.
+model PreparedJob {
+  id                   String @id @default(cuid()) /// Internal identifier for this prepared row.
+  featureSchemaVersion String /// Exact input contract used to build the payload.
+  payloadHash          String /// Detects an unchanged transformation and makes retries idempotent.
+  payload              Json /// Complete model-ready row consumed by future inference.
 
-  preferencePredictions JobPrediction[] @relation("PreferenceModel") /// Predictions where this version produced preference outputs.
-  semanticPredictions   JobPrediction[] @relation("SemanticModel") /// Predictions where this version produced suitability outputs.
+  jobId String /// Identifies the source job.
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade) /// Loads the source job.
 
-  createdAt DateTime @default(now()) /// Timestamp used for registry history and rollback.
+  profileVersionId String /// Identifies the profile used for preference-relative fields.
+  profileVersion   ProfileVersion @relation(fields: [profileVersionId], references: [id]) /// Loads that profile.
 
-  // Finds the active version for each responsibility efficiently.
-  @@index([kind, active])
+  createdAt DateTime @default(now()) /// Records when preprocessing produced this row.
+  updatedAt DateTime @updatedAt /// Records when an idempotent retry refreshed the payload.
+
+  // Keeps one current row per job, profile, and feature contract.
+  @@unique([jobId, profileVersionId, featureSchemaVersion])
+  @@index([profileVersionId, featureSchemaVersion])
 }
 
-/// One fully versioned ranking result for one canonical job in one batch.
+/// Manual supervised labels for one retained job.
+model JobAnnotation {
+  groupMemberId String /// Identifies the member who supplied these private labels.
+  groupMember   GroupMember @relation(fields: [groupMemberId], references: [id], onDelete: Cascade) /// Loads the label owner.
+  jobId         String /// Identifies the shared job being annotated.
+  job           Job         @relation(fields: [jobId], references: [id], onDelete: Cascade) /// Loads the annotated job.
+
+  applyLabel        Boolean? /// Binary yes or no target used by the apply-preference classifier.
+  roleTitleFit      Float? /// Manual 0-5 title fit score.
+  roleFamilyFit     Float? /// Manual 0-5 role-family fit score.
+  seniorityFit      Float? /// Manual 0-5 seniority fit score.
+  locationFit       Float? /// Manual 0-5 location fit score.
+  workModeFit       Float? /// Manual 0-5 work-mode fit score.
+  experienceFit     Float? /// Manual 0-5 experience fit score.
+  skillsFit         Float? /// Manual 0-5 skills fit score.
+  salaryFit         Float? /// Manual 0-8 compensation fit score kept for model compatibility.
+  overallPreference Float? /// Manual 0-5 overall preference score.
+
+  createdAt DateTime @default(now()) /// Records when annotation began.
+  updatedAt DateTime @updatedAt /// Records the most recent label edit.
+
+  @@id([groupMemberId, jobId])
+  @@index([jobId])
+}
+
+/// Canonical versioned row selected for model training.
+model TrainingExample {
+  id                   String @id @default(cuid()) /// Internal identifier for the training row.
+  featureSchemaVersion String /// Feature contract required to interpret the stored input payload.
+  payloadHash          String /// Detects the exact prepared payload frozen into this example.
+  featurePayload       Json /// Frozen model-input values copied from PreparedJob.
+
+  applyLabel        Boolean /// Binary supervised target.
+  roleTitleFit      Float /// Frozen 0-5 title fit label.
+  roleFamilyFit     Float /// Frozen 0-5 role-family fit label.
+  seniorityFit      Float /// Frozen 0-5 seniority fit label.
+  locationFit       Float /// Frozen 0-5 location fit label.
+  workModeFit       Float /// Frozen 0-5 work-mode fit label.
+  experienceFit     Float /// Frozen 0-5 experience fit label.
+  skillsFit         Float /// Frozen 0-5 skills fit label.
+  salaryFit         Float /// Frozen 0-8 compensation fit label.
+  overallPreference Float /// Frozen 0-5 overall preference label.
+
+  jobId String /// Identifies the annotated source job.
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Restrict) /// Keeps provenance to the job.
+
+  batchId String /// Identifies the batch from which the row was selected.
+  batch   Batch  @relation(fields: [batchId], references: [id], onDelete: Restrict) /// Keeps batch provenance.
+
+  profileVersionId String /// Identifies the resume and preferences used to build the feature payload.
+  profileVersion   ProfileVersion @relation(fields: [profileVersionId], references: [id], onDelete: Restrict) /// Preserves profile-specific training provenance.
+
+  annotatedByGroupMemberId String /// Records which member supplied the frozen labels.
+  annotatedByGroupMember   GroupMember @relation(fields: [annotatedByGroupMemberId], references: [id], onDelete: Restrict) /// Preserves ownership without making it a model feature.
+
+  createdAt DateTime @default(now()) /// Records when the row first joined the master dataset.
+  updatedAt DateTime @updatedAt /// Records when the same job/schema snapshot was refreshed.
+
+  // Re-adding a job refreshes its current snapshot instead of duplicating it.
+  @@unique([jobId, profileVersionId, featureSchemaVersion])
+  @@index([batchId])
+  @@index([annotatedByGroupMemberId])
+}
+
+/// One registered version of the complete ranking model bundle.
+model ModelVersion {
+  id                     String   @id @default(cuid()) /// Internal identifier stored with ranking results.
+  name                   String   @unique /// Human-readable version such as ranking-2026-07.
+  contentHash            String   @unique /// Makes immutable model metadata creation safely replayable.
+  description            String   @default("") /// Human explanation shown on the model card.
+  modelFamily            String   @default("legacy") /// Algorithm or bundle family such as stacked-ranking-model.
+  artifactManifest       Json /// Artifact paths, checksums, libraries, and loading instructions.
+  featureSchemaVersion   String /// Exact model-input contract expected by this bundle.
+  requestContractVersion String   @default("jedi-ranking-v1") /// Version of the remote ranking HTTP contract.
+  tags                   String[] @default([]) /// Searchable short labels used by the model registry UI.
+  trainingMetadata       Json? /// Dataset version, row count, labels, and training provenance.
+  evaluationMetadata     Json? /// Split strategy, cutoff, leakage audit, and evaluation configuration.
+  metrics                Json? /// Offline validation metrics used when selecting the model.
+  active                 Boolean  @default(false) /// Marks the model bundle used for new ranking runs.
+
+  predictions     JobPrediction[] /// Prisma back-relation for results produced by this model version.
+  processingRuns  ProcessingRun[] /// Ranking attempts pinned to this model version.
+  deployment      ModelDeployment? /// Mutable remote serving configuration for this immutable model version.
+  endpointChecks  ModelEndpointCheck[] /// Safe health-check history for this model version.
+  invocations     ModelInvocation[] /// Every embedded or remote inference attempt using this bundle.
+  activeForGroups Group[]              @relation("GroupActiveModel") /// Groups currently using this model for shared ranking.
+  createdAt       DateTime             @default(now()) /// Orders model versions and supports rollback.
+
+  // Finds the active production ranking model quickly.
+  @@index([active])
+}
+
+/// Mutable network configuration used to invoke one immutable model version.
+model ModelDeployment {
+  id               String       @id @default(cuid()) /// Internal deployment identifier.
+  modelVersionId   String       @unique /// Enforces at most one current deployment per model version.
+  modelVersion     ModelVersion @relation(fields: [modelVersionId], references: [id], onDelete: Cascade) /// Loads immutable model metadata.
+  kind             String       @default("EMBEDDED") /// EMBEDDED for bundled Vercel inference or REMOTE for an external worker.
+  endpointUrl      String? /// HTTPS ranking endpoint for REMOTE deployments; null for embedded serving.
+  healthUrl        String? /// Optional remote readiness endpoint; embedded checks call the local runtime.
+  artifactLocation String? /// Bundle directory relative to the trusted backend model-bundle root.
+  deployedRevision String? /// Source revision or deployment identifier used for audit and rollback.
+  timeoutSeconds   Int          @default(120) /// Per-request timeout bounded below the hosting function limit.
+
+  healthVerifiedAt    DateTime? /// Most recent compatible successful health response.
+  lastHealthStatus    String? /// Safe READY or FAILED summary for list views.
+  lastHealthLatencyMs Int? /// Round-trip time of the latest health check.
+  lastHealthErrorCode String? /// Stable safe failure category; response bodies are never stored.
+
+  checks    ModelEndpointCheck[] /// Historical probes made against this deployment.
+  createdAt DateTime             @default(now()) /// Records when serving configuration was first supplied.
+  updatedAt DateTime             @updatedAt /// Records URL, timeout, and health-summary changes.
+}
+
+/// One auditable health probe without credentials or response bodies.
+model ModelEndpointCheck {
+  id             String          @id @default(cuid()) /// Internal check identifier.
+  modelVersionId String /// Identifies the immutable registry record checked.
+  modelVersion   ModelVersion    @relation(fields: [modelVersionId], references: [id], onDelete: Cascade) /// Loads model metadata.
+  deploymentId   String /// Identifies the deployment configuration checked.
+  deployment     ModelDeployment @relation(fields: [deploymentId], references: [id], onDelete: Cascade) /// Loads the current serving configuration.
+
+  status                          String /// READY or FAILED safe result.
+  latencyMs                       Int? /// Completed HTTP round-trip time.
+  httpStatus                      Int? /// Provider HTTP status when a response was received.
+  errorCode                       String? /// Stable network, contract, or status failure code.
+  healthUrlSnapshot               String? /// Exact safe URL checked for remote deployments.
+  returnedFeatureSchemaVersion    String? /// Feature contract reported by the remote service.
+  returnedRequestContractVersion  String? /// Ranking request contract reported by the remote service.
+  returnedResponseContractVersion String? /// Ranking response contract reported by the serving runtime.
+  returnedArtifactHash            String? /// Immutable artifact hash reported by the serving runtime.
+  coldStart                       Boolean? /// Whether this check loaded an uninitialized bundle.
+  modelLoadMs                     Int? /// Time spent loading and validating artifacts.
+  smokeTestMs                     Int? /// Time spent on the golden prediction.
+  checkedAt                       DateTime @default(now()) /// Orders health history and gates activation.
+
+  @@index([modelVersionId, checkedAt])
+}
+
+/// The usable outputs returned when one model version ranks one job.
 model JobPrediction {
-  id                       String         @id @default(cuid()) /// Internal primary key for the prediction record.
-  canonicalJobId           String /// Foreign key for the ranked job.
-  canonicalJob             CanonicalJob   @relation(fields: [canonicalJobId], references: [id], onDelete: Cascade) /// Loads the job represented by this prediction.
-  batchId                  String /// Foreign key for the daily candidate batch.
-  batch                    ImportBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade) /// Loads batch context and ranking peers.
-  profileVersionId         String /// Foreign key for the resume and preferences used.
-  profileVersion           ProfileVersion @relation(fields: [profileVersionId], references: [id]) /// Loads the immutable scoring profile.
-  preferenceModelVersionId String /// Foreign key for the model that predicted personal preference.
-  preferenceModelVersion   ModelVersion   @relation("PreferenceModel", fields: [preferenceModelVersionId], references: [id]) /// Loads the preference-model manifest and metrics.
-  semanticModelVersionId   String /// Foreign key for the model that measured resume-job suitability.
-  semanticModelVersion     ModelVersion   @relation("SemanticModel", fields: [semanticModelVersionId], references: [id]) /// Loads the semantic-model manifest and metrics.
+  id   String @id @default(cuid()) /// Internal identifier for this ranking result.
+  rank Int /// Final position of the job within this batch.
 
-  applyPreferenceProbability Float /// Classifier probability used as a risk guardrail, not the sole rank.
-  jediPreferenceScore        Float /// Primary continuous score used to order jobs for review.
-  resumeJobSuitability       Float /// Independent semantic or rule-based resume-to-job fit score.
-  predictionReliability      PredictionReliability /// UI warning level based on input and fallback quality.
+  jediPreferenceScore        Float /// Primary 0-100 score used to order jobs.
+  applyPreferenceProbability Float /// Apply-worthy classifier probability used as a guardrail.
+  componentScores            Json? /// Optional Ridge fit-score outputs returned by the current model bundle.
+  rankingScore               Float /// Explicit score used by the recorded ranking strategy.
+  rankingStrategy            String /// Stable ordering policy such as apply-gate-then-jedi-v1.
+  applyThreshold             Float? /// Classifier threshold used; null only for legacy predictions.
+  modelApplyDecision         Boolean? /// Raw thresholded classifier decision.
+  applyRecommendation        Boolean? /// Final model decision combined with listing availability.
+  outputSchemaVersion        String   @default("legacy-ranking-v1") /// Version of this normalized prediction row.
 
-  rank               Int /// Exact position within this batch after final ordering.
-  rankBand           Int /// Coarser bucket such as top 10, top 25, or remainder.
-  predictedFitScores Json /// Component score outputs used by the stacked preference model.
-  positiveReasons    Json /// Structured favorable features that the UI can explain.
-  negativeReasons    Json /// Structured gaps or penalties that the UI can explain.
-  featureSnapshot    Json /// Exact model inputs retained for reproducibility and audits.
-  fallbackLevel      String /// Describes which degraded scoring path was used, if any.
-  createdAt          DateTime @default(now()) /// Timestamp of the scoring result.
+  jobId String /// Identifies the ranked job.
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade) /// Loads the ranked job.
 
-  // Prevents duplicate scoring for the same job, batch, profile, and preference model.
-  @@unique([canonicalJobId, batchId, profileVersionId, preferenceModelVersionId])
+  batchId String /// Identifies the daily batch whose jobs were ranked together.
+  batch   Batch  @relation(fields: [batchId], references: [id], onDelete: Cascade) /// Loads the ranking batch.
+
+  profileVersionId String /// Identifies the resume and preferences used for this result.
+  profileVersion   ProfileVersion @relation(fields: [profileVersionId], references: [id]) /// Loads that profile version.
+
+  modelVersionId String /// Identifies the ranking bundle that returned this result.
+  modelVersion   ModelVersion @relation(fields: [modelVersionId], references: [id]) /// Loads that model version.
+
+  processingRunId String /// Identifies the exact ranking execution that produced this result.
+  processingRun   ProcessingRun @relation(fields: [processingRunId], references: [id], onDelete: Cascade) /// Keeps reranking executions separate.
+
+  createdAt DateTime @default(now()) /// Records when scoring completed.
+
+  // Prevents the same model and profile from scoring one job twice in one batch.
+  @@unique([jobId, processingRunId])
   // Retrieves a batch shortlist in display order.
   @@index([batchId, rank])
+  @@index([processingRunId, rank])
 }
 
-/// The current user-controlled state of one canonical job.
+/// The current user-controlled state of one job.
 model JobState {
-  canonicalJobId    String            @id /// Uses the job id as a one-to-one primary and foreign key.
-  canonicalJob      CanonicalJob      @relation(fields: [canonicalJobId], references: [id], onDelete: Cascade) /// Loads the job whose state is being tracked.
-  relevanceLabel    RelevanceLabel? /// Explicit Dream, Strong Apply, Consider, or Reject feedback.
-  reviewStatus      ReviewStatus      @default(NEW) /// Tracks whether the job was viewed, saved, or dismissed.
-  applicationStatus ApplicationStatus @default(NOT_STARTED) /// Tracks progress through the real application funnel.
-  notes             String? /// Private free-form notes about the job or application.
-  updatedAt         DateTime          @updatedAt /// Timestamp of the most recent state change.
+  groupMemberId  String /// Identifies the member who owns this private state.
+  groupMember    GroupMember     @relation(fields: [groupMemberId], references: [id], onDelete: Cascade) /// Loads the state owner.
+  jobId          String /// Identifies the shared job.
+  job            Job             @relation(fields: [jobId], references: [id], onDelete: Cascade) /// Loads the associated job.
+  relevanceLabel RelevanceLabel? /// Explicit Dream, Strong Apply, Consider, or Reject feedback.
+  reviewStatus   ReviewStatus    @default(NEW) /// Tracks whether the job was viewed, saved, or dismissed.
+  viewedAt       DateTime? /// First time this member deliberately viewed the job; null means fresh.
+  notes          String? /// Private notes about reviewing the job before or alongside an application.
+  updatedAt      DateTime        @updatedAt /// Records the latest state change.
+
+  @@id([groupMemberId, jobId])
+  @@index([jobId])
+  @@index([groupMemberId, reviewStatus])
+  @@index([groupMemberId, viewedAt])
 }
 
-/// Append-only history of important job-state and application changes.
-model JobEvent {
-  id             String       @id @default(cuid()) /// Internal primary key for the history entry.
-  canonicalJobId String /// Foreign key for the job whose state changed.
-  canonicalJob   CanonicalJob @relation(fields: [canonicalJobId], references: [id], onDelete: Cascade) /// Loads the associated canonical job.
-  eventType      String /// Stable event key such as relevance_changed or applied.
-  previousValue  String? /// Value before the change when the event represents a transition.
-  newValue       String? /// Value after the change when the event represents a transition.
-  metadata       Json? /// Additional structured context without changing the table for every event type.
-  createdAt      DateTime     @default(now()) /// Timestamp used to build a chronological activity history.
+/// The editable application plan and current main-funnel stage for one job.
+model Application {
+  id              String                 @id @default(cuid()) /// Stable identifier used by private events and milestones.
+  groupMemberId   String /// Identifies the member pursuing this application.
+  groupMember     GroupMember            @relation(fields: [groupMemberId], references: [id], onDelete: Cascade) /// Loads the application owner.
+  jobId           String /// Identifies the shared job being pursued.
+  job             Job                    @relation(fields: [jobId], references: [id], onDelete: Cascade) /// Loads the job being pursued.
+  status          ApplicationStatus      @default(NOT_STARTED) /// Current user-controlled stage in the fixed funnel.
+  appliedAt       DateTime? /// When the application was submitted; first APPLIED transition can populate it.
+  targetApplyBy   DateTime? /// Optional personal deadline for submitting the application.
+  nextAction      String? /// Concrete next step such as preparing an assessment.
+  nextActionDueAt DateTime? /// Optional deadline for the concrete next action.
+  portalUrl       String? /// Employer portal URL used to revisit the submitted application.
+  referenceCode   String? /// Employer-provided application or reference identifier.
+  notes           String? /// Notes specific to the application process.
+  closedAt        DateTime? /// When the application entered a terminal outcome.
+  milestones      ApplicationMilestone[] /// Flexible company-specific steps inside the fixed main funnel.
+  events          ApplicationEvent[] /// Private status-transition history.
+  createdAt       DateTime               @default(now()) /// When tracking first began for the job.
+  updatedAt       DateTime               @updatedAt /// Optimistic-concurrency value for planning edits.
 
-  // Retrieves one job's complete timeline in order.
-  @@index([canonicalJobId, createdAt])
+  @@unique([groupMemberId, jobId])
+  @@index([jobId])
+  @@index([groupMemberId, status, updatedAt])
+  @@index([groupMemberId, nextActionDueAt])
 }
 
-/// One idempotent, retryable attempt to process a batch stage.
+/// One flexible screening, assessment, interview, follow-up, or custom step.
+model ApplicationMilestone {
+  id            String                     @id @default(cuid()) /// Internal identifier used for later edits.
+  applicationId String /// Connects the milestone to its member-owned application.
+  application   Application                @relation(fields: [applicationId], references: [id], onDelete: Cascade) /// Loads the private parent application.
+  type          ApplicationMilestoneType /// Broad filterable category while title carries company-specific wording.
+  title         String /// Human label such as Technical Round 2.
+  status        ApplicationMilestoneStatus @default(PLANNED) /// Planned, completed, or cancelled without silent deletion.
+  scheduledAt   DateTime? /// When the milestone is expected to happen.
+  completedAt   DateTime? /// Set when completed and cleared when reopened.
+  notes         String? /// Preparation notes or the result of this step.
+  createdAt     DateTime                   @default(now()) /// When the milestone was recorded.
+  updatedAt     DateTime                   @updatedAt /// When its schedule, status, or notes last changed.
+
+  @@index([applicationId, scheduledAt])
+}
+
+/// One user-recorded application or response update for a job.
+model ApplicationEvent {
+  id             String             @id @default(cuid()) /// Internal identifier for the history entry.
+  applicationId  String /// Identifies the member-owned application that changed.
+  application    Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade) /// Loads the private application.
+  eventType      String /// Stable key such as applied, assessment, interview, offer, or rejected.
+  previousStatus ApplicationStatus? /// Main-funnel status before this event, when the event is a transition.
+  newStatus      ApplicationStatus? /// Main-funnel status after this event, when the event is a transition.
+  notes          String? /// Optional human context for this update.
+  eventAt        DateTime           @default(now()) /// Date and time at which the update happened.
+  createdAt      DateTime           @default(now()) /// Date and time at which the update was stored.
+
+  // Retrieves one job's application history in chronological order.
+  @@index([applicationId, eventAt])
+}
+
+/// One idempotent, retryable attempt to process a batch step.
 model ProcessingRun {
-  id             String           @id @default(cuid()) /// Internal primary key for this attempt.
-  batchId        String /// Foreign key for the batch being processed.
-  batch          ImportBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade) /// Loads the owning batch.
-  idempotencyKey String           @unique /// Prevents the same requested operation from running twice.
-  status         ProcessingStatus @default(QUEUED) /// Current worker lifecycle state.
-  stage          String /// Pipeline stage such as validation, deduplication, or scoring.
-  attempt        Int              @default(0) /// Retry number used by backoff and operational review.
-  errorCode      String? /// Machine-readable failure category for retry policy.
-  errorMessage   String? /// Human-readable failure detail for troubleshooting.
-  startedAt      DateTime? /// Timestamp when a worker began this attempt.
-  heartbeatAt    DateTime? /// Recent worker signal used to detect abandoned runs.
-  completedAt    DateTime? /// Timestamp when the attempt reached success or failure.
-  createdAt      DateTime         @default(now()) /// Timestamp when the run was queued.
+  id                   String             @id @default(cuid()) /// Internal identifier for this processing attempt.
+  batchId              String /// Identifies the batch being processed.
+  batch                Batch              @relation(fields: [batchId], references: [id], onDelete: Cascade) /// Loads the owning batch.
+  idempotencyKey       String             @unique /// Prevents one requested operation from running twice.
+  status               ProcessingStatus   @default(QUEUED) /// Current worker lifecycle state.
+  stage                String /// Step such as validation, deduplication, scoring, or email.
+  phase                String             @default("QUEUED") /// Fine-grained user-visible progress within the stage.
+  attempt              Int                @default(0) /// Retry number used by the worker.
+  retryable            Boolean? /// Whether the recorded failure is safe to retry without changing inputs.
+  trigger              String             @default("USER") /// USER, MANUAL_RETRY, AUTO_RETRY, or WORKER.
+  retryOfRunId         String? /// Failed or stale run replaced by this run.
+  retryOfRun           ProcessingRun?     @relation("ProcessingRunRetries", fields: [retryOfRunId], references: [id], onDelete: SetNull)
+  retries              ProcessingRun[]    @relation("ProcessingRunRetries")
+  profileVersionId     String? /// Pins normalization and ranking to one immutable profile.
+  profileVersion       ProfileVersion?    @relation(fields: [profileVersionId], references: [id], onDelete: Restrict) /// Loads the pinned profile when the stage requires one.
+  modelVersionId       String? /// Pins ranking to one immutable model registry entry.
+  modelVersion         ModelVersion?      @relation(fields: [modelVersionId], references: [id], onDelete: Restrict) /// Loads the pinned model when the stage is ranking.
+  featureSchemaVersion String? /// Pins the exact prepared-row contract consumed by the run.
+  leaseToken           String? /// Secret worker ownership proof; never returned by user-facing endpoints.
+  leaseExpiresAt       DateTime? /// Time after which another worker may reclaim an abandoned run.
+  nextAttemptAt        DateTime? /// Earliest time at which an outbound dispatcher may retry the run.
+  heartbeatAt          DateTime? /// Most recent proof that the owning worker is still alive.
+  errorCode            String? /// Stable machine-readable failure category used by retry and support flows.
+  errorMessage         String? /// Most recent failure detail needed for troubleshooting.
+  startedAt            DateTime? /// Records when processing began.
+  completedAt          DateTime? /// Records when processing reached success or failure.
+  createdAt            DateTime           @default(now()) /// Records when the run was queued.
+  predictions          JobPrediction[] /// Results produced by this exact ranking attempt.
+  invocations          ModelInvocation[] /// Raw model attempts made while executing this run.
+  emailDeliveries      EmailDelivery[] /// Legacy batch-specific digests retained during transition.
+  emailCampaignRuns    EmailCampaignRun[] /// Daily campaigns whose top-ten selection used this successful run.
 
-  // Supports batch-specific worker and operations views.
+  // Supports batch-specific processing status views.
   @@index([batchId, status])
+  @@index([retryOfRunId])
+  // Finds claimable ranking work and expired leases without scanning run history.
+  @@index([stage, status, nextAttemptAt, leaseExpiresAt, createdAt])
 }
 
-/// One durable attempt to send a digest for a processed batch.
-model EmailDelivery {
-  id              String      @id @default(cuid()) /// Internal primary key for this delivery record.
-  batchId         String /// Foreign key for the batch summarized by the email.
-  batch           ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade) /// Loads the batch and its shortlist.
-  digestType      String /// Stable digest variant such as daily_top_10.
-  recipient       String /// Destination address used for this immutable delivery record.
-  status          EmailStatus @default(PENDING) /// Current provider-delivery state.
-  attempts        Int         @default(0) /// Number of send attempts used by retry policy.
-  gmailMessageId  String? /// Provider id used for traceability and duplicate prevention.
-  payloadSnapshot Json /// Exact subject and body data used for this send.
-  lastError       String? /// Most recent provider or transport error.
-  sentAt          DateTime? /// Timestamp when the provider accepted the email.
-  createdAt       DateTime    @default(now()) /// Timestamp when delivery was first queued.
+/// One auditable model call. Raw inputs remain in PreparedJob; only their hash is duplicated.
+model ModelInvocation {
+  id                      String        @id @default(cuid())
+  processingRunId         String
+  processingRun           ProcessingRun @relation(fields: [processingRunId], references: [id], onDelete: Cascade)
+  modelVersionId          String
+  modelVersion            ModelVersion  @relation(fields: [modelVersionId], references: [id], onDelete: Restrict)
+  attempt                 Int
+  status                  String
+  requestContractVersion  String
+  responseContractVersion String
+  featureSchemaVersion    String
+  artifactHash            String
+  inputHash               String
+  inputCount              Int
+  outputCount             Int           @default(0)
+  rawResponse             Json?
+  coldStart               Boolean?
+  timingsMs               Json?
+  errorCode               String?
+  errorMessage            String?
+  startedAt               DateTime      @default(now())
+  completedAt             DateTime?
 
-  // Ensures one recipient does not receive the same batch digest twice.
-  @@unique([batchId, digestType, recipient])
+  @@unique([processingRunId, attempt])
+  @@index([modelVersionId, startedAt])
+}
+
+/// The owner-controlled newsletter settings. Application code always uses id "default".
+model EmailConfiguration {
+  id               String           @id @default("default") /// Fixed singleton key used for transactional recipient limits.
+  enabled          Boolean          @default(false) /// Master switch for automatic and manual newsletter sending.
+  senderName       String           @default("JEDI Daily Dispatch") /// Display name used in From headers.
+  sendAfterRanking Boolean          @default(true) /// Allows immediate sending after the daily cutoff.
+  recipients       EmailRecipient[] /// Addresses governed by the 50-active-recipient limit.
+  createdAt        DateTime         @default(now()) /// Records initial configuration creation.
+  updatedAt        DateTime         @updatedAt /// Records owner changes to newsletter behavior.
+}
+
+/// One configurable newsletter recipient; deletion is soft to preserve history.
+model EmailRecipient {
+  id              String             @id @default(cuid()) /// Internal identifier used by delivery history.
+  configurationId String             @default("default") /// Links recipient mutations to the lockable singleton row.
+  configuration   EmailConfiguration @relation(fields: [configurationId], references: [id], onDelete: Restrict) /// Loads newsletter settings.
+  email           String /// Current display form of the destination address.
+  emailNormalized String             @unique /// Lowercase canonical key used for replay and uniqueness.
+  displayName     String? /// Optional friendly recipient name.
+  groupMemberId   String?            @unique /// Links onboarded recipients to the member profile used for personalization; null only for preserved legacy rows.
+  groupMember     GroupMember?       @relation(fields: [groupMemberId], references: [id], onDelete: SetNull) /// Loads the member and their current onboarding profile.
+  active          Boolean            @default(true) /// Controls inclusion in future campaigns.
+  deletedAt       DateTime? /// Soft-deletion marker; historical deliveries remain intact.
+  deliveries      EmailDelivery[] /// Per-campaign delivery records for this recipient.
+  createdAt       DateTime           @default(now()) /// Records first addition to the list.
+  updatedAt       DateTime           @updatedAt /// Records edits, disablement, or reactivation.
+
+  @@index([active, deletedAt])
+}
+
+/// One dated top-ten newsletter and its immutable send-time snapshot.
+model EmailCampaign {
+  id               String              @id @default(cuid()) /// Internal identifier used by history and retries.
+  campaignDate     DateTime            @db.Date /// Asia/Kolkata calendar date represented by the newsletter.
+  digestType       String              @default("DAILY_TOP_10") /// Allows future digest formats without mixing history.
+  status           EmailCampaignStatus @default(WAITING_FOR_RANKINGS) /// Aggregate delivery state.
+  scheduledAt      DateTime /// UTC instant corresponding to the day's 09:00 IST delivery window.
+  templateVersion  String              @default("daily-top-10-v1") /// Rendering contract used for the stored body.
+  payloadSnapshot  Json? /// Exact subject, HTML, text, and selected job provenance.
+  selectedJobCount Int                 @default(0) /// Number of ranked jobs captured, up to ten.
+  recipientCount   Int                 @default(0) /// Recipient snapshot size when deliveries were queued.
+  sentCount        Int                 @default(0) /// Provider-accepted delivery count.
+  failedCount      Int                 @default(0) /// Failed delivery count for the current campaign state.
+  cancelledCount   Int                 @default(0) /// Deliveries cancelled before SMTP because a recipient was disabled.
+  failureReason    String? /// Stable aggregate reason such as NO_RANKINGS or EMAIL_DISABLED.
+  lastReconciledAt DateTime? /// Most recent cron or manual audit pass.
+  queuedAt         DateTime? /// Time recipient delivery rows were created.
+  sentAt           DateTime? /// Time all eligible recipients reached SENT.
+  completedAt      DateTime? /// Time the campaign reached a terminal aggregate state.
+  runs             EmailCampaignRun[] /// Successful ranking runs used by the top-ten snapshot.
+  deliveries       EmailDelivery[] /// Independent recipient sends for this campaign.
+  createdAt        DateTime            @default(now()) /// Records first campaign creation.
+  updatedAt        DateTime            @updatedAt /// Records snapshot and aggregate status changes.
+
+  @@unique([campaignDate, digestType])
+  @@index([status, scheduledAt])
+}
+
+/// Join table preserving every ranking run used to construct a campaign.
+model EmailCampaignRun {
+  campaignId      String /// Identifies the dated campaign.
+  campaign        EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade) /// Loads campaign history.
+  processingRunId String /// Identifies one successful ranking execution used by the campaign.
+  processingRun   ProcessingRun @relation(fields: [processingRunId], references: [id], onDelete: Restrict) /// Loads immutable ranking provenance.
+  addedAt         DateTime      @default(now()) /// Records when reconciliation selected the run.
+
+  @@id([campaignId, processingRunId])
+  @@index([processingRunId])
+}
+
+/// One independently retryable recipient send within a daily campaign.
+model EmailDelivery {
+  id                   String          @id @default(cuid()) /// Internal identifier for this delivery record.
+  campaignId           String? /// Identifies the daily newsletter; nullable only for legacy batch delivery compatibility.
+  campaign             EmailCampaign?  @relation(fields: [campaignId], references: [id], onDelete: Cascade) /// Loads aggregate campaign state.
+  recipientId          String? /// Identifies the configured recipient; nullable only for legacy deliveries.
+  recipientRecord      EmailRecipient? @relation(fields: [recipientId], references: [id], onDelete: Restrict) /// Loads current recipient configuration.
+  recipient            String /// Send-time destination snapshot retained after edits or deletion.
+  recipientDisplayName String? /// Send-time friendly-name snapshot.
+  groupMemberId        String? /// Identifies the member whose profile personalizes this event; nullable only for preserved legacy rows.
+  groupMember          GroupMember?    @relation(fields: [groupMemberId], references: [id], onDelete: Restrict) /// Loads the personalized event owner.
+  batchId              String? /// Legacy batch provenance retained for compatibility routes.
+  batch                Batch?          @relation(fields: [batchId], references: [id], onDelete: Cascade) /// Loads legacy summarized batch when present.
+  rankingRunId         String? /// Legacy single-run provenance; campaigns use EmailCampaignRun instead.
+  rankingRun           ProcessingRun?  @relation(fields: [rankingRunId], references: [id], onDelete: Restrict) /// Loads legacy ranking provenance when present.
+  templateVersion      String /// Identifies the HTML and text rendering contract.
+  messageId            String          @unique /// Stable RFC Message-ID reused across retries.
+  status               EmailStatus     @default(UNTOUCHED) /// Current provider-delivery state.
+  attempts             Int             @default(0) /// Total send attempts across every manual retry cycle.
+  retryCycle           Int             @default(0) /// Increments when the owner explicitly restarts failed delivery.
+  retryCycleAttempts   Int             @default(0) /// Automatic attempts consumed in the current cycle.
+  providerMessageId    String? /// Provider identifier used to trace a successful send.
+  payloadSnapshot      Json? /// Exact subject and body; null until an untouched event is first rendered.
+  profileContentHash   String? /// Pins the member-profile content used to produce the stored payload.
+  personalizedJobs     Json? /// Immutable ordered top-ten job and score snapshot used by the email.
+  lastError            String? /// Most recent provider or transport error.
+  errorCode            String? /// Stable machine-readable delivery failure category.
+  leaseToken           String? /// Secret proof owned by the sender currently attempting delivery.
+  leaseExpiresAt       DateTime? /// Allows a later invocation to reclaim an abandoned send.
+  nextAttemptAt        DateTime? /// Earliest time at which the cron may retry this delivery.
+  sentAt               DateTime? /// Records when the provider accepted the email.
+  createdAt            DateTime        @default(now()) /// Records when delivery was first queued.
+  updatedAt            DateTime        @updatedAt /// Records snapshot, retry, and delivery state changes.
+
+  // Retains idempotency for the legacy batch-specific sender.
+  @@unique([batchId, recipient])
+  // Ensures one configured address is represented once in a daily campaign.
+  @@unique([campaignId, recipientId])
+  // Makes event creation idempotent for one recipient and one exact ranking run.
+  @@unique([batchId, rankingRunId, recipientId])
+  @@index([status, nextAttemptAt, createdAt])
+  @@index([campaignId, status])
 }

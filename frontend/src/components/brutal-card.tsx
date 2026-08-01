@@ -9,7 +9,7 @@ export function BrutalCard({
   return (
     <div
       className={cn(
-        "rounded-[4px] border-2 border-foreground bg-card p-5 shadow-[5px_5px_0_0_var(--foreground)]",
+        "rounded-xl border border-border bg-card p-5",
         className,
       )}
       {...props}

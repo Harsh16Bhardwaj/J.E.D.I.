@@ -8,23 +8,22 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "JEDI Job Command Center",
+    default: "JEDI : Job Evaluation & Delivery Intelligence ",
     template: "%s · JEDI",
   },
-  description: "Private daily job ranking and application operations.",
+  description:
+    "An invite-only daily job feed and model-ranked opportunity leaderboard.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="dark">
       <body>
         <TooltipProvider>
           <AppShell>{children}</AppShell>
-          <Toaster />
+          <Toaster richColors closeButton />
         </TooltipProvider>
       </body>
     </html>

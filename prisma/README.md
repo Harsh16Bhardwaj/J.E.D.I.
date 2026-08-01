@@ -1,63 +1,69 @@
 # Database schema in plain English
 
-The schema separates raw evidence, durable jobs, predictions, and user actions.
-That separation prevents a new source import or model version from overwriting
-history.
+Prisma owns the PostgreSQL schema and migrations. FastAPI accesses the resulting
+tables through the matching SQLAlchemy models in `backend/database.py`; the
+frontend never connects to PostgreSQL directly.
 
-## Core flow
+## Core data flow
 
 ```text
-SourceDefinition
-      │
-      ▼
-ImportBatch ──► JobObservation
-                     │
-                     ▼
-                CanonicalJob
-                  │      │
-                  │      └──► JobState ──► JobEvent
-                  │
-                  └──► JobPrediction
-                         ▲       ▲
-                         │       │
-                 ProfileVersion  ModelVersion
+User -> GroupMember
+          |
+          +-> private JobState / JobAnnotation / Application
+          |                                  |
+JSON -> Batch -> shared Job -> PreparedJob   +-> events / milestones
+                           |          |
+                           +----------+-> owner-approved TrainingExample
+                           |
+                           +-> shared JobPrediction
 ```
 
-## What each model represents
+## Main models
 
-| Model | Meaning |
+| Model | Purpose |
 | --- | --- |
-| `SourceDefinition` | One approved job source and its allowed domains |
-| `ImportBatch` | One JSON discovery envelope for a time window |
-| `JobObservation` | One raw sighting of a job on one source |
-| `DedupEvaluation` | The rule-by-rule comparison used to detect duplicates |
-| `CanonicalJob` | The durable job produced after observations are merged |
-| `ProfileVersion` | An immutable resume and preference snapshot |
-| `ModelVersion` | An immutable registered model bundle |
-| `JobPrediction` | A versioned ranking result for one job in one batch |
-| `JobState` | The current personal label and application status |
-| `JobEvent` | Append-only history of changes to a job |
-| `ProcessingRun` | A retryable attempt to execute one pipeline stage |
-| `EmailDelivery` | A durable top-job digest delivery attempt |
+| `User` | One invited account with an email and Argon2 password hash |
+| `GroupMember` | The identity used to own one member's private job activity |
+| `Batch` | One uploaded JSON envelope plus validation/dedupe counts |
+| `Job` | One unique retained job owned by its first batch |
+| `ProfileVersion` | Versioned resume and explicit preferences |
+| `PreparedJob` | Versioned `prepared-job-v1` inference payload |
+| `JobAnnotation` | One member's binary target and nine manual fit labels |
+| `TrainingExample` | Owner-approved prepared payload plus label provenance |
+| `ModelVersion` | Versioned ranking artifact manifest |
+| `JobPrediction` | Real model score, probability, components, and rank |
+| `JobState` | One member's viewed timestamp, relevance and review state |
+| `Application` | One member's private application plan and current stage |
+| `ApplicationEvent` | Append-only status history belonging to that application |
+| `ApplicationMilestone` | Private screening, assessment and interview rounds |
+| `ProcessingRun` | Idempotent normalization/ranking attempt |
 
-## Why both observations and canonical jobs exist
+Every schema field has an inline explanation beside it.
 
-The same real job can appear on LinkedIn, a company careers page, and another
-job board. Each appearance remains a `JobObservation`, while deduplication links
-them to one `CanonicalJob`. This preserves source evidence without showing the
-same opportunity repeatedly.
+## Deliberate boundaries
 
-## Why predictions are separate
+- There is no source registry or scraper state.
+- There is no duplicate review queue.
+- A `Job` belongs to the batch that first introduced it.
+- Batches, jobs, prepared features and predictions are shared by the v1 group.
+- Viewed state, annotations, applications, events and milestones are keyed by
+  `GroupMember`, so one member's activity never changes another member's queue.
+- The group owner alone promotes personal annotations into shared training data.
+- Duplicate candidates are fetched by indexed `companyKey` or canonical URL.
+- `PreparedJob` contains only job/profile-derived inference inputs.
+- Annotation labels never enter a prepared inference payload.
+- Re-adding a job to training updates the same job/schema snapshot.
+- Ranking requests store a pending run; they do not create fake predictions.
 
-Predictions depend on a batch, profile version, preference model, and semantic
-model. Storing those references with every result makes old rankings
-reproducible and allows a model rollback without rewriting job data.
+## Migration safety
 
-## Why state and events are separate
+Formatting and validation do not contact PostgreSQL:
 
-`JobState` makes the current dashboard fast to read. `JobEvent` retains the
-history needed for audits and future preference learning.
+```powershell
+npm run db:format
+npm run db:validate
+```
 
-The inline trailing `///` text in `schema.prisma` is official Prisma
-documentation-comment syntax. Prisma attaches it to the corresponding field or
-enum value for tooling.
+Do not create or execute a migration until `.env` contains an approved
+development PostgreSQL URL. Production uses `prisma migrate deploy`, never
+`prisma db push`.

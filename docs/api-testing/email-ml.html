@@ -1,0 +1,57 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Email and ML Boundary | JEDI API</title><link rel="stylesheet" href="styles.css"></head><body><div class="shell">
+<aside><div class="brand">JEDI // API</div><nav>
+<a href="index.html">Start here</a><a href="service-auth.html">Service + auth</a><a href="profiles-models.html">Profiles + models</a><a href="batches.html">Batches</a><a href="review-training.html">Review + training</a><a href="jobs-applications.html">Jobs + applications</a><a href="ranking-workers.html">Ranking + workers</a><a href="email-ml.html">Email + ML boundary</a>
+</nav></aside><main><div class="eyebrow">Page 7</div><h1>Email and ML boundary</h1><p class="lede">Email is configuration-driven. Stored rankings survive SMTP failure. Normalization works now; embeddings and scoring intentionally do not.</p>
+
+<div class="notice"><strong>Email setup:</strong> set EMAIL_ENABLED=true, Gmail SMTP user, Gmail app password, DIGEST_TO_EMAIL, EMAIL_FROM_NAME and a 32+ character CRON_SECRET in the ignored <code>.env</code>, then restart the API. Never paste those secrets into request bodies.</div>
+<article class="endpoint" data-route="GET /api/email/settings"><h3><span class="method get">GET</span>/api/email/settings</h3><p>Inspect safe newsletter configuration and recipient capacity.</p><pre>http://localhost:8000/api/email/settings</pre><dl><dt>Expect</dt><dd><code>200</code> with enabled, senderName, sendAfterRanking, transportConfigured and activeRecipientCount. SMTP credentials are never returned.</dd><dt>Failure</dt><dd>Without a session cookie expect <code>401</code>.</dd></dl></article>
+<article class="endpoint" data-route="PATCH /api/email/settings"><h3><span class="method patch">PATCH</span>/api/email/settings</h3><p>Update newsletter behavior without placing secrets in the database.</p><pre>http://localhost:8000/api/email/settings</pre><pre>{ "enabled": true, "senderName": "JEDI Daily Dispatch", "sendAfterRanking": true }</pre><dl><dt>Expect</dt><dd><code>200</code> updated settings.</dd><dt>Failure</dt><dd>Enabling without complete SMTP environment settings returns <code>409</code>; empty JSON returns <code>422</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/email/recipients"><h3><span class="method get">GET</span>/api/email/recipients</h3><p>List newsletter recipients.</p><pre>http://localhost:8000/api/email/recipients?active=true&amp;includeDeleted=false</pre><dl><dt>Expect</dt><dd><code>200</code> array. Copy a recipient ID.</dd><dt>Failure</dt><dd>Invalid Boolean query values return <code>422</code>.</dd></dl></article>
+<article class="endpoint" data-route="POST /api/email/recipients"><h3><span class="method">POST</span>/api/email/recipients</h3><p>Add, replay or reactivate one normalized recipient.</p><pre>http://localhost:8000/api/email/recipients</pre><pre>{ "email": "friend@example.com", "displayName": "Friend" }</pre><dl><dt>Expect</dt><dd><code>201</code> for a new row; an identical replay is idempotent.</dd><dt>Failure</dt><dd>Invalid email returns <code>422</code>; the 51st active recipient returns <code>409</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/email/recipients/{recipient_id}"><h3><span class="method get">GET</span>/api/email/recipients/PASTE_RECIPIENT_ID_HERE</h3><p>Inspect one safe recipient record.</p><pre>http://localhost:8000/api/email/recipients/PASTE_RECIPIENT_ID_HERE</pre><dl><dt>Expect</dt><dd><code>200</code> with active/deleted timestamps.</dd><dt>Failure</dt><dd>Unknown ID returns <code>404</code>.</dd></dl></article>
+<article class="endpoint" data-route="PATCH /api/email/recipients/{recipient_id}"><h3><span class="method patch">PATCH</span>/api/email/recipients/PASTE_RECIPIENT_ID_HERE</h3><p>Edit, disable or reactivate a recipient.</p><pre>http://localhost:8000/api/email/recipients/PASTE_RECIPIENT_ID_HERE</pre><pre>{ "displayName": "Updated Name", "active": false }</pre><dl><dt>Expect</dt><dd><code>200</code> updated row.</dd><dt>Failure</dt><dd>Empty JSON or null active/email returns <code>422</code>.</dd></dl></article>
+<article class="endpoint" data-route="DELETE /api/email/recipients/{recipient_id}"><h3><span class="method delete">DELETE</span>/api/email/recipients/PASTE_RECIPIENT_ID_HERE</h3><p>Soft-delete a recipient from future sends while preserving delivery history.</p><pre>http://localhost:8000/api/email/recipients/PASTE_RECIPIENT_ID_HERE</pre><dl><dt>Expect</dt><dd><code>204</code> with no body.</dd><dt>Failure</dt><dd>Unknown ID returns <code>404</code>.</dd></dl></article>
+<article class="endpoint" data-route="POST /api/batches/{batch_id}/email-digest"><h3><span class="method">POST</span>/api/batches/PASTE_BATCH_ID_HERE/email-digest</h3><p>Manually queue or retry the latest successful batch digest.</p><pre>http://localhost:8000/api/batches/PASTE_BATCH_ID_HERE/email-digest</pre><dl><dt>Auth</dt><dd>User cookie</dd><dt>Body</dt><dd>None</dd><dt>Expect</dt><dd><code>200</code>. With email disabled, delivery is null; when enabled, inspect status and attempts.</dd><dt>Failure</dt><dd>An unranked batch returns <code>409</code>. A SENT digest is not sent again.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/batches/{batch_id}/email-deliveries"><h3><span class="method get">GET</span>/api/batches/PASTE_BATCH_ID_HERE/email-deliveries</h3><p>Inspect safe delivery status without recipient or message bodies.</p><pre>http://localhost:8000/api/batches/PASTE_BATCH_ID_HERE/email-deliveries</pre><dl><dt>Auth</dt><dd>User cookie</dd><dt>Expect</dt><dd><code>200</code> history with PENDING, SENDING, SENT or FAILED status.</dd><dt>Check</dt><dd>SMTP failure must leave the batch RANKED and store a bounded safe error.</dd><dt>Failure</dt><dd>Unknown batch ID returns <code>404</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /internal/email-deliveries/run"><h3><span class="method get">GET</span>/internal/email-deliveries/run</h3><p>Process the oldest due delivery; this is the Vercel cron target.</p><pre>http://localhost:8000/internal/email-deliveries/run</pre><pre>Authorization: Bearer YOUR_CRON_SECRET</pre><dl><dt>Expect</dt><dd><code>200</code> with status processed or empty.</dd><dt>Failure</dt><dd>Missing/wrong Bearer secret returns <code>401</code>.</dd><dt>Caveat</dt><dd>At most three attempts; database leasing handles duplicate cron invocations.</dd></dl></article>
+
+<article class="endpoint" data-route="POST /v1/normalize"><h3><span class="method">POST</span>/v1/normalize</h3><p>Run the pure feature transformation directly. Nested keys are snake_case.</p><pre>http://localhost:8000/v1/normalize</pre><pre>{
+  "job": {
+    "id": "PASTE_JOB_ID_HERE",
+    "code": "ACME-BACKEND-001",
+    "company_name": "Acme",
+    "company_key": "acme",
+    "role_title": "Backend Engineer",
+    "description": "Build Python FastAPI services.",
+    "skills": ["python", "fastapi"],
+    "location": "Remote",
+    "work_mode": "remote",
+    "employment_type": "full-time"
+  },
+  "profile": {
+    "resume_text": "Python backend engineer",
+    "preferred_titles": ["Backend Engineer"],
+    "preferred_locations": ["Remote"],
+    "preferred_skills": ["Python", "FastAPI"]
+  }
+}</pre><dl><dt>Auth</dt><dd>User cookie</dd><dt>Expect</dt><dd><code>200</code> PreparedJobV1 including overlaps and range matches.</dd><dt>Failure</dt><dd>Remove a required nested field and expect <code>422</code> with missing field details.</dd></dl></article>
+<article class="endpoint" data-route="POST /v1/embed"><h3><span class="method">POST</span>/v1/embed</h3><p>Validate the future embedding contract.</p><pre>http://localhost:8000/v1/embed</pre><pre>{
+  "texts": ["Python FastAPI backend engineering role."],
+  "model_version": null
+}</pre><dl><dt>Auth</dt><dd>None currently</dd><dt>Expect</dt><dd><code>501</code>, status not_implemented.</dd><dt>Failure</dt><dd>Empty texts returns <code>422</code> before the placeholder response.</dd><dt>Caveat</dt><dd>Do not interpret this as a working embedding service.</dd></dl></article>
+<article class="endpoint" data-route="POST /v1/score"><h3><span class="method">POST</span>/v1/score</h3><p>Validate the future scoring contract.</p><pre>http://localhost:8000/v1/score</pre><pre>{
+  "batch_id": "PASTE_BATCH_ID_HERE",
+  "profile_version_id": "PASTE_PROFILE_ID_HERE",
+  "candidates": [{
+    "canonical_job_id": "PASTE_JOB_ID_HERE",
+    "feature_snapshot": {},
+    "description": "Python FastAPI backend engineering role."
+  }]
+}</pre><dl><dt>Auth</dt><dd>None currently</dd><dt>Expect</dt><dd><code>501</code>, status not_implemented.</dd><dt>Failure</dt><dd>Empty candidates returns <code>422</code>.</dd><dt>Caveat</dt><dd>Use the manual rankings endpoint to test persisted rankings today.</dd></dl></article>
+
+<h2>Vercel equivalents</h2><pre>Local:      http://localhost:8000/api/batches
+Production: https://YOUR-PROJECT.vercel.app/svc/ml/api/batches
+Cron:       https://YOUR-PROJECT.vercel.app/svc/ml/internal/email-deliveries/run</pre>
+<div class="next"><a href="ranking-workers.html">← Ranking + workers</a><a href="index.html">Return to start →</a></div>
+</main></div><script src="manual.js"></script></body></html>

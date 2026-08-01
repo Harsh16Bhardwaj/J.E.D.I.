@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Jobs and Applications | JEDI API</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body><div class="shell">
+<aside><div class="brand">JEDI // API</div><nav>
+<a href="index.html">Start here</a><a href="service-auth.html">Service + auth</a><a href="profiles-models.html">Profiles + models</a><a href="batches.html">Batches</a><a href="review-training.html">Review + training</a><a href="jobs-applications.html">Jobs + applications</a><a href="ranking-workers.html">Ranking + workers</a><a href="email-ml.html">Email + ML boundary</a>
+</nav></aside><main>
+<div class="eyebrow">Page 5</div><h1>Private review and applications</h1>
+<p class="lede">Jobs and rankings are shared. Every response below resolves state, annotations, applications, events and milestones only for the signed-in group member.</p>
+<div class="notice"><strong>Best isolation test:</strong> sign in as member A, view and apply to one job, then sign in as member B in another browser profile. Member B must see the same job and rank, but NEW, NOT_STARTED, no notes and an empty timeline.</div>
+
+<article class="endpoint" data-route="GET /api/jobs">
+  <h3><span class="method get">GET</span>/api/jobs</h3><p>Search the shared catalog with private workflow filters.</p>
+  <pre>http://localhost:8000/api/jobs?search=Backend&amp;batchId=PASTE_BATCH_ID_HERE&amp;relevanceLabel=STRONG_APPLY&amp;reviewStatus=NEW&amp;applicationStatus=NOT_STARTED&amp;annotation=incomplete&amp;sort=score&amp;page=1&amp;pageSize=50</pre>
+  <dl><dt>Enums</dt><dd>Review: NEW, VIEWED, SAVED, DISMISSED. Application: NOT_STARTED, PREPARING, APPLIED, SCREENING, ASSESSMENT, INTERVIEW, OFFER, ACCEPTED, REJECTED, WITHDRAWN. Annotation: all, complete, incomplete. Sort: recent, score.</dd><dt>Expect</dt><dd><code>200</code> with items, page, pageSize and total. Each item contains this member's state plus the latest successful shared prediction.</dd><dt>Failure</dt><dd>Invalid enum or pageSize above 100 returns <code>422</code>.</dd></dl>
+</article>
+
+<article class="endpoint" data-route="GET /api/jobs/{job_id}">
+  <h3><span class="method get">GET</span>/api/jobs/PASTE_JOB_ID_HERE</h3><p>Combine shared job/ranking evidence with the current member's private activity.</p>
+  <pre>http://localhost:8000/api/jobs/PASTE_JOB_ID_HERE</pre>
+  <dl><dt>Expect</dt><dd><code>200</code> with job, batch, state, annotation, application, milestones, predictions and events.</dd><dt>Copy</dt><dd>Keep application.updatedAt for optimistic planning updates and a milestone ID for later editing.</dd><dt>Failure</dt><dd>Unknown ID returns <code>404</code>.</dd></dl>
+</article>
+
+<article class="endpoint" data-route="POST /api/jobs/{job_id}/view">
+  <h3><span class="method">POST</span>/api/jobs/PASTE_JOB_ID_HERE/view</h3><p>Idempotently record that the current member opened the job.</p>
+  <pre>http://localhost:8000/api/jobs/PASTE_JOB_ID_HERE/view</pre>
+  <dl><dt>Body</dt><dd>No JSON body.</dd><dt>Expect</dt><dd><code>200</code>, reviewStatus VIEWED and viewedAt set. Repeating the call preserves the original timestamp and does not overwrite SAVED or DISMISSED.</dd><dt>Failure</dt><dd>Unknown job returns <code>404</code>.</dd></dl>
+</article>
+
+<article class="endpoint" data-route="PATCH /api/jobs/{job_id}/state">
+  <h3><span class="method patch">PATCH</span>/api/jobs/PASTE_JOB_ID_HERE/state</h3><p>Update only this member's review state and notes.</p>
+  <pre>http://localhost:8000/api/jobs/PASTE_JOB_ID_HERE/state</pre><pre>{
+  "relevanceLabel": "STRONG_APPLY",
+  "reviewStatus": "SAVED",
+  "notes": "Use the backend-focused resume."
+}</pre>
+  <dl><dt>Expect</dt><dd><code>200</code>; applicationStatus is computed from this member's separate Application row.</dd><dt>Failure</dt><dd>Empty JSON or null reviewStatus returns <code>422</code>.</dd></dl>
+</article>
+
+<article class="endpoint" data-route="GET /api/jobs/{job_id}/application">
+  <h3><span class="method get">GET</span>/api/jobs/PASTE_JOB_ID_HERE/application</h3><p>Read this member's application plan.</p><pre>http://localhost:8000/api/jobs/PASTE_JOB_ID_HERE/application</pre>
+  <dl><dt>Expect</dt><dd><code>200</code>. When no row exists, it serializes as NOT_STARTED with null planning fields.</dd><dt>Failure</dt><dd>Unknown job returns <code>404</code>.</dd></dl>
+</article>
+
+<article class="endpoint" data-route="PATCH /api/jobs/{job_id}/application">
+  <h3><span class="method patch">PATCH</span>/api/jobs/PASTE_JOB_ID_HERE/application</h3><p>Edit planning fields without silently changing the funnel stage.</p>
+  <pre>http://localhost:8000/api/jobs/PASTE_JOB_ID_HERE/application</pre><pre>{
+  "targetApplyBy": "2026-08-02T18:00:00Z",
+  "nextAction": "Tailor backend resume",
+  "nextActionDueAt": "2026-08-01T12:00:00Z",
+  "portalUrl": "https://company.example/jobs/123",
+  "referenceCode": "APP-123",
+  "notes": "Emphasize FastAPI and PostgreSQL.",
+  "expectedUpdatedAt": "PASTE_CURRENT_UPDATED_AT_HERE"
+}</pre>
+  <dl><dt>Expect</dt><dd><code>200</code> with a new updatedAt.</dd><dt>Failure</dt><dd>A due date without nextAction returns <code>422</code>; a stale expectedUpdatedAt returns <code>409</code>.</dd></dl>
+</article>
+
+<article class="endpoint" data-route="GET /api/applications">
+  <h3><span class="method get">GET</span>/api/applications</h3><p>List only the signed-in member's application board.</p>
+  <pre>http://localhost:8000/api/applications?search=Backend&amp;applicationStatus=APPLIED&amp;due=week&amp;sort=nextAction&amp;page=1&amp;pageSize=50</pre>
+  <dl><dt>Filters</dt><dd>due: all, overdue, today, week, none. sort: updated, nextAction.</dd><dt>Default</dt><dd>Without applicationStatus, NOT_STARTED jobs are excluded.</dd><dt>Expect</dt><dd><code>200</code> with items, statusCounts and overdueCount.</dd></dl>
+</article>
+
+<article class="endpoint" data-route="GET /api/applications/summary">
+  <h3><span class="method get">GET</span>/api/applications/summary</h3><p>Power the current member's dashboard reminders.</p><pre>http://localhost:8000/api/applications/summary</pre>
+  <dl><dt>Expect</dt><dd><code>200</code> with statusCounts, overdueCount, dueTodayCount and at most five nearestActions.</dd><dt>Isolation</dt><dd>Another member's due actions must never appear.</dd></dl>
+</article>
+
+<article class="endpoint" data-route="POST /api/jobs/{job_id}/application-events">
+  <h3><span class="method">POST</span>/api/jobs/PASTE_JOB_ID_HERE/application-events</h3><p>Atomically change this member's status and append immutable history.</p>
+  <pre>http://localhost:8000/api/jobs/PASTE_JOB_ID_HERE/application-events</pre><pre>{
+  "applicationStatus": "APPLIED",
+  "eventAt": "2026-08-01T10:00:00Z",
+  "notes": "Applied through the company portal."
+}</pre>
+  <dl><dt>Expect</dt><dd><code>201</code>; omit eventAt for current UTC. First APPLIED sets appliedAt. Terminal stages set closedAt; reopening clears it.</dd><dt>Correction</dt><dd>Any transition, including NOT_STARTED, is allowed.</dd><dt>Failure</dt><dd>Invalid status returns <code>422</code>.</dd></dl>
+</article>
+
+<article class="endpoint" data-route="GET /api/jobs/{job_id}/application-events">
+  <h3><span class="method get">GET</span>/api/jobs/PASTE_JOB_ID_HERE/application-events</h3><p>Read only this member's history, newest first.</p><pre>http://localhost:8000/api/jobs/PASTE_JOB_ID_HERE/application-events</pre>
+  <dl><dt>Expect</dt><dd><code>200</code> array. Add APPLIED, INTERVIEW, then NOT_STARTED and confirm all three remain.</dd><dt>Isolation</dt><dd>A second member receives an empty array until they create their own event.</dd></dl>
+</article>
+
+<article class="endpoint" data-route="POST /api/jobs/{job_id}/application-milestones">
+  <h3><span class="method">POST</span>/api/jobs/PASTE_JOB_ID_HERE/application-milestones</h3><p>Add a private company-specific round without changing the main stage.</p>
+  <pre>http://localhost:8000/api/jobs/PASTE_JOB_ID_HERE/application-milestones</pre><pre>{
+  "type": "INTERVIEW",
+  "title": "Technical Round 2",
+  "scheduledAt": "2026-08-07T10:00:00Z",
+  "notes": "Prepare system-design examples."
+}</pre>
+  <dl><dt>Types</dt><dd>SCREENING, ASSESSMENT, INTERVIEW, FOLLOW_UP, OTHER.</dd><dt>Expect</dt><dd><code>201</code>; copy the milestone ID.</dd><dt>Failure</dt><dd>Blank title returns <code>422</code>.</dd></dl>
+</article>
+
+<article class="endpoint" data-route="PATCH /api/jobs/{job_id}/application-milestones/{milestone_id}">
+  <h3><span class="method patch">PATCH</span>/api/jobs/PASTE_JOB_ID_HERE/application-milestones/PASTE_MILESTONE_ID_HERE</h3><p>Edit, complete, reopen or cancel a private milestone.</p>
+  <pre>http://localhost:8000/api/jobs/PASTE_JOB_ID_HERE/application-milestones/PASTE_MILESTONE_ID_HERE</pre><pre>{ "status": "COMPLETED", "notes": "Round completed." }</pre>
+  <dl><dt>Statuses</dt><dd>PLANNED, COMPLETED, CANCELLED. Completing sets completedAt; reopening clears it.</dd><dt>Expect</dt><dd><code>200</code> and no automatic main-stage change.</dd><dt>Isolation</dt><dd>Using another member's milestone ID returns <code>404</code>.</dd></dl>
+</article>
+
+<div class="next"><a href="review-training.html">← Review + training</a><a href="ranking-workers.html">Ranking + workers →</a></div>
+</main></div><script src="manual.js"></script></body></html>

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jedi-backend"
 version = "0.1.0"
-description = "FastAPI foundation for JEDI ML-facing services"
+description = "FastAPI backend for the private JEDI job-ranking workflow"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi>=0.116,<1",
@@ -14,11 +14,23 @@ dependencies = [
   "pydantic-settings>=2.10,<3",
   "python-multipart>=0.0.20,<1",
   "httpx>=0.28,<1",
+  "sqlalchemy[asyncio]>=2.0.43,<3",
+  "psycopg[binary]>=3.2.9,<4",
+  "PyJWT>=2.10.1,<3",
+  "pwdlib[argon2]>=0.3.0,<1",
+  "aiosmtplib>=4.0,<5",
+  "joblib==1.5.3",
+  "numpy==2.5.0",
+  "pandas==3.0.3",
+  "scikit-learn==1.9.0",
+  "scipy==1.18.0",
+  "xgboost==3.3.0",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8.4,<9",
+  "aiosqlite>=0.21,<1",
   "ruff>=0.12,<1",
 ]
 
@@ -27,6 +39,7 @@ packages = [
   "backend",
   "backend.routers",
   "backend.schemas",
+  "backend.services",
   "backend.tests",
 ]
 package-dir = { backend = "." }

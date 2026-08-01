@@ -1,0 +1,40 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Profiles and Models | JEDI API</title><link rel="stylesheet" href="styles.css"></head><body><div class="shell">
+<aside><div class="brand">JEDI // API</div><nav>
+<a href="index.html">Start here</a><a href="service-auth.html">Service + auth</a><a href="profiles-models.html">Profiles + models</a><a href="batches.html">Batches</a><a href="review-training.html">Review + training</a><a href="jobs-applications.html">Jobs + applications</a><a href="ranking-workers.html">Ranking + workers</a><a href="email-ml.html">Email + ML boundary</a>
+</nav></aside><main><div class="eyebrow">Page 2</div><h1>Profiles and model metadata</h1><p class="lede">Create immutable versions, then explicitly activate one profile and one model. All routes require the user cookie.</p>
+
+<article class="endpoint" data-route="POST /api/profiles"><h3><span class="method">POST</span>/api/profiles</h3><p>Create an immutable resume/preference profile.</p><pre>http://localhost:8000/api/profiles</pre><pre>{
+  "resumeText": "Python backend engineer with FastAPI and PostgreSQL experience.",
+  "preferredTitles": ["Backend Engineer", "ML Engineer"],
+  "preferredLocations": ["Remote", "Bengaluru"],
+  "preferredSkills": ["Python", "FastAPI", "PostgreSQL"],
+  "experienceMinYears": 1,
+  "experienceMaxYears": 4,
+  "salaryMin": 800000,
+  "salaryMax": 2500000,
+  "salaryCurrency": "INR"
+}</pre><dl><dt>Expect</dt><dd><code>201</code>, <code>active:false</code>, contentHash and ID. Copy the ID.</dd><dt>Replay</dt><dd>Send the identical normalized content and expect <code>200</code>, same ID and <code>replayed:true</code>.</dd><dt>Failure</dt><dd>Set minimum experience above maximum and expect <code>422</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/profiles"><h3><span class="method get">GET</span>/api/profiles</h3><p>List profile summaries newest first.</p><pre>http://localhost:8000/api/profiles</pre><dl><dt>Expect</dt><dd><code>200</code> array with ID, active flag and resume preview.</dd><dt>Failure</dt><dd>Without the login cookie expect <code>401</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/profiles/active"><h3><span class="method get">GET</span>/api/profiles/active</h3><p>Read the profile normalization will use.</p><pre>http://localhost:8000/api/profiles/active</pre><dl><dt>Expect</dt><dd><code>200</code> after activation.</dd><dt>Failure</dt><dd>Before any activation expect <code>404 NOT_FOUND</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/profiles/{profile_id}"><h3><span class="method get">GET</span>/api/profiles/PASTE_PROFILE_ID_HERE</h3><p>Read a complete immutable profile.</p><pre>http://localhost:8000/api/profiles/PASTE_PROFILE_ID_HERE</pre><dl><dt>Expect</dt><dd><code>200</code> including resumeText, preferences and contentHash.</dd><dt>Failure</dt><dd>Use <code>missing</code> as the ID and expect <code>404</code>.</dd></dl></article>
+<article class="endpoint" data-route="POST /api/profiles/{profile_id}/activate"><h3><span class="method">POST</span>/api/profiles/PASTE_PROFILE_ID_HERE/activate</h3><p>Atomically make this the only active profile.</p><pre>http://localhost:8000/api/profiles/PASTE_PROFILE_ID_HERE/activate</pre><dl><dt>Body</dt><dd>None</dd><dt>Expect</dt><dd><code>200</code> with <code>active:true</code>.</dd><dt>Check</dt><dd>List profiles and verify exactly one active item.</dd><dt>Failure</dt><dd>Activate an unknown ID and expect <code>404</code>.</dd></dl></article>
+
+<article class="endpoint" data-route="POST /api/models"><h3><span class="method">POST</span>/api/models</h3><p>Register immutable model metadata; no artifact is loaded.</p><pre>http://localhost:8000/api/models</pre><pre>{
+  "name": "jedi-ranking-postman-v1",
+  "artifactManifest": {
+    "bundle": "ML/models/jedi-ranking-postman-v1",
+    "ranker": "stacked_drop5"
+  },
+  "featureSchemaVersion": "prepared-job-v1",
+  "metrics": {
+    "precisionAt25": 0.968,
+    "ndcgAt25": 0.9752
+  }
+}</pre><dl><dt>Expect</dt><dd><code>201</code>, ID, contentHash and <code>active:false</code>. Copy the ID.</dd><dt>Replay</dt><dd>Identical metadata returns <code>200</code> and <code>replayed:true</code>.</dd><dt>Failure</dt><dd>Reuse the name with different metadata and expect <code>409 CONFLICT</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/models"><h3><span class="method get">GET</span>/api/models</h3><p>List all registered model versions.</p><pre>http://localhost:8000/api/models</pre><dl><dt>Expect</dt><dd><code>200</code> array with feature schema and active flags.</dd><dt>Failure</dt><dd>Without the cookie expect <code>401</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/models/{model_id}"><h3><span class="method get">GET</span>/api/models/PASTE_MODEL_ID_HERE</h3><p>Inspect artifact manifest and offline metrics.</p><pre>http://localhost:8000/api/models/PASTE_MODEL_ID_HERE</pre><dl><dt>Expect</dt><dd><code>200</code> full metadata.</dd><dt>Failure</dt><dd>Unknown ID returns <code>404</code>.</dd></dl></article>
+<article class="endpoint" data-route="POST /api/models/{model_id}/activate"><h3><span class="method">POST</span>/api/models/PASTE_MODEL_ID_HERE/activate</h3><p>Make this the only active model.</p><pre>http://localhost:8000/api/models/PASTE_MODEL_ID_HERE/activate</pre><dl><dt>Body</dt><dd>None</dd><dt>Expect</dt><dd><code>200</code> with <code>active:true</code>.</dd><dt>Check</dt><dd>List models and verify exactly one active item.</dd><dt>Failure</dt><dd>Activate an unknown ID and expect <code>404</code>.</dd></dl></article>
+
+<div class="next"><a href="service-auth.html">← Service + auth</a><a href="batches.html">Batches →</a></div>
+</main></div><script src="manual.js"></script></body></html>

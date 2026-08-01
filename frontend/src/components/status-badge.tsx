@@ -4,10 +4,10 @@ import { cn } from "@/lib/utils";
 type StatusTone = "ready" | "queued" | "warning" | "offline";
 
 const tones: Record<StatusTone, string> = {
-  ready: "bg-acid text-background",
-  queued: "bg-purple text-background",
-  warning: "bg-coral text-background",
-  offline: "bg-raised text-foreground",
+  ready: "border-acid/30 bg-acid/10 text-acid",
+  queued: "border-purple/30 bg-purple/10 text-purple",
+  warning: "border-coral/30 bg-coral/10 text-coral",
+  offline: "border-border bg-raised text-muted-foreground",
 };
 
 export function StatusBadge({
@@ -20,7 +20,7 @@ export function StatusBadge({
   return (
     <Badge
       className={cn(
-        "rounded-[3px] border-2 border-foreground px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest",
+        "rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest",
         tones[tone],
       )}
     >

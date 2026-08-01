@@ -1,0 +1,55 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Batches | JEDI API</title><link rel="stylesheet" href="styles.css"></head><body><div class="shell">
+<aside><div class="brand">JEDI // API</div><nav>
+<a href="index.html">Start here</a><a href="service-auth.html">Service + auth</a><a href="profiles-models.html">Profiles + models</a><a href="batches.html">Batches</a><a href="review-training.html">Review + training</a><a href="jobs-applications.html">Jobs + applications</a><a href="ranking-workers.html">Ranking + workers</a><a href="email-ml.html">Email + ML boundary</a>
+</nav></aside><main><div class="eyebrow">Page 3</div><h1>Batch ingestion and deduplication</h1><p class="lede">All routes require the user cookie. Use a new externalBatchId when changing content; identical content is an idempotent replay.</p>
+
+<article class="endpoint" data-route="POST /api/batches"><h3><span class="method">POST</span>/api/batches</h3><p>Validate jobs, remove deterministic duplicates and persist the remaining batch.</p><pre>http://localhost:8000/api/batches</pre><pre>{
+  "externalBatchId": "manual-2026-07-29-001",
+  "schemaVersion": "import-v1",
+  "promptVersion": "manual-postman-v1",
+  "generatedAt": "2026-07-29T09:00:00Z",
+  "jobs": [
+    {
+      "companyName": "Acme Private Limited",
+      "roleTitle": "Backend Engineer",
+      "description": "Build Python FastAPI services backed by PostgreSQL.",
+      "applyUrl": "https://jobs.acme.example/backend?utm_source=manual",
+      "roleFamily": "Software Engineering",
+      "seniority": "Junior",
+      "location": "Remote",
+      "workMode": "WFH",
+      "employmentType": "Full time",
+      "skills": ["Python", "FastAPI", "PostgreSQL"],
+      "experienceMinYears": 1,
+      "experienceMaxYears": 3,
+      "salaryMin": 1000000,
+      "salaryMax": 1800000,
+      "salaryCurrency": "INR",
+      "postedAt": "2026-07-29T05:00:00Z",
+      "applicationDeadline": "2026-08-10T23:59:59Z",
+      "canApplyNow": true
+    },
+    {
+      "companyName": "Acme",
+      "roleTitle": "Backend Engineer",
+      "description": "Build Python FastAPI services backed by PostgreSQL.",
+      "applyUrl": "https://jobs.acme.example/backend?utm_source=duplicate",
+      "location": "Remote",
+      "workMode": "remote",
+      "employmentType": "full-time",
+      "skills": "Python, FastAPI, PostgreSQL"
+    },
+    {
+      "companyName": "Intentionally Invalid",
+      "roleTitle": "Missing fields"
+    }
+  ]
+}</pre><dl><dt>Expect</dt><dd><code>201</code>; receivedCount 3, validCount 2, duplicateCount 1, jobCount 1, plus one validation report. Copy <code>batchId</code>.</dd><dt>Replay</dt><dd>Send the exact body again: same batch ID and <code>replayed:true</code>.</dd><dt>Failure</dt><dd>Reuse externalBatchId with changed content: <code>409</code>. If no valid unique job remains: <code>422</code> and nothing is created.</dd><dt>Caveat</dt><dd>No app-level size limit; hosted Vercel requests still have a platform payload limit.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/batches"><h3><span class="method get">GET</span>/api/batches</h3><p>List batches whose rankedAt is still null.</p><pre>http://localhost:8000/api/batches?page=1&amp;pageSize=50</pre><dl><dt>Expect</dt><dd><code>200</code> with items, page, pageSize and total.</dd><dt>Failure</dt><dd>Use page 0 or pageSize 101 and expect <code>422</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/batches/all"><h3><span class="method get">GET</span>/api/batches/all</h3><p>List every batch, including ranked batches.</p><pre>http://localhost:8000/api/batches/all?page=1&amp;pageSize=50</pre><dl><dt>Expect</dt><dd><code>200</code> page envelope.</dd><dt>Check</dt><dd>After ranking, compare this result with the unranked list.</dd><dt>Failure</dt><dd>Remove the login cookie and expect <code>401</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/batches/{batch_id}"><h3><span class="method get">GET</span>/api/batches/PASTE_BATCH_ID_HERE</h3><p>Read batch metadata, server-calculated action permissions and matching jobs.</p><pre>http://localhost:8000/api/batches/PASTE_BATCH_ID_HERE?annotation=all&amp;relevanceLabel=STRONG_APPLY&amp;search=Backend</pre><dl><dt>Filters</dt><dd>annotation: all, unannotated, complete, yes or no. Relevance label and search are optional.</dd><dt>Expect</dt><dd><code>200</code>; copy the first job ID. Initially omit relevanceLabel so the unannotated job is visible.</dd><dt>Failure</dt><dd>Unknown batch ID returns <code>404</code>; invalid filter enum returns <code>422</code>.</dd></dl></article>
+<article class="endpoint" data-route="DELETE /api/batches/{batch_id}"><h3><span class="method delete">DELETE</span>/api/batches/PASTE_BATCH_ID_HERE</h3><p>Delete only a disposable batch with no annotations, training rows or rankings.</p><pre>http://localhost:8000/api/batches/PASTE_BATCH_ID_HERE</pre><dl><dt>Expect</dt><dd><code>204</code> and no body.</dd><dt>Failure</dt><dd>Delete the main batch after annotation or ranking and expect <code>409</code>.</dd><dt>Advice</dt><dd>Create a separate one-job batch specifically for the success test.</dd></dl></article>
+
+<div class="next"><a href="profiles-models.html">← Profiles + models</a><a href="review-training.html">Review + training →</a></div>
+</main></div><script src="manual.js"></script></body></html>

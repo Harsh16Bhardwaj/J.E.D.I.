@@ -1,0 +1,95 @@
+{
+  "featureSchemaVersion": "prepared-job-v2",
+  "baseNumeric": [
+    "experience_min_years",
+    "salary_min",
+    "salary_max",
+    "salary_midpoint",
+    "experience_profile_fit_imputed"
+  ],
+  "boolean": [
+    "has_skills_or_requirements",
+    "is_bengaluru",
+    "is_gurgaon_ncr",
+    "is_india",
+    "salary_available"
+  ],
+  "categorical": [
+    "can_apply_now",
+    "freshness",
+    "role_family_standard",
+    "seniority_standard",
+    "employment_type_standard",
+    "work_mode_standard",
+    "city_standard",
+    "country_standard",
+    "location_bucket",
+    "experience_min_bucket",
+    "skills_imputation_type",
+    "experience_profile_fit_imputation_reason"
+  ],
+  "engineered": [
+    "feat_is_experience_mismatch",
+    "feat_is_senior_or_above",
+    "feat_is_lead_staff_principal",
+    "feat_is_early_career",
+    "feat_is_intern_or_new_grad",
+    "feat_is_entry_or_junior",
+    "feat_is_mid_level",
+    "feat_is_backend_or_fullstack",
+    "feat_is_ml_ai",
+    "feat_is_data_role",
+    "feat_is_devops_cloud",
+    "feat_is_qa_testing",
+    "feat_is_support_or_annotation",
+    "feat_is_security_role",
+    "feat_is_platform_infra",
+    "feat_is_llm_or_rag_role",
+    "feat_is_remote",
+    "feat_is_remote_global",
+    "feat_is_india_remote",
+    "feat_is_india_target_location",
+    "feat_is_bengaluru_or_ncr",
+    "feat_is_tier1_city",
+    "feat_is_location_mismatch",
+    "feat_is_low_salary",
+    "feat_is_mid_salary",
+    "feat_is_high_salary",
+    "feat_salary_good_but_role_bad",
+    "feat_low_salary_but_good_role",
+    "feat_good_role_good_location",
+    "feat_good_title_bad_experience",
+    "feat_remote_early_career",
+    "feat_onsite_or_hybrid_early_career",
+    "feat_bad_fit_combo",
+    "feat_strong_fit_combo"
+  ],
+  "text": [
+    "enhanced_title_skill_text",
+    "enhanced_context_text"
+  ],
+  "stackedScores": [
+    "pred_role_title_preference_score",
+    "pred_role_family_preference_score",
+    "pred_seniority_profile_fit_score",
+    "pred_location_profile_fit_score",
+    "pred_work_mode_fit_score",
+    "pred_experience_profile_fit_score",
+    "pred_skills_profile_fit_score",
+    "pred_salary_profile_fit_score",
+    "pred_overall_preference_score"
+  ],
+  "modelInputFeatureCount": 58,
+  "classifierFeatureCount": 67,
+  "leakagePolicy": {
+    "forbiddenSources": [
+      "applied",
+      "apply_label",
+      "manual_fit_scores",
+      "relevance_label",
+      "application_outcome"
+    ],
+    "rule": "Every base feature must be available before prediction."
+  },
+  "featureSchemaHash": "6d9c7058b88ba949672060ec7a4d4413c173b948e6233c0c65d446c13e7cb3cf"
+}

@@ -1,0 +1,15 @@
+{
+  "componentScores": {
+    "role_title_preference_score": 4.717810974410504,
+    "role_family_preference_score": 4.3188689901500625,
+    "seniority_profile_fit_score": 5.0,
+    "location_profile_fit_score": 3.8456919759464214,
+    "work_mode_fit_score": 4.923405886719266,
+    "experience_profile_fit_score": 5.0,
+    "skills_profile_fit_score": 2.7086462268996203,
+    "salary_profile_fit_score": 3.7720305940455017,
+    "overall_preference_score": 3.8426674879392033
+  },
+  "jediPreferenceScore": 80.90322173765969,
+  "applyProbability": 0.6073965430259705
+}

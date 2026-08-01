@@ -1,30 +1,53 @@
+import type { LucideIcon } from "lucide-react";
 import {
-  BriefcaseBusiness,
+  BookOpenCheck,
   Boxes,
-  CalendarCheck,
-  Gauge,
-  Home,
+  BriefcaseBusiness,
+  ClipboardCheck,
+  DatabaseZap,
   Mail,
-  Settings,
-  SlidersHorizontal,
+  Newspaper,
   Sparkles,
   UserRound,
+  UsersRound,
 } from "lucide-react";
 
+export type NavigationItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  ownerOnly?: boolean;
+  tutorial?: boolean;
+};
+
 export const primaryNavigation = [
-  { href: "/", label: "System index", icon: Home },
-  { href: "/dashboard", label: "Dashboard", icon: Gauge },
-  { href: "/batches", label: "Batches", icon: Boxes },
+  { href: "/dashboard", label: "Daily Feed", icon: Newspaper },
   { href: "/jobs", label: "Jobs", icon: BriefcaseBusiness },
-  { href: "/applications", label: "Applications", icon: CalendarCheck },
-] as const;
+  { href: "/applications", label: "Applications", icon: ClipboardCheck },
+  { href: "/tutorial", label: "Tutorial", icon: BookOpenCheck, tutorial: true },
+  { href: "/batches", label: "Batches", icon: Boxes },
+] satisfies readonly NavigationItem[];
 
 export const settingsNavigation = [
-  { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/settings/profile", label: "Profile", icon: UserRound },
-  { href: "/settings/sources", label: "Sources", icon: SlidersHorizontal },
-  { href: "/settings/models", label: "Models", icon: Sparkles },
+  { href: "/settings/group", label: "Group", icon: UsersRound },
   { href: "/settings/email", label: "Email", icon: Mail },
-] as const;
+  { href: "/settings/profile", label: "Shared Profile", icon: UserRound, ownerOnly: true },
+  { href: "/settings/models", label: "Models", icon: Sparkles, ownerOnly: true },
+] satisfies readonly NavigationItem[];
 
-export const allNavigation = [...primaryNavigation, ...settingsNavigation];
+export const miscNavigation = [
+  { href: "/misc/training-data", label: "Training Data", icon: DatabaseZap, ownerOnly: true },
+] satisfies readonly NavigationItem[];
+
+export const allNavigation: readonly NavigationItem[] = [
+  ...primaryNavigation,
+  ...settingsNavigation,
+  ...miscNavigation,
+];
+
+export function visibleNavigation<T extends NavigationItem>(
+  items: readonly T[],
+  user: { isGroupOwner: boolean } | null | undefined,
+): T[] {
+  return items.filter((item) => !item.ownerOnly || user?.isGroupOwner === true);
+}

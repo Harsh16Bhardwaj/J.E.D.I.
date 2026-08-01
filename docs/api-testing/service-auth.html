@@ -1,0 +1,52 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Service and Auth | JEDI API</title><link rel="stylesheet" href="styles.css"></head><body><div class="shell">
+<aside><div class="brand">JEDI // API</div><nav>
+<a href="index.html">Start here</a><a href="service-auth.html">Service + auth</a><a href="profiles-models.html">Profiles + models</a><a href="batches.html">Batches</a><a href="review-training.html">Review + training</a><a href="jobs-applications.html">Jobs + applications</a><a href="ranking-workers.html">Ranking + workers</a><a href="email-ml.html">Email + ML boundary</a>
+</nav></aside><main><div class="eyebrow">Page 1</div><h1>Service and authentication</h1><p class="lede">Prove the process, database and private login work before creating product data.</p>
+
+<article class="endpoint" data-route="GET /"><h3><span class="method get">GET</span>/</h3><p>Read service metadata.</p><dl><dt>Auth</dt><dd>None</dd><dt>Request</dt><dd><code>http://localhost:8000/</code></dd><dt>Expect</dt><dd><code>200</code>; service, version, docsUrl and status.</dd><dt>Failure</dt><dd>Connection refused means the API server is not running.</dd></dl></article>
+<article class="endpoint" data-route="GET /health/live"><h3><span class="method get">GET</span>/health/live</h3><p>Checks only that Python is alive.</p><pre>http://localhost:8000/health/live</pre><dl><dt>Auth</dt><dd>None</dd><dt>Expect</dt><dd><code>200</code> with <code>{"service":"jedi-ml","status":"ok"}</code>.</dd><dt>Failure</dt><dd>Stop the API process and confirm the request cannot connect.</dd><dt>Caveat</dt><dd>This does not prove the database works.</dd></dl></article>
+<article class="endpoint" data-route="GET /health/ready"><h3><span class="method get">GET</span>/health/ready</h3><p>Checks database access and migration readiness.</p><pre>http://localhost:8000/health/ready</pre><dl><dt>Auth</dt><dd>None</dd><dt>Expect</dt><dd><code>200</code> and status <code>ready</code>.</dd><dt>Failure</dt><dd><code>503 SERVICE_UNAVAILABLE</code> means DB access or the latest required migration is unavailable.</dd></dl></article>
+<article class="endpoint" data-route="GET /v1/info"><h3><span class="method get">GET</span>/v1/info</h3><p>Lists the API version and advertised capabilities.</p><pre>http://localhost:8000/v1/info</pre><dl><dt>Auth</dt><dd>None</dd><dt>Expect</dt><dd><code>200</code> with service, apiVersion and capabilities.</dd><dt>Failure</dt><dd>A missing route indicates the wrong server or an outdated deployment.</dd></dl></article>
+
+<article class="endpoint" data-route="POST /api/auth/register"><h3><span class="method">POST</span>/api/auth/register</h3><p>Creates a group member using the reusable five-character invitation code.</p><pre>http://localhost:8000/api/auth/register</pre><pre>{
+  "inviteCode": "PASTE_5_CHARACTER_CODE",
+  "email": "friend@example.com",
+  "password": "StrongPassword123!"
+}</pre><dl><dt>Auth</dt><dd>None</dd><dt>Expect</dt><dd><code>201</code>, a session cookie, group summary and <code>onboardingComplete: false</code>.</dd><dt>Copy</dt><dd>The browser stores the cookie automatically; continue with <code>GET /api/onboarding</code>.</dd><dt>Failure</dt><dd>Try an invalid, expired or revoked code and expect <code>INVITE_INVALID</code>, <code>INVITE_EXPIRED</code> or <code>INVITE_REVOKED</code>.</dd></dl></article>
+
+<article class="endpoint" data-route="POST /api/auth/login"><h3><span class="method">POST</span>/api/auth/login</h3><p>Matches the database email and Argon2 password, then sets the session cookie.</p><pre>http://localhost:8000/api/auth/login</pre><pre>{
+  "email": "YOUR_BOOTSTRAPPED_EMAIL",
+  "password": "YOUR_BOOTSTRAPPED_PASSWORD"
+}</pre><dl><dt>Headers</dt><dd><code>Content-Type: application/json</code></dd><dt>Expect</dt><dd><code>200</code>, user ID/email, group, onboarding state, and a <code>jedi_session</code> cookie.</dd><dt>Failure</dt><dd>Use a wrong password and expect <code>401 AUTH_REQUIRED</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/auth/session"><h3><span class="method get">GET</span>/api/auth/session</h3><p>Confirms Postman is sending the stored login cookie.</p><pre>http://localhost:8000/api/auth/session</pre><dl><dt>Auth</dt><dd>User cookie</dd><dt>Expect</dt><dd><code>200</code> with the same user ID and email.</dd><dt>Failure</dt><dd>Delete the cookie and expect <code>401 AUTH_REQUIRED</code>.</dd></dl></article>
+<article class="endpoint" data-route="POST /api/auth/logout"><h3><span class="method">POST</span>/api/auth/logout</h3><p>Deletes the session cookie.</p><pre>http://localhost:8000/api/auth/logout</pre><dl><dt>Body</dt><dd>None</dd><dt>Expect</dt><dd><code>204</code> with no response body.</dd><dt>Failure test</dt><dd>Call session afterward and expect <code>401</code>; log in again before continuing.</dd></dl></article>
+
+<article class="endpoint" data-route="POST /api/invitations"><h3><span class="method">POST</span>/api/invitations</h3><p>Generates the group's reusable invitation code and revokes its previous active code.</p><pre>http://localhost:8000/api/invitations</pre><dl><dt>Auth</dt><dd>Group owner cookie</dd><dt>Body</dt><dd>None</dd><dt>Expect</dt><dd><code>201</code>; copy the five-character <code>code</code> immediately because it is returned only once.</dd><dt>Failure</dt><dd>A member account receives <code>403 GROUP_OWNER_REQUIRED</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/invitations"><h3><span class="method get">GET</span>/api/invitations</h3><p>Lists safe invitation metadata without revealing any invitation code.</p><pre>http://localhost:8000/api/invitations</pre><dl><dt>Auth</dt><dd>Group owner cookie</dd><dt>Expect</dt><dd><code>200</code>; inspect expiry, revocation and usage count.</dd><dt>Failure</dt><dd>A member account receives <code>403</code>.</dd></dl></article>
+<article class="endpoint" data-route="DELETE /api/invitations/{invitation_id}"><h3><span class="method delete">DELETE</span>/api/invitations/PASTE_INVITATION_ID_HERE</h3><p>Revokes one invitation without affecting registered members.</p><pre>http://localhost:8000/api/invitations/PASTE_INVITATION_ID_HERE</pre><dl><dt>Auth</dt><dd>Group owner cookie</dd><dt>Expect</dt><dd><code>204</code>.</dd><dt>Failure</dt><dd>An unknown ID returns <code>404</code>.</dd></dl></article>
+
+<article class="endpoint" data-route="GET /api/onboarding"><h3><span class="method get">GET</span>/api/onboarding</h3><p>Returns shared model/profile context, saved member profile and suggested tags.</p><pre>http://localhost:8000/api/onboarding</pre><dl><dt>Auth</dt><dd>Member cookie</dd><dt>Expect</dt><dd><code>200</code> with <code>rankingMode: SHARED_GROUP_PROFILE</code>.</dd><dt>Failure</dt><dd>An account without group membership receives <code>409 GROUP_MEMBERSHIP_REQUIRED</code>.</dd></dl></article>
+<article class="endpoint" data-route="POST /api/onboarding"><h3><span class="method">POST</span>/api/onboarding</h3><p>Saves a member profile for v2, completes onboarding and adds the account email to the newsletter.</p><pre>http://localhost:8000/api/onboarding</pre><pre>{
+  "resumeText": "Python backend engineer with FastAPI experience.",
+  "preferredTitles": ["Backend Engineer", "ML Engineer"],
+  "preferredLocations": ["Remote", "Bengaluru"],
+  "preferredSkills": ["Python", "FastAPI", "PostgreSQL"],
+  "experienceMinYears": 0,
+  "experienceMaxYears": 2,
+  "salaryMin": 800000,
+  "salaryMax": 4000000,
+  "salaryCurrency": "INR"
+}</pre><dl><dt>Auth</dt><dd>Member cookie</dd><dt>Expect</dt><dd><code>200</code>, <code>onboardingComplete: true</code> and the saved member profile.</dd><dt>Failure</dt><dd>Reverse a minimum and maximum to receive <code>422 VALIDATION_ERROR</code>.</dd><dt>Caveat</dt><dd>The member profile is saved for v2; v1 rankings continue to use the shared group profile.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/group"><h3><span class="method get">GET</span>/api/group</h3><p>Returns the shared group, directory, active profile and active model.</p><pre>http://localhost:8000/api/group</pre><dl><dt>Auth</dt><dd>Member cookie</dd><dt>Expect</dt><dd><code>200</code> with member count and <code>isGroupOwner</code>.</dd><dt>Failure</dt><dd>Without authentication expect <code>401</code>.</dd></dl></article>
+
+<h2>Standard error shape</h2><pre>{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed.",
+    "requestId": "request-correlation-id",
+    "details": []
+  }
+}</pre><p>Keep the <code>requestId</code> when investigating failures. Private responses also carry <code>Cache-Control: no-store</code>.</p>
+<div class="next"><a href="index.html">← Start</a><a href="profiles-models.html">Profiles + models →</a></div>
+</main></div><script src="manual.js"></script></body></html>

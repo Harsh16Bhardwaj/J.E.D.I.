@@ -1,0 +1,43 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Review and Training | JEDI API</title><link rel="stylesheet" href="styles.css"></head><body><div class="shell">
+<aside><div class="brand">JEDI // API</div><nav>
+<a href="index.html">Start here</a><a href="service-auth.html">Service + auth</a><a href="profiles-models.html">Profiles + models</a><a href="batches.html">Batches</a><a href="review-training.html">Review + training</a><a href="jobs-applications.html">Jobs + applications</a><a href="ranking-workers.html">Ranking + workers</a><a href="email-ml.html">Email + ML boundary</a>
+</nav></aside><main><div class="eyebrow">Page 4</div><h1>Normalize, annotate and train</h1><p class="lede">Normalize first with the active profile. A training-eligible job needs a prepared row, binary apply label and all nine fit scores.</p>
+
+<article class="endpoint" data-route="POST /api/batches/{batch_id}/normalize"><h3><span class="method">POST</span>/api/batches/PASTE_BATCH_ID_HERE/normalize</h3><p>Generate versioned <code>PreparedJobV1</code> rows for the active profile.</p><pre>http://localhost:8000/api/batches/PASTE_BATCH_ID_HERE/normalize</pre><dl><dt>Body</dt><dd>None</dd><dt>Needs</dt><dd>Active profile; batch READY, FAILED, NORMALIZED or RANKED.</dd><dt>Expect</dt><dd><code>200</code>; status NORMALIZED, preparedCount, profileVersionId and featureSchemaVersion.</dd><dt>Failure</dt><dd>No active profile returns <code>409</code>. Repeating a successful normalization returns <code>replayed:true</code>.</dd></dl></article>
+<article class="endpoint" data-route="PATCH /api/jobs/{job_id}/annotation"><h3><span class="method patch">PATCH</span>/api/jobs/PASTE_JOB_ID_HERE/annotation</h3><p>Save any non-empty subset of manual labels for one job.</p><pre>http://localhost:8000/api/jobs/PASTE_JOB_ID_HERE/annotation</pre><pre>{
+  "relevanceLabel": "STRONG_APPLY",
+  "applyLabel": true,
+  "roleTitleFit": 5,
+  "roleFamilyFit": 4,
+  "seniorityFit": 4,
+  "locationFit": 5,
+  "workModeFit": 5,
+  "experienceFit": 4,
+  "skillsFit": 5,
+  "salaryFit": 6,
+  "overallPreference": 5
+}</pre><dl><dt>Ranges</dt><dd>All scores 0–5 except salaryFit 0–8.</dd><dt>Expect</dt><dd><code>200</code>, applyLabel and <code>complete:true</code>.</dd><dt>Failure</dt><dd>Empty JSON or out-of-range score returns <code>422</code>.</dd></dl></article>
+<article class="endpoint" data-route="PATCH /api/batches/{batch_id}/annotations"><h3><span class="method patch">PATCH</span>/api/batches/PASTE_BATCH_ID_HERE/annotations</h3><p>Save several job annotations atomically for one batch.</p><pre>http://localhost:8000/api/batches/PASTE_BATCH_ID_HERE/annotations</pre><pre>{
+  "annotations": [{
+    "jobId": "PASTE_JOB_ID_HERE",
+    "relevanceLabel": "DREAM",
+    "applyLabel": true,
+    "roleTitleFit": 5,
+    "roleFamilyFit": 5,
+    "seniorityFit": 4,
+    "locationFit": 5,
+    "workModeFit": 5,
+    "experienceFit": 4,
+    "skillsFit": 5,
+    "salaryFit": 7,
+    "overallPreference": 5
+  }]
+}</pre><dl><dt>Expect</dt><dd><code>200</code> array of annotation summaries.</dd><dt>Failure</dt><dd>Repeat the same jobId in one body or use a job from another batch: <code>422</code> or <code>404</code>.</dd></dl></article>
+<article class="endpoint" data-route="POST /api/batches/{batch_id}/training-examples"><h3><span class="method">POST</span>/api/batches/PASTE_BATCH_ID_HERE/training-examples</h3><p>Owner-only promotion of the owner's complete labels into the shared training dataset.</p><pre>http://localhost:8000/api/batches/PASTE_BATCH_ID_HERE/training-examples</pre><pre>{ "selection": "ALL_ANNOTATED" }</pre><dl><dt>Choices</dt><dd>ALL_ANNOTATED, YES_ONLY or NO_ONLY.</dd><dt>Expect</dt><dd><code>200</code> with addedOrUpdatedCount and annotator provenance stored server-side.</dd><dt>Failure</dt><dd>A non-owner receives <code>403 GROUP_OWNER_REQUIRED</code>. Incomplete annotations are skipped; invalid selection returns <code>422</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/training-examples/export.csv"><h3><span class="method get">GET</span>/api/training-examples/export.csv</h3><p>Download the current training table as CSV.</p><pre>http://localhost:8000/api/training-examples/export.csv</pre><dl><dt>Expect</dt><dd><code>200 text/csv</code>; save as <code>jedi-training-examples.csv</code>.</dd><dt>Check</dt><dd>Header includes job_id, batch_id, profile_version_id, feature_schema_version and payload_hash.</dd><dt>Failure</dt><dd>Without authentication expect <code>401</code>.</dd></dl></article>
+<article class="endpoint" data-route="POST /api/misc/training-data/import-csv"><h3><span class="method">POST</span>/api/misc/training-data/import-csv</h3><p>Owner-only CSV bootstrap or append into shared jobs and training rows.</p><pre>http://localhost:8000/api/misc/training-data/import-csv</pre><dl><dt>Body</dt><dd>Choose Body → form-data in Postman. Add key <code>file</code>, change its type to File, and select a UTF-8 <code>.csv</code>.</dd><dt>Expect</dt><dd><code>201</code> with batchId, importedCount, duplicateCount, trainingExampleCount and row warnings.</dd><dt>Failure</dt><dd>Non-owner returns <code>403</code>; wrong extension or an empty CSV returns <code>422</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/misc/batches/{batch_id}/annotation-editor"><h3><span class="method get">GET</span>/api/misc/batches/PASTE_BATCH_ID_HERE/annotation-editor</h3><p>Load this member's editable annotation grid plus shared prepared/training indicators.</p><pre>http://localhost:8000/api/misc/batches/PASTE_BATCH_ID_HERE/annotation-editor</pre><dl><dt>Expect</dt><dd><code>200</code> with batch, rows and completeness counts.</dd><dt>Isolation</dt><dd>Member A and member B receive independent label values for the same rows.</dd><dt>Failure</dt><dd>Unknown batch returns <code>404</code>.</dd></dl></article>
+
+<div class="next"><a href="batches.html">← Batches</a><a href="jobs-applications.html">Jobs + applications →</a></div>
+</main></div><script src="manual.js"></script></body></html>

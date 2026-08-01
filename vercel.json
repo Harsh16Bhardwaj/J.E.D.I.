@@ -2,44 +2,27 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
     "frontend": {
-      "root": "frontend/"
+      "root": "frontend/",
+      "framework": "nextjs"
     },
     "backend": {
       "root": "backend/",
+      "framework": "fastapi",
       "entrypoint": "main:app",
-      "routes": [
-        {
-          "src": "/svc/ml/(.*)",
-          "transforms": [
-            {
-              "type": "request.path",
-              "op": "set",
-              "args": "/$1"
-            }
-          ]
-        },
-        {
-          "src": "/svc/ml",
-          "transforms": [
-            {
-              "type": "request.path",
-              "op": "set",
-              "args": "/"
-            }
-          ]
+      "functions": {
+        "main.py": {
+          "excludeFiles": "{tests/**,**/__pycache__/**,**/.pytest_cache/**,**/.ruff_cache/**,**/*.pyc}",
+          "includeFiles": "model_bundles/**",
+          "maxDuration": 300,
+          "maxConcurrency": 1,
+          "memory": 2048
         }
-      ]
+      }
     }
   },
   "rewrites": [
     {
-      "source": "/svc/ml/(.*)",
-      "destination": {
-        "service": "backend"
-      }
-    },
-    {
-      "source": "/svc/ml",
+      "source": "/svc/ml/:path*",
       "destination": {
         "service": "backend"
       }
@@ -49,6 +32,12 @@
       "destination": {
         "service": "frontend"
       }
+    }
+  ],
+  "crons": [
+    {
+      "path": "/svc/ml/internal/email-deliveries/run",
+      "schedule": "30 18 * * *"
     }
   ]
 }

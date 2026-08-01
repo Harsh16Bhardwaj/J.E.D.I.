@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JEDI API Testing Manual</title><link rel="stylesheet" href="styles.css"></head>
+<body><div class="shell">
+<aside><div class="brand">JEDI // API</div><nav>
+<a href="index.html">Start here</a><a href="service-auth.html">Service + auth</a>
+<a href="profiles-models.html">Profiles + models</a><a href="batches.html">Batches</a>
+<a href="review-training.html">Review + training</a><a href="jobs-applications.html">Jobs + applications</a>
+<a href="ranking-workers.html">Ranking + workers</a><a href="email-ml.html">Email + ML boundary</a>
+</nav></aside>
+<main><div class="eyebrow">Standalone testing handbook</div><h1>Test JEDI one API at a time.</h1>
+<p class="lede">Open these pages directly in a browser. Each route shows what to send, what must exist first, what result to expect, and one failure worth checking. No Postman environment or documentation server is required.</p>
+
+<div class="notice"><strong>Base URL:</strong> every example uses <code>http://localhost:8000</code>. On Vercel, replace it with <code>https://YOUR-PROJECT.vercel.app/svc/ml</code>.</div>
+
+<h2>One-time preparation</h2>
+<pre>cd D:\ML\JEDI
+npm run user:bootstrap
+npm run dev:api</pre>
+<p>Enter a private email and a password of at least 12 characters during bootstrap. Keep the server terminal open. Visit <code>http://localhost:8000/docs</code> only if you want an additional live schema view.</p>
+
+<h2>Authentication</h2>
+<p>Send the login request first. Postman keeps the returned HTTP-only <code>jedi_session</code> cookie for later requests to the same host. User routes need that cookie. Worker routes instead need <code>X-JEDI-SERVICE-TOKEN</code>; lease operations also need <code>X-JEDI-LEASE-TOKEN</code>. The cron route uses its own Bearer secret.</p>
+
+<h2>Recommended order</h2><div class="grid">
+<div class="step"><strong>01</strong><br>Health, login and session</div>
+<div class="step"><strong>02</strong><br>Create and activate a profile</div>
+<div class="step"><strong>03</strong><br>Create and activate a model</div>
+<div class="step"><strong>04</strong><br>Import and inspect a batch</div>
+<div class="step"><strong>05</strong><br>Normalize and annotate jobs</div>
+<div class="step"><strong>06</strong><br>Add training examples</div>
+<div class="step"><strong>07</strong><br>Queue and submit rankings</div>
+<div class="step"><strong>08</strong><br>Track applications and email</div>
+</div>
+
+<h2>Values you will copy</h2>
+<p>Responses provide IDs needed later. Replace the manual placeholders exactly: <code>PASTE_PROFILE_ID_HERE</code>, <code>PASTE_MODEL_ID_HERE</code>, <code>PASTE_BATCH_ID_HERE</code>, <code>PASTE_JOB_ID_HERE</code>, <code>PASTE_RUN_ID_HERE</code> and <code>PASTE_LEASE_TOKEN_HERE</code>.</p>
+
+<article class="endpoint" data-route="GET /api/dashboard"><h3><span class="method get">GET</span>/api/dashboard</h3><p>Read today's shared jobs and ranking leaderboard with the signed-in member's private viewed/application state.</p><pre>http://localhost:8000/api/dashboard?leaderboardPeriod=daily&amp;fresh=true&amp;notApplied=true</pre><dl><dt>Periods</dt><dd>daily, weekly or overall.</dd><dt>Expect</dt><dd><code>200</code> with todayJobs and leaderboard. Fresh excludes only jobs viewed by this member; notApplied uses only this member's application.</dd><dt>Failure</dt><dd>Invalid period returns <code>422</code>.</dd></dl></article>
+
+<div class="notice warning"><strong>Current boundaries:</strong> direct embedding and scoring deliberately return <code>501</code>. Real SMTP needs Gmail configuration. Ranking can be tested today through the authenticated manual rankings endpoint. Rotate the Neon password that was shared in conversation before production use.</div>
+<div class="notice"><strong>Coverage:</strong> the eight pages document every operation currently registered in FastAPI OpenAPI exactly once.</div>
+
+<div class="next"><span></span><a href="service-auth.html">Begin with service + auth →</a></div>
+</main></div><script src="manual.js"></script></body></html>

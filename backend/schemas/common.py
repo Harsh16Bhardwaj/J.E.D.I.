@@ -7,7 +7,7 @@ class ServiceMetadata(BaseModel):
     service: str
     version: str
     docs_url: str
-    status: Literal["foundation"]
+    status: Literal["ok"]
 
 
 class HealthResponse(BaseModel):

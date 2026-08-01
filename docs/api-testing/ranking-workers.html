@@ -1,0 +1,46 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ranking and Workers | JEDI API</title><link rel="stylesheet" href="styles.css"></head><body><div class="shell">
+<aside><div class="brand">JEDI // API</div><nav>
+<a href="index.html">Start here</a><a href="service-auth.html">Service + auth</a><a href="profiles-models.html">Profiles + models</a><a href="batches.html">Batches</a><a href="review-training.html">Review + training</a><a href="jobs-applications.html">Jobs + applications</a><a href="ranking-workers.html">Ranking + workers</a><a href="email-ml.html">Email + ML boundary</a>
+</nav></aside><main><div class="eyebrow">Page 6</div><h1>Ranking and worker control</h1><p class="lede">First test manual result submission. Use a separate normalized batch for worker leasing so the two workflows do not compete.</p>
+
+<article class="endpoint" data-route="POST /api/batches/{batch_id}/rank"><h3><span class="method">POST</span>/api/batches/PASTE_BATCH_ID_HERE/rank</h3><p>Queue ranking pinned to the active profile, model and feature schema.</p><pre>http://localhost:8000/api/batches/PASTE_BATCH_ID_HERE/rank</pre><dl><dt>Auth</dt><dd>User cookie</dd><dt>Needs</dt><dd>Normalized batch, complete prepared rows, active profile and active model.</dd><dt>Expect</dt><dd><code>202</code>, status RANK_PENDING, processingRunId and pendingExecution true. Copy the run ID.</dd><dt>Failure</dt><dd>Wrong workflow state or schema mismatch returns <code>409</code>.</dd></dl></article>
+<article class="endpoint" data-route="POST /api/batches/{batch_id}/rankings"><h3><span class="method">POST</span>/api/batches/PASTE_BATCH_ID_HERE/rankings</h3><p>Manually provide real results without running a worker.</p><pre>http://localhost:8000/api/batches/PASTE_BATCH_ID_HERE/rankings</pre><pre>{
+  "profileVersionId": "PASTE_PROFILE_ID_HERE",
+  "modelVersionId": "PASTE_MODEL_ID_HERE",
+  "rankings": [{
+    "jobId": "PASTE_JOB_ID_HERE",
+    "rank": 1,
+    "jediPreferenceScore": 92.5,
+    "applyPreferenceProbability": 0.94,
+    "componentScores": {
+      "roleTitleFit": 5,
+      "skillsFit": 5,
+      "experienceFit": 4
+    }
+  }]
+}</pre><dl><dt>Rules</dt><dd>Maximum 25; unique batch jobs; ranks contiguous from 1; score 0–100; probability 0–1.</dd><dt>Expect</dt><dd><code>200</code>, status RANKED and rankingCount.</dd><dt>Failure</dt><dd>Wrong profile/model, foreign job or rank gap returns <code>409</code>/<code>422</code>.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/batches/{batch_id}/rankings"><h3><span class="method get">GET</span>/api/batches/PASTE_BATCH_ID_HERE/rankings</h3><p>Read the latest successful run, or isolate a historical run.</p><pre>http://localhost:8000/api/batches/PASTE_BATCH_ID_HERE/rankings?runId=PASTE_RUN_ID_HERE</pre><dl><dt>Auth</dt><dd>User cookie</dd><dt>Expect</dt><dd><code>200</code>, ordered results with processingRunId.</dd><dt>Failure</dt><dd>Unknown or unsuccessful runId returns <code>404</code>. Omit runId for latest.</dd></dl></article>
+<article class="endpoint" data-route="GET /api/batches/{batch_id}/processing-runs"><h3><span class="method get">GET</span>/api/batches/PASTE_BATCH_ID_HERE/processing-runs</h3><p>Inspect normalization/ranking attempts and safe errors.</p><pre>http://localhost:8000/api/batches/PASTE_BATCH_ID_HERE/processing-runs</pre><dl><dt>Auth</dt><dd>User cookie</dd><dt>Expect</dt><dd><code>200</code> newest-first history with version pins and no lease token.</dd><dt>Failure</dt><dd>Unknown batch returns <code>404</code>.</dd></dl></article>
+
+<div class="notice"><strong>Worker headers:</strong> every route below needs <code>X-JEDI-SERVICE-TOKEN: YOUR_ML_SERVICE_SECRET</code>. Heartbeat, failure and callback also need <code>X-JEDI-LEASE-TOKEN: PASTE_LEASE_TOKEN_HERE</code>.</div>
+<article class="endpoint" data-route="POST /internal/processing-runs/claim"><h3><span class="method">POST</span>/internal/processing-runs/claim</h3><p>Claim the oldest queued run for five minutes.</p><pre>http://localhost:8000/internal/processing-runs/claim</pre><dl><dt>Body</dt><dd>None</dd><dt>Expect</dt><dd><code>200</code> with runId, batchId, pinned versions, leaseToken and prepared jobs; <code>204</code> if empty.</dd><dt>Failure</dt><dd>User cookie alone or a wrong service token returns <code>401</code>.</dd></dl></article>
+<article class="endpoint" data-route="POST /internal/processing-runs/{run_id}/heartbeat"><h3><span class="method">POST</span>/internal/processing-runs/PASTE_RUN_ID_HERE/heartbeat</h3><p>Extend the active worker lease by five minutes.</p><pre>http://localhost:8000/internal/processing-runs/PASTE_RUN_ID_HERE/heartbeat</pre><dl><dt>Body</dt><dd>None</dd><dt>Expect</dt><dd><code>200</code> with a later leaseExpiresAt.</dd><dt>Failure</dt><dd>Wrong, absent or expired lease token returns <code>409</code>.</dd></dl></article>
+<article class="endpoint" data-route="POST /internal/processing-runs/{run_id}/fail"><h3><span class="method">POST</span>/internal/processing-runs/PASTE_RUN_ID_HERE/fail</h3><p>Preserve a safe worker failure and return the batch to NORMALIZED.</p><pre>http://localhost:8000/internal/processing-runs/PASTE_RUN_ID_HERE/fail</pre><pre>{
+  "errorCode": "MODEL_LOAD_FAILED",
+  "errorMessage": "The model bundle could not be loaded."
+}</pre><dl><dt>Expect</dt><dd><code>200</code>, run FAILED and batch NORMALIZED.</dd><dt>Retry</dt><dd>Call the user rank endpoint again to create a fresh queued run.</dd><dt>Failure</dt><dd>Lowercase/short error code gives <code>422</code>; bad lease gives <code>409</code>.</dd></dl></article>
+<article class="endpoint" data-route="POST /internal/batches/{batch_id}/rankings"><h3><span class="method">POST</span>/internal/batches/PASTE_BATCH_ID_HERE/rankings</h3><p>Complete the leased run with the same ranking JSON shown above.</p><pre>http://localhost:8000/internal/batches/PASTE_BATCH_ID_HERE/rankings</pre><pre>{
+  "profileVersionId": "PASTE_PROFILE_ID_HERE",
+  "modelVersionId": "PASTE_MODEL_ID_HERE",
+  "rankings": [{
+    "jobId": "PASTE_JOB_ID_HERE",
+    "rank": 1,
+    "jediPreferenceScore": 93,
+    "applyPreferenceProbability": 0.96,
+    "componentScores": {"skillsFit": 5}
+  }]
+}</pre><dl><dt>Expect</dt><dd><code>200</code>, RANKED. Re-send the identical callback and expect the same result.</dd><dt>Failure</dt><dd>Pinned-version mismatch or invalid lease returns <code>409</code>.</dd><dt>Caveat</dt><dd>After three expired claims the run is failed with RETRY_EXHAUSTED.</dd></dl></article>
+
+<div class="next"><a href="jobs-applications.html">← Jobs + applications</a><a href="email-ml.html">Email + ML →</a></div>
+</main></div><script src="manual.js"></script></body></html>

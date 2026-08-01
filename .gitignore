@@ -14,6 +14,5 @@ __pycache__/
 *.egg-info/
 *.tsbuildinfo
 **/next-env.d.ts
-frontend/src/generated/prisma/
 ML/models/**/*.joblib
 ML/models/**/*.onnx

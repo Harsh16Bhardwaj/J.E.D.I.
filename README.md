@@ -1,185 +1,248 @@
 # JEDI
 
-JEDI is a private job-discovery and application command center. The repository
-contains a Next.js dashboard, a small FastAPI service boundary, the Prisma
-database schema, and the existing machine-learning work.
-
-## Why `package.json` is at the root
-
-This is an npm workspace. The root `package.json` is intentionally the control
-panel for JavaScript tooling:
-
-- it installs root tools such as Prisma;
-- it installs the `frontend` workspace;
-- it exposes one set of commands for starting and checking the project.
-
-The frontend still has its own `frontend/package.json` because it is the actual
-Next.js application. Python remains independent in `backend/pyproject.toml`;
-npm does not manage Python packages.
+JEDI is an invite-only group job-discovery and application command center. Next.js renders
+the dashboard, FastAPI owns every product API and database call, Prisma defines
+and migrates PostgreSQL, and `ML/` preserves the ranking experiments.
 
 ## Repository structure
 
 ```text
 JEDI/
-├── frontend/        Next.js dashboard
-├── backend/         FastAPI service
-├── prisma/          Database schema and schema guide
-├── ML/              Datasets, notebooks, results, and ML tools
+├── frontend/        Next.js dashboard; no direct database access
+├── backend/         FastAPI, SQLAlchemy, auth, batch workflow, ML boundary
+├── prisma/          PostgreSQL schema and future migrations
+├── ML/              Datasets, notebooks, results, and future model bundles
 ├── archive/         Previous vanilla screener
-├── package.json     npm workspace commands
-├── package-lock.json
-├── prisma.config.ts
-├── vercel.json
-└── .env.example
+├── package.json     npm workspace and repository commands
+├── prisma.config.ts Prisma migration configuration
+└── vercel.json      Frontend and Python service routing
 ```
 
-The old root `.venv` is retained only for historical notebooks. The backend
-uses `backend/.venv`.
+The root `package.json` is the npm workspace control panel. Python dependencies
+remain independent in `backend/pyproject.toml`.
 
-## Requirements
+## Requirements and setup
 
 - Node.js 22
 - npm 11
 - Python 3.12
+- A PostgreSQL/Neon development URL before any migration or database API test
 
-Verify them:
-
-```powershell
-node --version
-npm --version
-python --version
-```
-
-## First-time setup
-
-Run these commands from `D:\ML\JEDI`:
+From `D:\ML\JEDI`:
 
 ```powershell
 Copy-Item .env.example .env
 npm install
 npm run setup:api
-npm run db:generate
+npm run db:validate
 ```
 
-The copied `.env` contains safe placeholders for local foundation checks.
-`npm install` installs both root dependencies and the `frontend` workspace.
-`setup:api` creates `backend/.venv` and installs only the FastAPI foundation
-dependencies.
+Replace `DATABASE_URL` and `DIRECT_DATABASE_URL` only when an approved
+development database is ready. Do not run a migration against the placeholder.
 
-The ignored local `.env` contains non-live PostgreSQL placeholders so Prisma can
-format, validate, and generate. Replace them only when a real Neon development
-database is ready.
+### Create the first group owner
 
-## Start both servers
+Generate an Argon2 password hash. The command prompts for the password so it does
+not appear in shell history:
 
-The easiest command is:
+```powershell
+backend\.venv\Scripts\python.exe -m backend.auth
+```
+
+After applying the schema to the approved development database, open Prisma
+Studio:
+
+```powershell
+npm run db:studio
+```
+
+Create or update the one private login interactively:
+
+```powershell
+npm run user:bootstrap
+```
+
+The command normalizes the email and stores an Argon2 hash; it never accepts the
+plaintext password as a command-line argument. Login compares the submitted
+email and password with that database row and sets an HTTP-only signed cookie.
+There is no registration or password-reset flow.
+
+## Start the servers
+
+Start both:
 
 ```powershell
 npm run dev
 ```
 
-It starts:
-
-- Next.js on `http://localhost:3000`
-- FastAPI on `http://localhost:8000`
-
-Press `Ctrl+C` once to stop both.
-
-### Start the servers separately
-
-Terminal 1:
+Or use separate terminals:
 
 ```powershell
 npm run dev:web
 ```
 
-Terminal 2:
-
 ```powershell
 npm run dev:api
 ```
 
-## Useful URLs
+Useful local URLs:
 
 | URL | Purpose |
 | --- | --- |
-| `http://localhost:3000` | JEDI dashboard |
-| `http://localhost:3000/api/health` | Next.js health check |
-| `http://localhost:8000` | FastAPI service metadata |
-| `http://localhost:8000/docs` | Interactive FastAPI documentation |
-| `http://localhost:8000/health/live` | FastAPI process health |
-| `http://localhost:8000/health/ready` | FastAPI foundation readiness |
+| `http://localhost:3000` | Next.js dashboard |
+| `http://localhost:3000/api/health` | Frontend health |
+| `http://localhost:8000` | FastAPI metadata |
+| `http://localhost:8000/docs` | Interactive API documentation |
+| `http://localhost:8000/health/live` | Python process health |
+| `http://localhost:8000/health/ready` | Database and migration readiness |
+| `http://localhost:8000/api/auth/login` | Private login |
+| `http://localhost:8000/api/batches` | Batch ingestion and active list |
 
-Quick PowerShell checks:
+On the configured Vercel service, Python paths are available under `/svc/ml`;
+for example `/svc/ml/api/batches`.
+
+## Try the API
+
+PowerShell keeps the session cookie in a web session:
 
 ```powershell
-Invoke-RestMethod http://localhost:3000/api/health
-Invoke-RestMethod http://localhost:8000/health/live
+$jedi = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+$login = @{
+  email = "you@example.com"
+  password = "your-password"
+} | ConvertTo-Json
+Invoke-RestMethod -Method Post `
+  -Uri http://localhost:8000/api/auth/login `
+  -WebSession $jedi `
+  -ContentType "application/json" `
+  -Body $login
 ```
 
-## Validation commands
+Import one JSON file without any application-level body or job-count limit:
 
 ```powershell
+Invoke-RestMethod -Method Post `
+  -Uri http://localhost:8000/api/batches `
+  -WebSession $jedi `
+  -ContentType "application/json" `
+  -Body (Get-Content -Raw .\sample-batch.json)
+```
+
+Use `http://localhost:8000/docs` to exercise the remaining routes. Browser
+requests use the login cookie; scripts may send that same token as
+`Authorization: Bearer <token>`.
+
+List endpoints use a consistent page envelope:
+
+```json
+{
+  "items": [],
+  "page": 1,
+  "pageSize": 50,
+  "total": 0
+}
+```
+
+Errors use `error.code`, `error.message`, and the response `requestId`, making
+individual endpoint assertions stable without matching internal exceptions.
+
+## Implemented Python routes
+
+Authentication:
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/session`
+
+Group access:
+
+- `POST /api/invitations`
+- `GET /api/invitations`
+- `DELETE /api/invitations/{invitationId}`
+- `GET /api/onboarding`
+- `POST /api/onboarding`
+- `GET /api/group`
+
+Batch ingestion and review:
+
+- `POST /api/batches`
+- `GET /api/batches`
+- `GET /api/batches/all`
+- `GET /api/batches/{batchId}`
+- `DELETE /api/batches/{batchId}`
+
+Workflow:
+
+- `POST /api/batches/{batchId}/normalize`
+- `PATCH /api/jobs/{jobId}/annotation`
+- `PATCH /api/batches/{batchId}/annotations`
+- `POST /api/jobs/{jobId}/view`
+- `PATCH /api/jobs/{jobId}/state`
+- `GET|PATCH /api/jobs/{jobId}/application`
+- `POST|GET /api/jobs/{jobId}/application-events`
+- `POST /api/jobs/{jobId}/application-milestones`
+- `PATCH /api/jobs/{jobId}/application-milestones/{milestoneId}`
+- `GET /api/applications`
+- `GET /api/applications/summary`
+- `POST /api/batches/{batchId}/training-examples`
+- `GET /api/training-examples/export.csv`
+- `POST /api/batches/{batchId}/rank`
+- `POST /api/batches/{batchId}/rankings`
+- `GET /api/batches/{batchId}/rankings`
+- `GET /api/batches/{batchId}/processing-runs`
+- `POST /api/batches/{batchId}/email-digest`
+- `GET /api/batches/{batchId}/email-deliveries`
+- `POST /api/email/manual-dispatch` (initialized; ranked-batch selection pending)
+
+Jobs and rankings are shared by the v1 group. Viewed state, review status,
+annotations, application planning, events and milestones are private to the
+authenticated member. Training import, export and annotation promotion remain
+group-owner operations because they change the shared model dataset.
+
+Model metadata:
+
+- `POST /api/models`
+- `GET /api/models`
+- `GET /api/models/{modelId}`
+- `POST /api/models/{modelId}/activate`
+
+Internal worker control (requires `X-JEDI-SERVICE-TOKEN`):
+
+- `POST /internal/processing-runs/claim`
+- `POST /internal/processing-runs/{runId}/heartbeat`
+- `POST /internal/processing-runs/{runId}/fail`
+- `POST /internal/batches/{batchId}/rankings`
+- `GET /internal/email-deliveries/run` (`CRON_SECRET` Bearer authentication)
+
+Email is off by default. To enable the top-ten digest, set `EMAIL_ENABLED=true`
+and provide the Gmail SMTP user, Gmail app password, recipient, sender name, and
+an independent 32-character-or-longer `CRON_SECRET`. Ranking success is never
+rolled back when SMTP delivery fails; delivery history records the safe failure
+and the 12:00 AM IST cron retries eligible rows.
+
+`POST /api/batches/{batchId}/rank` intentionally queues pending execution and
+does not invent scores. Real model results are accepted by the rankings route.
+Embedding and direct scoring routes remain explicit `501` placeholders.
+
+## Validation
+
+Targeted checks:
+
+```powershell
+npm run db:validate
+npm run test:api
+npm run lint:api
 npm run lint
 npm run typecheck
-npm run test
+```
+
+Run the production frontend build once after integrated changes:
+
+```powershell
 npm run build
 ```
 
-Run every foundation check in sequence:
-
-```powershell
-npm run check
-```
-
-Database-only checks:
-
-```powershell
-npm run db:format
-npm run db:validate
-npm run db:generate
-```
-
-Do not run `npm run db:migrate` until `.env` points to an approved Neon
-development branch. Production deployments use `npm run db:deploy`; never use
-`prisma db push` as the production workflow.
-
-## Understanding the database
-
-Every field in [prisma/schema.prisma](prisma/schema.prisma) has an inline
-description explaining why it exists. [prisma/README.md](prisma/README.md)
-explains the model relationships in plain English.
-
-## Common setup problems
-
-### `backend/.venv` or Python packages are missing
-
-```powershell
-npm run setup:api
-```
-
-### Prisma Client is missing
-
-```powershell
-npm run db:generate
-```
-
-### Port 3000 or 8000 is already occupied
-
-Stop the earlier development process with `Ctrl+C`, then run `npm run dev`
-again.
-
-### Dependencies appear inconsistent
-
-Keep `package-lock.json`, remove only the generated `node_modules` directory,
-then run:
-
-```powershell
-npm ci
-```
-
-## Current scope
-
-The repository currently provides foundation routes and contracts. It does not
-yet implement authentication, database CRUD, deduplication, embeddings, model
-inference, scoring, email delivery, or application automation.
+No database migration is created or executed without an approved PostgreSQL URL.
+Use `npm run db:migrate` only for development migrations and
+`npm run db:deploy` in production. Never use `prisma db push` for production.

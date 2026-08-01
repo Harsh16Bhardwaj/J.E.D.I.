@@ -1,0 +1,107 @@
+{
+  "modelVersion": "jedi-ranking-v1",
+  "artifactHash": "b370ae929fc300308037b99565f26adbdfd97321f5470c2db38b42144568525b",
+  "featureSchemaVersion": "prepared-job-v2",
+  "featureSchemaHash": "6d9c7058b88ba949672060ec7a4d4413c173b948e6233c0c65d446c13e7cb3cf",
+  "requestContractVersion": "score-request-v1",
+  "responseContractVersion": "score-response-v1",
+  "rankingStrategy": "apply-gate-then-jedi-v1",
+  "decisionThreshold": 0.6,
+  "scoreTargets": [
+    "role_title_preference_score",
+    "role_family_preference_score",
+    "seniority_profile_fit_score",
+    "location_profile_fit_score",
+    "work_mode_fit_score",
+    "experience_profile_fit_score",
+    "skills_profile_fit_score",
+    "salary_profile_fit_score",
+    "overall_preference_score"
+  ],
+  "scoreWeights": {
+    "role_title_preference_score": 0.18,
+    "role_family_preference_score": 0.12,
+    "skills_profile_fit_score": 0.18,
+    "experience_profile_fit_score": 0.14,
+    "location_profile_fit_score": 0.12,
+    "work_mode_fit_score": 0.07,
+    "salary_profile_fit_score": 0.07,
+    "seniority_profile_fit_score": 0.05,
+    "overall_preference_score": 0.07
+  },
+  "droppedEngineeredFeatures": [
+    "feat_is_data_role",
+    "feat_is_platform_infra",
+    "feat_is_qa_testing",
+    "feat_is_remote_global",
+    "feat_is_support_or_annotation"
+  ],
+  "artifacts": {
+    "preference_pipeline.joblib": "c5f53fc606b0d2cc5525957d7663e8576e599fa54b7d6c35bcc82c95c09cc7f3",
+    "classifier_pipeline.joblib": "bcc1e081d75fab69ee6841fecad3de60e63184137c928aea81f0617f13aadefc",
+    "classifier.ubj": "b44fdfb731036eaa4f7c33634224a5f66fabd55f307dfd3a88331a33d3ee3a7c",
+    "feature_schema.json": "9e6c470a6b914b64d3c5d4e461afccbe587b0b5997ea34da94484ff52ae6e517",
+    "golden_input.json": "f8b9ccf3abe4250e48227b3a23030f29f917a299ef733febbdceb9d611fcdbc7",
+    "golden_output.json": "2f8962757867dffb47f65f3c615fdac0f9fb6e63a9c001710a06612ce21f01b9"
+  },
+  "runtime": {
+    "python": "3.12",
+    "numpy": "2.5.0",
+    "pandas": "3.0.3",
+    "scipy": "1.18.0",
+    "scikitLearn": "1.9.0",
+    "xgboost": "3.3.0",
+    "joblib": "1.5.3"
+  },
+  "training": {
+    "dataset": "ML\\data\\final\\jedi_final_model_dataset.csv",
+    "datasetSha256": "ad3131c95e2bb6af71336e7e017452914a5f196ae567bbd133f18ebf5c13599e",
+    "profile": {
+      "resume_text": "Python FastAPI PostgreSQL backend and ML engineer",
+      "preferred_titles": [
+        "backend engineer",
+        "fullstack engineer",
+        "machine learning engineer",
+        "data engineer"
+      ],
+      "preferred_locations": [
+        "bengaluru",
+        "delhi ncr",
+        "india",
+        "remote"
+      ],
+      "preferred_skills": [
+        "python",
+        "fastapi",
+        "postgresql",
+        "backend",
+        "machine learning"
+      ],
+      "experience_min_years": 0.0,
+      "experience_max_years": 3.0,
+      "salary_min": 600000.0,
+      "salary_max": 2000000.0
+    },
+    "leakagePolicy": "Inputs rebuilt exclusively through PreparedJobV2"
+  },
+  "metrics": {
+    "rows": 691,
+    "rocAuc": 0.9282340949630511,
+    "averagePrecision": 0.9148813844982135,
+    "threshold": 0.6,
+    "precisionYes": 0.8586206896551725,
+    "recallYes": 0.8163934426229508,
+    "f1Yes": 0.8369747899159664,
+    "jediRanking": {
+      "precisionAt25": 0.92,
+      "recallAt25": 0.07540983606557378,
+      "ndcgAt25": 0.9439700967759361
+    },
+    "probabilityRanking": {
+      "precisionAt25": 1.0,
+      "recallAt25": 0.08196721311475409,
+      "ndcgAt25": 1.0
+    },
+    "evaluation": "StratifiedGroupKFold(5) with nested GroupKFold Ridge stacking"
+  }
+}
