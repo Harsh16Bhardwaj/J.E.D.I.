@@ -29,7 +29,7 @@
   <div class="card warning">
     <p>Vercel starts <code>main:app</code>. JEDI's health router imported <code>services.model_runtime</code>, while registration imported <code>backend.services.model_runtime</code>. Python treated them as two modules and created two singleton runtimes. The health copy loaded successfully; the registration copy resolved its packaged filesystem independently and reported a missing manifest.</p>
   </div>
-  <p>The fix is to make the entrypoint import every component through one canonical <code>backend.*</code> namespace. After redeployment, health, registration, checking, and ranking all share the same runtime loader.</p>
+  <p>The fix has two parts: make the entrypoint import every component through one canonical <code>backend.*</code> namespace, and resolve relative bundle paths from either the Python package root or Vercel's service working root. Health, registration, checking, and ranking then share one loader that can find the packaged files.</p>
 
   <h2>Retrieval check</h2>
   <details><summary>Does registration upload the <code>.joblib</code> files?</summary><p>No. Vercel packages them during deployment; registration stores their verified identity and metadata in PostgreSQL.</p></details>

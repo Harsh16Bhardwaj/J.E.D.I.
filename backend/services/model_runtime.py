@@ -72,6 +72,29 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _resolve_bundle_path(
+    configured: Path,
+    *,
+    module_file: Path = Path(__file__),
+    working_directory: Path | None = None,
+) -> Path:
+    version = "jedi-ranking-v1"
+    if configured.is_absolute():
+        return configured / version
+
+    module_file = module_file.resolve()
+    roots = [module_file.parents[1], working_directory or Path.cwd()]
+    roots.extend(module_file.parents[2:4])
+    candidates: list[Path] = []
+    for root in roots:
+        candidate = (root / configured / version).resolve()
+        if candidate not in candidates:
+            candidates.append(candidate)
+        if (candidate / "manifest.json").is_file():
+            return candidate
+    return candidates[0]
+
+
 def _clip_scores(values: np.ndarray, targets: list[str]) -> np.ndarray:
     output = np.asarray(values, dtype=float).copy()
     if output.ndim != 2 or output.shape[1] != len(targets):
@@ -102,13 +125,7 @@ class EmbeddedModelRuntime:
 
     @staticmethod
     def _bundle_path() -> Path:
-        configured = Path(get_settings().model_bundle_root)
-        root = (
-            configured
-            if configured.is_absolute()
-            else Path(__file__).parents[1] / configured
-        )
-        return root / "jedi-ranking-v1"
+        return _resolve_bundle_path(Path(get_settings().model_bundle_root))
 
     def _verify_manifest(self, path: Path) -> dict[str, Any]:
         manifest_path = path / "manifest.json"

@@ -19,7 +19,22 @@ from backend.services.model_features import (
     build_prepared_job_v2,
     feature_schema_document,
 )
-from backend.services.model_runtime import _sha256, model_runtime
+from backend.services.model_runtime import _resolve_bundle_path, _sha256, model_runtime
+
+
+def test_bundle_path_supports_vercel_service_root(tmp_path: Path) -> None:
+    module_file = tmp_path / "backend" / "services" / "model_runtime.py"
+    bundled = tmp_path / "model_bundles" / "jedi-ranking-v1"
+    bundled.mkdir(parents=True)
+    (bundled / "manifest.json").write_text("{}", encoding="utf-8")
+
+    resolved = _resolve_bundle_path(
+        Path("model_bundles"),
+        module_file=module_file,
+        working_directory=tmp_path,
+    )
+
+    assert resolved == bundled
 
 
 def source_values(**overrides: object) -> dict[str, object]:
