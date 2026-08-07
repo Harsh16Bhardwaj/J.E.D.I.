@@ -1,51 +1,38 @@
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-if __package__:
-    from backend.config import get_settings
-    from backend.database import engine
-    from backend.errors import install_error_handlers
-    from backend.middleware import RequestContextMiddleware, ServicePrefixMiddleware
-    from backend.routers import (
-        auth,
-        batches,
-        dashboard,
-        email,
-        embeddings,
-        group_access,
-        health,
-        misc,
-        models,
-        normalization,
-        operations,
-        scoring,
-        workflow,
-        workspace,
-    )
-else:
-    from config import get_settings
-    from database import engine
-    from errors import install_error_handlers
-    from middleware import RequestContextMiddleware, ServicePrefixMiddleware
-    from routers import (
-        auth,
-        batches,
-        dashboard,
-        email,
-        embeddings,
-        group_access,
-        health,
-        misc,
-        models,
-        normalization,
-        operations,
-        scoring,
-        workflow,
-        workspace,
-    )
+# Vercel imports this file as ``main:app`` from the backend service root. Add
+# the repository root so every deployment mode still imports one canonical
+# ``backend.*`` package rather than creating duplicate module singletons under
+# both ``services.*`` and ``backend.services.*`` names.
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from backend.config import get_settings
+from backend.database import engine
+from backend.errors import install_error_handlers
+from backend.middleware import RequestContextMiddleware, ServicePrefixMiddleware
+from backend.routers import (
+    auth,
+    batches,
+    dashboard,
+    email,
+    embeddings,
+    group_access,
+    health,
+    misc,
+    models,
+    normalization,
+    operations,
+    scoring,
+    workflow,
+    workspace,
+)
 
 settings = get_settings()
 

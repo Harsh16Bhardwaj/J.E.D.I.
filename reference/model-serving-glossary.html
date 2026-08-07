@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>JEDI model-serving glossary</title>
+  <link rel="stylesheet" href="../assets/course.css">
+</head>
+<body><main>
+  <p class="eyebrow">JEDI reference</p>
+  <h1>Model-serving glossary</h1>
+  <section class="card"><h2>Bundle</h2><p>The deployable directory containing the trained pipelines, feature schema, golden input/output, and manifest.</p></section>
+  <section class="card"><h2>Manifest</h2><p>The bundle's identity card and tamper-evident inventory. It names every required file and stores its SHA-256 checksum plus contract and runtime versions.</p></section>
+  <section class="card"><h2>Runtime load</h2><p>Reading the bundle from the deployed function, verifying it, loading the pipelines into memory, and running the golden prediction.</p></section>
+  <section class="card"><h2>Registration</h2><p>Writing immutable bundle metadata into PostgreSQL as a candidate <code>ModelVersion</code>. Registration does not train or upload the model.</p></section>
+  <section class="card"><h2>Deployment check</h2><p>Proof that the loaded runtime has the same artifact hash and request, response, and feature contracts as the selected registry row.</p></section>
+  <section class="card"><h2>Activation</h2><p>Choosing which already-registered, successfully checked version future ranking runs will pin.</p></section>
+  <p><a href="../lessons/0001-model-manifest-and-registration.html">Return to the lesson</a></p>
+</main></body>
+</html>

@@ -1,9 +1,33 @@
 import logging
+import subprocess
+import sys
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from backend.middleware import RequestContextMiddleware
+
+
+def test_vercel_entrypoint_uses_one_model_runtime_singleton() -> None:
+    backend_root = Path(__file__).parents[1]
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import main; "
+                "assert main.health.model_runtime is main.models.model_runtime; "
+                "assert main.health.model_runtime is main.operations.model_runtime"
+            ),
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_unhandled_errors_are_generic_and_do_not_log_secrets(
