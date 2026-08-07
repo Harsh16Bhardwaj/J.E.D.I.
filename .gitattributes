@@ -1,0 +1,3 @@
+backend/model_bundles/**/*.json text eol=lf
+backend/model_bundles/**/*.joblib binary
+backend/model_bundles/**/*.ubj binary

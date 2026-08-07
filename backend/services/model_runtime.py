@@ -61,6 +61,10 @@ class LoadedBundle:
 
 
 def _sha256(path: Path) -> str:
+    if path.suffix.casefold() == ".json":
+        normalized = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        canonical = normalized.replace(b"\n", b"\r\n")
+        return hashlib.sha256(canonical).hexdigest()
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):

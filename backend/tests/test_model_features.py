@@ -19,7 +19,7 @@ from backend.services.model_features import (
     build_prepared_job_v2,
     feature_schema_document,
 )
-from backend.services.model_runtime import model_runtime
+from backend.services.model_runtime import _sha256, model_runtime
 
 
 def source_values(**overrides: object) -> dict[str, object]:
@@ -210,3 +210,12 @@ def test_embedded_bundle_passes_golden_and_reuses_warm_runtime() -> None:
         0
     ].model_dump(exclude={"rank"})
     assert model_runtime.health().ready is True
+
+
+def test_json_artifact_hash_is_stable_across_line_endings(tmp_path: Path) -> None:
+    lf_path = tmp_path / "lf.json"
+    crlf_path = tmp_path / "crlf.json"
+    lf_path.write_bytes(b'{\n  "ready": true\n}\n')
+    crlf_path.write_bytes(b'{\r\n  "ready": true\r\n}\r\n')
+
+    assert _sha256(lf_path) == _sha256(crlf_path)

@@ -358,6 +358,10 @@ def ranking_at_25(target: np.ndarray, score: np.ndarray) -> dict[str, float]:
 
 
 def sha256(path: Path) -> str:
+    if path.suffix.casefold() == ".json":
+        normalized = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        canonical = normalized.replace(b"\n", b"\r\n")
+        return hashlib.sha256(canonical).hexdigest()
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -448,7 +452,9 @@ def main() -> None:
     joblib.dump(final_classifier, classifier_path, compress=3)
     final_classifier.named_steps["classifier"].get_booster().save_model(booster_path)
     schema_path.write_text(
-        json.dumps(feature_schema_document(), indent=2), encoding="utf-8"
+        json.dumps(feature_schema_document(), indent=2),
+        encoding="utf-8",
+        newline="\n",
     )
 
     golden = prepared[0]
@@ -458,7 +464,9 @@ def main() -> None:
         final_classifier.predict_proba(append_scores(golden_frame, golden_scores))[0, 1]
     )
     golden_input_path.write_text(
-        json.dumps(golden.model_dump(mode="json"), indent=2), encoding="utf-8"
+        json.dumps(golden.model_dump(mode="json"), indent=2),
+        encoding="utf-8",
+        newline="\n",
     )
     golden_output_path.write_text(
         json.dumps(
@@ -474,6 +482,7 @@ def main() -> None:
             indent=2,
         ),
         encoding="utf-8",
+        newline="\n",
     )
 
     artifact_paths = [
@@ -519,7 +528,7 @@ def main() -> None:
         "metrics": metrics,
     }
     (BUNDLE_DIR / "manifest.json").write_text(
-        json.dumps(manifest, indent=2), encoding="utf-8"
+        json.dumps(manifest, indent=2), encoding="utf-8", newline="\n"
     )
     print(json.dumps({"bundle": str(BUNDLE_DIR), "metrics": metrics}, indent=2))
 
