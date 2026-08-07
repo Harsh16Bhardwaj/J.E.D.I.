@@ -14,7 +14,6 @@
           "excludeFiles": "{tests/**,**/__pycache__/**,**/.pytest_cache/**,**/.ruff_cache/**,**/*.pyc}",
           "includeFiles": "model_bundles/**",
           "maxDuration": 300,
-          "maxConcurrency": 1,
           "memory": 2048
         }
       }
