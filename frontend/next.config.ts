@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    // Vercel Services currently routes /_next/image away from the Next service.
+    // Local assets are already deployment-owned, so serve them directly.
+    unoptimized: true,
+  },
   reactCompiler: true,
 };
 
