@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -10,7 +11,6 @@ import {
   LockKeyhole,
   Mail,
   MoveRight,
-  Orbit,
   Route,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
@@ -160,7 +160,14 @@ export default function LandingPage() {
       <header className="landing-header">
         <div className="landing-header-inner">
           <Link href="/" className="landing-masthead" aria-label="JEDI home">
-            <Orbit className="size-5" aria-hidden="true" />
+            <Image
+              src="/logo.png"
+              alt=""
+              width={28}
+              height={32}
+              className="h-8 w-7 object-contain"
+              priority
+            />
             <span>JEDI</span>
           </Link>
           <div className="landing-edition hidden sm:block">
@@ -335,7 +342,9 @@ export default function LandingPage() {
       </section>
 
       <footer className="landing-footer">
-        <Link href="/" className="flex items-center gap-2 font-black"><Orbit className="size-4 text-acid" /> JEDI</Link>
+        <Link href="/" className="flex items-center gap-2 font-black">
+          <Image src="/logo.png" alt="" width={24} height={27} className="h-[27px] w-6 object-contain" /> JEDI
+        </Link>
         <span>DAILY JOB INTELLIGENCE / INVITED EDITION</span>
         <a href="#openjedi" className="flex items-center gap-1">OPENJEDI <ArrowUpRight className="size-3.5" /></a>
       </footer>

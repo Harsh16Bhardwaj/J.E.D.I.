@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -66,7 +67,8 @@ export default function LoginPage() {
   return (
     <main className="grid min-h-screen overflow-hidden lg:grid-cols-[1.15fr_.85fr]">
       <section className="hidden border-r-2 border-foreground bg-acid p-10 text-background lg:flex lg:flex-col lg:justify-between">
-        <Link href="/" className="font-mono text-sm font-black tracking-[0.28em]">
+        <Link href="/" className="flex items-center gap-3 font-mono text-sm font-black tracking-[0.28em]">
+          <Image src="/logo.png" alt="" width={45} height={50} className="h-[50px] w-[45px] object-contain" priority />
           JEDI/
         </Link>
         <motion.div

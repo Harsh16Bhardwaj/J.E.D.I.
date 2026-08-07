@@ -23,6 +23,8 @@ from backend.services.group_access import require_group_context
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 DatabaseSession = Annotated[AsyncSession, Depends(get_session)]
 JEDI_TIMEZONE = ZoneInfo("Asia/Kolkata")
+FEED_CANDIDATE_LIMIT = 500
+FEED_DISPLAY_LIMIT = 25
 
 
 def _boundaries() -> tuple[datetime, datetime, datetime]:
@@ -33,6 +35,11 @@ def _boundaries() -> tuple[datetime, datetime, datetime]:
         (today + timedelta(days=1)).astimezone(UTC),
         (today - timedelta(days=6)).astimezone(UTC),
     )
+
+
+def _in_window(value: datetime, start: datetime, end: datetime | None = None) -> bool:
+    aware = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    return aware >= start and (end is None or aware < end)
 
 
 def _visibility(fresh: bool, not_applied: bool) -> list:
@@ -88,6 +95,23 @@ def _job(
     )
 
 
+def _feed_order(
+    row: tuple[Job, Batch, JobState | None, Application | None],
+    predictions: dict[str, JobPrediction],
+) -> tuple[bool, float, datetime, datetime, str]:
+    """Rank by JEDI preference while keeping unranked jobs visible afterward."""
+
+    job, batch, _, _ = row
+    prediction = predictions.get(job.id)
+    return (
+        prediction is not None,
+        prediction.jedi_preference_score if prediction else float("-inf"),
+        batch.generated_at,
+        job.created_at,
+        job.id,
+    )
+
+
 @router.get("", response_model=DashboardFeed)
 async def dashboard_feed(
     user: CurrentUser,
@@ -127,39 +151,27 @@ async def dashboard_feed(
             *visibility,
         )
     )
-    today_rows = (
+    feed_rows = (
         await session.execute(
             feed_query.where(
                 Batch.generated_at >= today_start,
                 Batch.generated_at < tomorrow_start,
             )
             .order_by(Batch.generated_at.desc(), Job.created_at.desc())
-            .limit(25)
+            .limit(FEED_CANDIDATE_LIMIT)
         )
     ).all()
     job_feed_scope = "today"
-    if not today_rows:
-        today_rows = (
+    if not feed_rows:
+        feed_rows = (
             await session.execute(
                 feed_query.order_by(Batch.generated_at.desc(), Job.created_at.desc())
-                .limit(25)
+                .limit(FEED_CANDIDATE_LIMIT)
             )
         ).all()
         job_feed_scope = "latest"
-    today_ids = [job.id for job, *_ in today_rows]
-    latest_today: dict[str, JobPrediction] = {}
-    if today_ids:
-        predictions = (
-            await session.scalars(
-                select(JobPrediction)
-                .where(JobPrediction.job_id.in_(today_ids))
-                .order_by(JobPrediction.created_at.desc())
-            )
-        ).all()
-        for prediction in predictions:
-            latest_today.setdefault(prediction.job_id, prediction)
 
-    ranking_query = (
+    ranked_query = (
         select(JobPrediction, Job, Batch, JobState, Application)
         .join(Job, Job.id == JobPrediction.job_id)
         .join(Batch, Batch.id == JobPrediction.batch_id)
@@ -178,33 +190,46 @@ async def dashboard_feed(
             ),
         )
         .where(*visibility)
-        .order_by(JobPrediction.created_at.desc())
+        .order_by(JobPrediction.created_at.desc(), JobPrediction.id.desc())
     )
-    if leaderboard_period == LeaderboardPeriod.DAILY:
-        ranking_query = ranking_query.where(
-            JobPrediction.created_at >= today_start,
-            JobPrediction.created_at < tomorrow_start,
-        )
-    elif leaderboard_period == LeaderboardPeriod.WEEKLY:
-        ranking_query = ranking_query.where(JobPrediction.created_at >= week_start)
-    ranked_rows = (await session.execute(ranking_query)).all()
+    ranked_rows = (await session.execute(ranked_query)).all()
     latest_ranked: dict[
         str, tuple[JobPrediction, Job, Batch, JobState | None, Application | None]
     ] = {}
     for prediction, job, batch, state, application in ranked_rows:
         latest_ranked.setdefault(job.id, (prediction, job, batch, state, application))
+
+    latest_predictions = {job_id: row[0] for job_id, row in latest_ranked.items()}
+    displayed_feed_rows = sorted(
+        feed_rows,
+        key=lambda row: _feed_order(row, latest_predictions),
+        reverse=True,
+    )[:FEED_DISPLAY_LIMIT]
+
+    eligible_rows = list(latest_ranked.values())
+    if leaderboard_period == LeaderboardPeriod.DAILY:
+        eligible_rows = [
+            row
+            for row in eligible_rows
+            if _in_window(row[0].created_at, today_start, tomorrow_start)
+        ]
+    elif leaderboard_period == LeaderboardPeriod.WEEKLY:
+        eligible_rows = [
+            row for row in eligible_rows if _in_window(row[0].created_at, week_start)
+        ]
     leaders = sorted(
-        latest_ranked.values(),
+        eligible_rows,
         key=lambda row: (
-            row[0].ranking_score,
+            row[0].jedi_preference_score,
             row[0].apply_preference_probability,
+            row[1].id,
         ),
         reverse=True,
     )[:10]
     return DashboardFeed(
         today_jobs=[
-            _job(job, batch, state, application, latest_today.get(job.id))
-            for job, batch, state, application in today_rows
+            _job(job, batch, state, application, latest_predictions.get(job.id))
+            for job, batch, state, application in displayed_feed_rows
         ],
         job_feed_scope=job_feed_scope,
         leaderboard=[

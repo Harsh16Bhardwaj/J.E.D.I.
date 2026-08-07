@@ -23,7 +23,7 @@ else:
     from backend.services.model_runtime import ModelRuntimeError, model_runtime
 
 router = APIRouter(tags=["service"])
-EXPECTED_MIGRATION = "20260801000000_model_serving_v1"
+EXPECTED_MIGRATION = "20260802000000_email_event_control"
 
 
 async def check_readiness() -> bool:

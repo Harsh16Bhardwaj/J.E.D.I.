@@ -99,7 +99,7 @@ processing_status_type = Enum(
     "QUEUED", "RUNNING", "SUCCEEDED", "FAILED", name="ProcessingStatus"
 ).with_variant(String(), "sqlite")
 email_status_type = Enum(
-    "UNTOUCHED", "SENDING", "SENT", "FAILED", "CANCELLED", name="EmailStatus"
+    "UNTOUCHED", "SENDING", "SENT", "FAILED", "BLOCKED", "CANCELLED", name="EmailStatus"
 ).with_variant(String(), "sqlite")
 email_campaign_status_type = Enum(
     "WAITING_FOR_RANKINGS",
@@ -1142,11 +1142,6 @@ class EmailDelivery(Base):
     __tablename__ = "EmailDelivery"
     __table_args__ = (
         UniqueConstraint(
-            "batchId",
-            "recipient",
-            name="EmailDelivery_batchId_recipient_key",
-        ),
-        UniqueConstraint(
             "campaignId",
             "recipientId",
             name="EmailDelivery_campaignId_recipientId_key",
@@ -1157,6 +1152,12 @@ class EmailDelivery(Base):
             "recipientId",
             name="EmailDelivery_batchId_rankingRunId_recipientId_key",
         ),
+        UniqueConstraint(
+            "batchId",
+            "rankingRunId",
+            "groupMemberId",
+            name="EmailDelivery_batchId_rankingRunId_groupMemberId_key",
+        ),
         Index(
             "EmailDelivery_status_nextAttemptAt_createdAt_idx",
             "status",
@@ -1164,6 +1165,12 @@ class EmailDelivery(Base):
             "createdAt",
         ),
         Index("EmailDelivery_campaignId_status_idx", "campaignId", "status"),
+        Index("EmailDelivery_createdAt_id_idx", "createdAt", "id"),
+        Index("EmailDelivery_batchId_createdAt_idx", "batchId", "createdAt"),
+        Index("EmailDelivery_recipientId_createdAt_idx", "recipientId", "createdAt"),
+        Index(
+            "EmailDelivery_groupMemberId_createdAt_idx", "groupMemberId", "createdAt"
+        ),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
@@ -1234,6 +1241,56 @@ class EmailDelivery(Base):
         DateTime(timezone=True),
         default=utc_now,
         onupdate=utc_now,
+    )
+
+
+class EmailDeliveryAttempt(Base):
+    __tablename__ = "EmailDeliveryAttempt"
+    __table_args__ = (
+        UniqueConstraint(
+            "emailDeliveryId",
+            "retryCycle",
+            "attemptNumber",
+            name="EmailDeliveryAttempt_emailDeliveryId_retryCycle_attemptNumber_key",
+        ),
+        Index(
+            "EmailDeliveryAttempt_emailDeliveryId_startedAt_idx",
+            "emailDeliveryId",
+            "startedAt",
+        ),
+        Index(
+            "EmailDeliveryAttempt_requestedByGroupMemberId_startedAt_idx",
+            "requestedByGroupMemberId",
+            "startedAt",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    email_delivery_id: Mapped[str] = mapped_column(
+        "emailDeliveryId",
+        ForeignKey("EmailDelivery.id", ondelete="CASCADE"),
+    )
+    attempt_number: Mapped[int] = mapped_column("attemptNumber", Integer)
+    retry_cycle: Mapped[int] = mapped_column("retryCycle", Integer)
+    trigger: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String)
+    requested_by_group_member_id: Mapped[str | None] = mapped_column(
+        "requestedByGroupMemberId",
+        ForeignKey("GroupMember.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        "startedAt", DateTime(timezone=True), default=utc_now
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        "completedAt", DateTime(timezone=True), nullable=True
+    )
+    provider_message_id: Mapped[str | None] = mapped_column(
+        "providerMessageId", String, nullable=True
+    )
+    error_code: Mapped[str | None] = mapped_column("errorCode", String, nullable=True)
+    safe_error_message: Mapped[str | None] = mapped_column(
+        "safeErrorMessage", Text, nullable=True
     )
 
 

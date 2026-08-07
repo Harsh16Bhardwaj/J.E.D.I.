@@ -262,16 +262,56 @@ def test_dashboard_today_leaderboard_and_visibility_filters(
     )
     assert ranked.status_code == 200
 
+    low_payload = batch_payload()
+    low_payload["externalBatchId"] = "dashboard-below-threshold"
+    low_payload["generatedAt"] = datetime.now(UTC).isoformat()
+    low_payload["jobs"][0]["companyName"] = "Below Threshold Inc"
+    low_payload["jobs"][1]["companyName"] = "Below Threshold Inc"
+    low_batch_id = product_client.post("/api/batches", json=low_payload).json()[
+        "batchId"
+    ]
+    low_job_id = product_client.get(f"/api/batches/{low_batch_id}").json()["jobs"][
+        0
+    ]["id"]
+    assert (
+        product_client.post(f"/api/batches/{low_batch_id}/normalize").status_code
+        == 200
+    )
+    assert product_client.post(f"/api/batches/{low_batch_id}/rank").status_code == 202
+    low_ranked = product_client.post(
+        f"/api/batches/{low_batch_id}/rankings",
+        json={
+            "profileVersionId": "profile-1",
+            "modelVersionId": "model-1",
+            "rankings": [
+                {
+                    "jobId": low_job_id,
+                    "rank": 1,
+                    "jediPreferenceScore": 99,
+                    "applyPreferenceProbability": 0.59,
+                    "rankingScore": 99,
+                    "applyThreshold": 0.6,
+                    "modelApplyDecision": False,
+                    "applyRecommendation": False,
+                }
+            ],
+        },
+    )
+    assert low_ranked.status_code == 200
+
     dashboard = product_client.get("/api/dashboard")
     assert dashboard.status_code == 200
-    dashboard_job = dashboard.json()["todayJobs"][0]
+    today_jobs = dashboard.json()["todayJobs"]
+    dashboard_job = next(item for item in today_jobs if item["id"] == job_id)
     assert dashboard.json()["jobFeedScope"] == "today"
-    assert dashboard_job["id"] == job_id
     assert dashboard_job["description"].startswith("Build Python FastAPI")
     assert dashboard_job["employmentType"] == "full-time"
     assert dashboard_job["postedAt"] is not None
     assert dashboard_job["salaryMin"] is None
-    assert dashboard.json()["leaderboard"][0]["jediPreferenceScore"] == 94.5
+    assert [item["id"] for item in today_jobs[:2]] == [low_job_id, job_id]
+    assert dashboard.json()["leaderboard"][0]["id"] == low_job_id
+    assert dashboard.json()["leaderboard"][0]["jediPreferenceScore"] == 99
+    assert dashboard.json()["leaderboard"][0]["applyPreferenceProbability"] == 0.59
     metrics = product_client.get(f"/api/batches/{batch_id}/metrics")
     assert metrics.status_code == 200
     assert metrics.json()["rankedCount"] == 1
@@ -279,8 +319,8 @@ def test_dashboard_today_leaderboard_and_visibility_filters(
     assert metrics.json()["top25AverageScore"] == 94.5
     assert metrics.json()["recommendedCount"] == 1
     assert metrics.json()["applicationRate"] == 0
-    assert product_client.get("/api/jobs", params={"minScore": 94}).json()["total"] == 1
-    assert product_client.get("/api/jobs", params={"minScore": 95}).json()["total"] == 0
+    assert product_client.get("/api/jobs", params={"minScore": 94}).json()["total"] == 2
+    assert product_client.get("/api/jobs", params={"minScore": 95}).json()["total"] == 1
     assert (
         product_client.get("/api/dashboard?leaderboardPeriod=weekly").status_code == 200
     )
@@ -294,7 +334,8 @@ def test_dashboard_today_leaderboard_and_visibility_filters(
     )
 
     product_client.patch(f"/api/jobs/{job_id}/state", json={"reviewStatus": "VIEWED"})
-    assert product_client.get("/api/dashboard?fresh=true").json()["todayJobs"] == []
+    fresh_jobs = product_client.get("/api/dashboard?fresh=true").json()["todayJobs"]
+    assert [item["id"] for item in fresh_jobs] == [low_job_id]
     viewed_metrics = product_client.get(f"/api/batches/{batch_id}/metrics").json()
     assert viewed_metrics["viewedCount"] == 1
     product_client.post(
@@ -302,8 +343,8 @@ def test_dashboard_today_leaderboard_and_visibility_filters(
         json={"applicationStatus": "APPLIED"},
     )
     filtered = product_client.get("/api/dashboard?notApplied=true").json()
-    assert filtered["todayJobs"] == []
-    assert filtered["leaderboard"] == []
+    assert [item["id"] for item in filtered["todayJobs"]] == [low_job_id]
+    assert [item["id"] for item in filtered["leaderboard"]] == [low_job_id]
     applied_metrics = product_client.get(f"/api/batches/{batch_id}/metrics").json()
     assert applied_metrics["applicationRate"] == 1
 
@@ -315,6 +356,29 @@ def test_dashboard_falls_back_to_latest_jobs(product_client: TestClient) -> None
     payload["generatedAt"] = (datetime.now(UTC) - timedelta(days=1)).isoformat()
     created = product_client.post("/api/batches", json=payload)
     assert created.status_code == 201
+    batch_id = created.json()["batchId"]
+    job_id = product_client.get(f"/api/batches/{batch_id}").json()["jobs"][0]["id"]
+    assert product_client.post(f"/api/batches/{batch_id}/normalize").status_code == 200
+    assert product_client.post(f"/api/batches/{batch_id}/rank").status_code == 202
+    assert product_client.post(
+        f"/api/batches/{batch_id}/rankings",
+        json={
+            "profileVersionId": "profile-1",
+            "modelVersionId": "model-1",
+            "rankings": [
+                {
+                    "jobId": job_id,
+                    "rank": 1,
+                    "jediPreferenceScore": 80,
+                    "applyPreferenceProbability": 0.6,
+                    "rankingScore": 80,
+                    "applyThreshold": 0.6,
+                    "modelApplyDecision": True,
+                    "applyRecommendation": True,
+                }
+            ],
+        },
+    ).status_code == 200
 
     dashboard = product_client.get("/api/dashboard")
     assert dashboard.status_code == 200
@@ -1293,7 +1357,7 @@ def test_ranking_enqueues_personalized_events_and_cron_sends(
 
         history = product_client.get(f"/api/batches/{batch_id}/email-deliveries")
         assert history.status_code == 200
-        assert history.json()[0]["status"] == "UNTOUCHED"
+        assert {item["status"] for item in history.json()} == {"UNTOUCHED", "BLOCKED"}
         assert product_client.get("/internal/email-deliveries/run").status_code == 401
 
         cron = product_client.get(
@@ -1303,7 +1367,37 @@ def test_ranking_enqueues_personalized_events_and_cron_sends(
         assert cron.status_code == 200
         assert cron.json()["status"] == "processed"
         assert cron.json()["sent"] == 1
-        assert transport.snapshots[-1]["templateVersion"] == "personalized-top-ten-v1"
+        assert transport.snapshots[-1]["templateVersion"] == "personalized-top-ten-v3"
+        ledger = product_client.get("/api/email/events?page=1&pageSize=25")
+        assert ledger.status_code == 200
+        assert ledger.json()["total"] == 2
+        assert ledger.json()["statusCounts"]["SENT"] == 1
+        sent_event = next(
+            item for item in ledger.json()["items"] if item["status"] == "SENT"
+        )
+        assert sent_event["attemptHistory"][0]["trigger"] == "CRON"
+        assert sent_event["attemptHistory"][0]["status"] == "SENT"
+
+        # A rerank gets a distinct event; a row send never drains other events.
+        rerun = product_client.post(f"/api/batches/{batch_id}/rank")
+        assert rerun.status_code == 202
+        assert (
+            product_client.post(
+                f"/api/batches/{batch_id}/rankings", json=body
+            ).status_code
+            == 200
+        )
+        reranked_ledger = product_client.get("/api/email/events?pageSize=25").json()
+        queued_event = next(
+            item
+            for item in reranked_ledger["items"]
+            if item["status"] == "UNTOUCHED"
+            and item["recipient"] == "owner@example.com"
+        )
+        manual_one = product_client.post(f"/api/email/events/{queued_event['id']}/send")
+        assert manual_one.status_code == 200
+        assert manual_one.json()["event"]["status"] == "SENT"
+        assert manual_one.json()["event"]["attemptHistory"][0]["trigger"] == "MANUAL"
 
         calls_before = len(transport.snapshots)
         manual = product_client.post("/api/email/manual-dispatch")
@@ -1398,19 +1492,32 @@ def test_owner_idempotently_creates_member_mail_events(
 
     first = product_client.post(f"/api/batches/{batch_id}/mail-events")
     assert first.status_code == 200
-    assert first.json()["createdCount"] == 1
-    assert first.json()["existingCount"] == 0
+    assert first.json()["createdCount"] == 0
+    assert first.json()["existingCount"] == 2
     assert first.json()["eligibleRecipientCount"] == 1
     assert first.json()["skippedRecipientCount"] == 1
 
     replay = product_client.post(f"/api/batches/{batch_id}/mail-events")
     assert replay.status_code == 200
     assert replay.json()["createdCount"] == 0
-    assert replay.json()["existingCount"] == 1
+    assert replay.json()["existingCount"] == 2
     history = product_client.get(f"/api/batches/{batch_id}/email-deliveries")
     assert history.status_code == 200
-    assert history.json()[0]["status"] == "UNTOUCHED"
-    assert history.json()[0]["attempts"] == 0
+    assert len(history.json()) == 2
+    assert {item["status"] for item in history.json()} == {"UNTOUCHED", "BLOCKED"}
+    assert all(item["attempts"] == 0 for item in history.json())
+
+    ledger = product_client.get("/api/email/events?status=BLOCKED&pageSize=10")
+    assert ledger.status_code == 200
+    assert ledger.json()["total"] == 1
+    blocked_id = ledger.json()["items"][0]["id"]
+    assert (
+        product_client.post(f"/api/email/events/{blocked_id}/requeue").status_code
+        == 409
+    )
+    assert (
+        product_client.post(f"/api/email/events/{blocked_id}/cancel").status_code == 200
+    )
 
     product_client.post("/api/auth/logout")
     friend_login = product_client.post(
@@ -1421,6 +1528,7 @@ def test_owner_idempotently_creates_member_mail_events(
     forbidden = product_client.post(f"/api/batches/{batch_id}/mail-events")
     assert forbidden.status_code == 403
     assert forbidden.json()["error"]["code"] == "GROUP_OWNER_REQUIRED"
+    assert product_client.get("/api/email/events").status_code == 403
 
 
 def test_email_settings_and_recipient_crud(product_client: TestClient) -> None:

@@ -5,7 +5,7 @@ from hmac import compare_digest
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -15,12 +15,19 @@ from backend.database import (
     Batch,
     EmailConfiguration,
     EmailDelivery,
+    EmailDeliveryAttempt,
     EmailRecipient,
+    GroupMember,
+    MemberProfile,
     ProcessingRun,
     get_session,
 )
 from backend.routers.batches import get_batch_or_404
 from backend.schemas.email_management import (
+    EmailEventActionResponse,
+    EmailEventAttemptResponse,
+    EmailEventPage,
+    EmailEventResponse,
     EmailRecipientCreate,
     EmailRecipientResponse,
     EmailRecipientUpdate,
@@ -121,6 +128,102 @@ async def recipient_or_404(
     return item
 
 
+def email_event_response(
+    event: EmailDelivery,
+    batch: Batch | None,
+    run: ProcessingRun | None,
+    attempts: list[EmailDeliveryAttempt] | None = None,
+) -> EmailEventResponse:
+    retryable_status = event.status in {"FAILED", "BLOCKED", "CANCELLED"}
+    return EmailEventResponse(
+        id=event.id,
+        status=event.status,
+        recipient=event.recipient,
+        recipient_display_name=event.recipient_display_name,
+        group_member_id=event.group_member_id,
+        batch_id=event.batch_id,
+        batch_name=batch.external_batch_id if batch else None,
+        batch_display_name=batch.display_name if batch else None,
+        ranking_run_id=event.ranking_run_id,
+        model_version_id=run.model_version_id if run else None,
+        attempts=event.attempts,
+        retry_cycle=event.retry_cycle,
+        retry_cycle_attempts=event.retry_cycle_attempts,
+        personalized_job_count=len(event.personalized_jobs or []),
+        error_code=event.error_code,
+        last_error=event.last_error,
+        next_attempt_at=event.next_attempt_at,
+        sent_at=event.sent_at,
+        created_at=event.created_at,
+        updated_at=event.updated_at,
+        can_send=(
+            event.status in {"UNTOUCHED", "FAILED"}
+            and event.retry_cycle_attempts < 4
+        ),
+        can_cancel=event.status in {"UNTOUCHED", "FAILED", "BLOCKED"},
+        can_requeue=retryable_status and event.error_code != "SUPERSEDED_BY_RERANK",
+        attempt_history=[
+            EmailEventAttemptResponse(
+                id=item.id,
+                attempt_number=item.attempt_number,
+                retry_cycle=item.retry_cycle,
+                trigger=item.trigger,
+                status=item.status,
+                started_at=item.started_at,
+                completed_at=item.completed_at,
+                provider_message_id=item.provider_message_id,
+                error_code=item.error_code,
+                safe_error_message=item.safe_error_message,
+            )
+            for item in attempts or []
+        ],
+    )
+
+
+async def owned_event_or_404(
+    session: AsyncSession,
+    event_id: str,
+    group_id: str,
+    *,
+    lock: bool = False,
+) -> tuple[EmailDelivery, Batch | None, ProcessingRun | None]:
+    statement = (
+        select(EmailDelivery, Batch, ProcessingRun)
+        .join(GroupMember, GroupMember.id == EmailDelivery.group_member_id)
+        .outerjoin(Batch, Batch.id == EmailDelivery.batch_id)
+        .outerjoin(ProcessingRun, ProcessingRun.id == EmailDelivery.ranking_run_id)
+        .where(EmailDelivery.id == event_id, GroupMember.group_id == group_id)
+    )
+    if lock:
+        statement = statement.with_for_update()
+    row = (await session.execute(statement)).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Email event not found.")
+    return row
+
+
+async def event_action_response(
+    session: AsyncSession,
+    event_id: str,
+    group_id: str,
+    message: str,
+) -> EmailEventActionResponse:
+    event, batch, run = await owned_event_or_404(session, event_id, group_id)
+    attempts = list(
+        (
+            await session.scalars(
+                select(EmailDeliveryAttempt)
+                .where(EmailDeliveryAttempt.email_delivery_id == event.id)
+                .order_by(EmailDeliveryAttempt.started_at.desc())
+            )
+        ).all()
+    )
+    return EmailEventActionResponse(
+        event=email_event_response(event, batch, run, attempts),
+        message=message,
+    )
+
+
 async def enforce_recipient_capacity(session: AsyncSession) -> None:
     if await active_recipient_count(session) >= RECIPIENT_LIMIT:
         raise HTTPException(
@@ -218,8 +321,7 @@ async def initialize_manual_email_dispatch(
         status="processed" if result.claimed else "empty",
         ready=True,
         message=(
-            f"Sent {result.sent}; failed {result.failed}; "
-            f"remaining {result.remaining}."
+            f"Sent {result.sent}; failed {result.failed}; remaining {result.remaining}."
         ),
         claimed=result.claimed,
         sent=result.sent,
@@ -270,6 +372,225 @@ async def create_batch_mail_events(
     )
     await session.commit()
     return MailEventEnqueueResponse(**result.__dict__)
+
+
+@router.get("/api/email/events", response_model=EmailEventPage)
+async def list_email_events(
+    user: CurrentUser,
+    session: DatabaseSession,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(alias="pageSize", ge=10, le=100)] = 25,
+    event_status: Annotated[str | None, Query(alias="status")] = None,
+    batch_id: Annotated[str | None, Query(alias="batchId")] = None,
+    search: Annotated[str | None, Query(max_length=100)] = None,
+) -> EmailEventPage:
+    """Return the owner-only, member-scoped delivery ledger."""
+    context = await require_group_owner(session, user.id)
+    base_filters = [GroupMember.group_id == context.group.id]
+    filters = list(base_filters)
+    if event_status:
+        if event_status not in {
+            "UNTOUCHED",
+            "SENDING",
+            "SENT",
+            "FAILED",
+            "BLOCKED",
+            "CANCELLED",
+        }:
+            raise HTTPException(status_code=422, detail="Unknown email event status.")
+        filters.append(EmailDelivery.status == event_status)
+    if batch_id:
+        filters.append(EmailDelivery.batch_id == batch_id)
+    if search and search.strip():
+        pattern = f"%{search.strip()}%"
+        filters.append(
+            or_(
+                EmailDelivery.recipient.ilike(pattern),
+                EmailDelivery.recipient_display_name.ilike(pattern),
+                Batch.external_batch_id.ilike(pattern),
+                Batch.display_name.ilike(pattern),
+            )
+        )
+    count_statement = (
+        select(func.count())
+        .select_from(EmailDelivery)
+        .join(GroupMember, GroupMember.id == EmailDelivery.group_member_id)
+        .outerjoin(Batch, Batch.id == EmailDelivery.batch_id)
+        .where(*filters)
+    )
+    total = int(await session.scalar(count_statement) or 0)
+    rows = (
+        await session.execute(
+            select(EmailDelivery, Batch, ProcessingRun)
+            .join(GroupMember, GroupMember.id == EmailDelivery.group_member_id)
+            .outerjoin(Batch, Batch.id == EmailDelivery.batch_id)
+            .outerjoin(ProcessingRun, ProcessingRun.id == EmailDelivery.ranking_run_id)
+            .where(*filters)
+            .order_by(EmailDelivery.created_at.desc(), EmailDelivery.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).all()
+    event_ids = [event.id for event, _batch, _run in rows]
+    attempts_by_event: dict[str, list[EmailDeliveryAttempt]] = {
+        event_id: [] for event_id in event_ids
+    }
+    if event_ids:
+        for attempt in (
+            await session.scalars(
+                select(EmailDeliveryAttempt)
+                .where(EmailDeliveryAttempt.email_delivery_id.in_(event_ids))
+                .order_by(EmailDeliveryAttempt.started_at.desc())
+            )
+        ).all():
+            attempts_by_event[attempt.email_delivery_id].append(attempt)
+    counts = {
+        status_name: int(count)
+        for status_name, count in (
+            await session.execute(
+                select(EmailDelivery.status, func.count())
+                .join(GroupMember, GroupMember.id == EmailDelivery.group_member_id)
+                .where(*base_filters)
+                .group_by(EmailDelivery.status)
+            )
+        ).all()
+    }
+    return EmailEventPage(
+        items=[
+            email_event_response(event, batch, run, attempts_by_event[event.id])
+            for event, batch, run in rows
+        ],
+        page=page,
+        page_size=page_size,
+        total=total,
+        total_pages=max(1, (total + page_size - 1) // page_size),
+        status_counts=counts,
+    )
+
+
+@router.post(
+    "/api/email/events/{event_id}/send", response_model=EmailEventActionResponse
+)
+async def send_email_event(
+    event_id: str,
+    user: CurrentUser,
+    session: DatabaseSession,
+    transport: EmailTransportDependency,
+) -> EmailEventActionResponse:
+    if not transport_configured():
+        raise HTTPException(status_code=409, detail="Configure Gmail SMTP first.")
+    context = await require_group_owner(session, user.id)
+    event, _batch, _run = await owned_event_or_404(session, event_id, context.group.id)
+    if event.status not in {"UNTOUCHED", "FAILED"}:
+        raise HTTPException(
+            status_code=409,
+            detail="Only queued or failed events can be sent manually.",
+        )
+    if session.bind is None:
+        raise HTTPException(status_code=503, detail="Database worker is unavailable.")
+    target_event_id = event.id
+    owner_group_id = context.group.id
+    actor_member_id = context.membership.id
+    worker = await run_mail_event_worker(
+        async_sessionmaker(session.bind, expire_on_commit=False),
+        transport,
+        limit=1,
+        concurrency=1,
+        event_ids=[target_event_id],
+        trigger="MANUAL",
+        requested_by_group_member_id=actor_member_id,
+    )
+    if worker.claimed != 1:
+        raise HTTPException(
+            status_code=409,
+            detail="The event changed or must be requeued before another send.",
+        )
+    await session.rollback()
+    return await event_action_response(
+        session,
+        target_event_id,
+        owner_group_id,
+        "Email sent." if worker.sent else "The send failed; review its safe error.",
+    )
+
+
+@router.post(
+    "/api/email/events/{event_id}/cancel", response_model=EmailEventActionResponse
+)
+async def cancel_email_event(
+    event_id: str,
+    user: CurrentUser,
+    session: DatabaseSession,
+) -> EmailEventActionResponse:
+    context = await require_group_owner(session, user.id)
+    event, _batch, _run = await owned_event_or_404(
+        session, event_id, context.group.id, lock=True
+    )
+    if event.status in {"SENT", "SENDING"}:
+        raise HTTPException(
+            status_code=409, detail="This event can no longer be cancelled."
+        )
+    event.status = "CANCELLED"
+    event.error_code = "MANUALLY_CANCELLED"
+    event.last_error = "An owner cancelled this delivery."
+    event.next_attempt_at = None
+    await session.commit()
+    return await event_action_response(
+        session, event.id, context.group.id, "Event cancelled."
+    )
+
+
+@router.post(
+    "/api/email/events/{event_id}/requeue", response_model=EmailEventActionResponse
+)
+async def requeue_email_event(
+    event_id: str,
+    user: CurrentUser,
+    session: DatabaseSession,
+) -> EmailEventActionResponse:
+    context = await require_group_owner(session, user.id)
+    event, _batch, _run = await owned_event_or_404(
+        session, event_id, context.group.id, lock=True
+    )
+    if (
+        event.status in {"SENT", "SENDING"}
+        or event.error_code == "SUPERSEDED_BY_RERANK"
+    ):
+        raise HTTPException(status_code=409, detail="This event cannot be requeued.")
+    recipient = (
+        await session.get(EmailRecipient, event.recipient_id)
+        if event.recipient_id
+        else None
+    )
+    profile = await session.scalar(
+        select(MemberProfile).where(
+            MemberProfile.group_member_id == event.group_member_id
+        )
+    )
+    if recipient is None or not recipient.active or recipient.deleted_at is not None:
+        event.status = "CANCELLED"
+        event.error_code = "RECIPIENT_DISABLED"
+        event.last_error = "Enable this member's recipient before requeueing."
+        await session.commit()
+        raise HTTPException(status_code=409, detail=event.last_error)
+    if profile is None:
+        event.status = "BLOCKED"
+        event.error_code = "PROFILE_MISSING"
+        event.last_error = "Complete this member's profile before requeueing."
+        await session.commit()
+        raise HTTPException(status_code=409, detail=event.last_error)
+    event.status = "UNTOUCHED"
+    event.retry_cycle += 1
+    event.retry_cycle_attempts = 0
+    event.error_code = None
+    event.last_error = None
+    event.lease_token = None
+    event.lease_expires_at = None
+    event.next_attempt_at = datetime.now(UTC)
+    await session.commit()
+    return await event_action_response(
+        session, event.id, context.group.id, "Event requeued."
+    )
 
 
 @router.get(
@@ -518,6 +839,21 @@ async def run_email_cron(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid cron authorization.",
         )
+    config = await configuration(session)
+    if not config.enabled or not config.send_after_ranking:
+        return ManualEmailDispatchResponse(
+            status="empty",
+            ready=False,
+            message=(
+                "Automatic email delivery is disabled; queued events were preserved."
+            ),
+        )
+    if not transport_configured():
+        return ManualEmailDispatchResponse(
+            status="not_ready",
+            ready=False,
+            message="Gmail SMTP is not configured; queued events were preserved.",
+        )
     if session.bind is None:
         raise HTTPException(status_code=503, detail="Database worker is unavailable.")
     session_factory = async_sessionmaker(session.bind, expire_on_commit=False)
@@ -526,8 +862,7 @@ async def run_email_cron(
         status="processed" if result.claimed else "empty",
         ready=True,
         message=(
-            f"Sent {result.sent}; failed {result.failed}; "
-            f"remaining {result.remaining}."
+            f"Sent {result.sent}; failed {result.failed}; remaining {result.remaining}."
         ),
         claimed=result.claimed,
         sent=result.sent,

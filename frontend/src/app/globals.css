@@ -130,10 +130,11 @@ select {
 
 .landing-opening { position: relative; border-bottom: 1px solid #343438; padding: clamp(4rem,8vw,8rem) max(1.25rem,calc((100vw - 91rem)/2)); background-image: linear-gradient(90deg,transparent 49.9%,rgb(255 255 255 / 3%) 50%,transparent 50.1%); }
 .landing-opening::before { position: absolute; inset: 0; pointer-events: none; content: ""; background: radial-gradient(circle at 15% 22%,rgb(168 198 122 / 8%),transparent 26rem); }
-.landing-coordinate { position: absolute; top: 1.25rem; font: 700 .6rem var(--font-mono); letter-spacing: .15em; color: #717176; }
+.landing-opening::after { position: absolute; z-index: 0; top: 2.5rem; right: clamp(12%,22vw,27%); width: clamp(22rem,36vw,38rem); aspect-ratio: 538/602; pointer-events: none; content: ""; background: url("/logo.png") center/contain no-repeat; opacity: .09; filter: drop-shadow(0 0 1.5rem rgb(255 255 255 / 28%)) drop-shadow(0 0 4.5rem rgb(168 198 122 / 18%)); -webkit-mask-image: linear-gradient(to bottom,rgb(0 0 0 / 95%) 35%,transparent 92%); mask-image: linear-gradient(to bottom,rgb(0 0 0 / 95%) 35%,transparent 92%); }
+.landing-coordinate { position: absolute; z-index: 1; top: 1.25rem; font: 700 .6rem var(--font-mono); letter-spacing: .15em; color: #717176; }
 .landing-coordinate-left { left: max(1.25rem,calc((100vw - 91rem)/2)); }
 .landing-coordinate-right { right: max(1.25rem,calc((100vw - 91rem)/2)); }
-.landing-opening-grid { position: relative; display: grid; grid-template-columns: minmax(0,1.45fr) minmax(19rem,.55fr); gap: clamp(3rem,7vw,8rem); align-items: end; }
+.landing-opening-grid { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0,1.45fr) minmax(19rem,.55fr); gap: clamp(3rem,7vw,8rem); align-items: end; }
 .landing-eyebrow, .landing-index { font: 700 .67rem var(--font-mono); letter-spacing: .16em; text-transform: uppercase; }
 .landing-eyebrow { display: flex; align-items: center; gap: .65rem; color: var(--primary); }
 .landing-eyebrow span { width: 2rem; height: 1px; background: currentColor; }
@@ -144,7 +145,7 @@ select {
 .landing-aside-lead { margin: 1.35rem 0; color: #f1f0eb; font: 400 1.5rem/1.2 Georgia,"Times New Roman",serif; }
 .landing-text-link { display: inline-flex; min-height: 2.75rem; margin-top: 1.75rem; align-items: center; gap: .55rem; border-bottom: 1px solid #717176; font: 700 .68rem var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
 .landing-text-link:hover { border-color: var(--primary); color: var(--primary); }
-.landing-brief-wrap { position: relative; margin-top: clamp(4rem,8vw,8rem); }
+.landing-brief-wrap { position: relative; z-index: 1; margin-top: clamp(4rem,8vw,8rem); }
 
 .briefing-shell { position: relative; border: 1px solid #d1cfc3; background: #e8e6dc; color: #111; box-shadow: 14px 14px 0 #29252f; }
 .briefing-topline, .briefing-footer { display: flex; justify-content: space-between; gap: 1rem; padding: .8rem 1rem; font: 700 .58rem var(--font-mono); letter-spacing: .12em; }
@@ -251,6 +252,7 @@ select {
 .landing-footer { display: flex; max-width: 91rem; margin: auto; justify-content: space-between; gap: 1rem; padding: 2rem 1.25rem; color: #88888d; font: 700 .6rem var(--font-mono); letter-spacing: .1em; }
 
 @media (max-width: 900px) {
+  .landing-opening::after { top: 5rem; right: -8rem; width: min(34rem,72vw); opacity: .065; }
   .landing-opening-grid,.landing-story-intro,.score-section,.member-layout,.openjedi-content,.landing-close { grid-template-columns: minmax(0,1fr); }
   .landing-opening-copy,.landing-opening-aside { min-width: 0; }
   .landing-opening-aside { max-width: 34rem; }
@@ -269,6 +271,7 @@ select {
   .landing-header-inner { gap: .65rem; padding: 0 .75rem; }
   .landing-masthead span { display: none; }
   .landing-opening { padding-left: 1rem; padding-right: 1rem; }
+  .landing-opening::after { top: 7rem; right: -11rem; width: 27rem; opacity: .055; }
   .landing-opening h1 { max-width: 100%; font-size: clamp(3.25rem,14.8vw,4.1rem); }
   .briefing-shell { box-shadow: 7px 7px 0 #29252f; }
   .briefing-topline span:last-child,.briefing-stamp { display: none; }

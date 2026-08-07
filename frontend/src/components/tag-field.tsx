@@ -12,6 +12,7 @@ export function TagField({
   values,
   suggestions,
   placeholder,
+  error,
   onChange,
 }: {
   id: string;
@@ -19,6 +20,7 @@ export function TagField({
   values: string[];
   suggestions: string[];
   placeholder: string;
+  error?: string;
   onChange: (values: string[]) => void;
 }) {
   const [draft, setDraft] = useState("");
@@ -51,7 +53,9 @@ export function TagField({
           id={id}
           value={draft}
           placeholder={placeholder}
-          className="min-h-11 border-border bg-card"
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${id}-error` : undefined}
+          className="min-h-11 border-border bg-card aria-invalid:border-coral/60"
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === ",") {
@@ -65,6 +69,7 @@ export function TagField({
           <Plus className="size-4" />
         </Button>
       </div>
+      {error ? <p id={`${id}-error`} className="mt-2 text-xs text-coral">{error}</p> : null}
       {values.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2" aria-label={`Selected ${label.toLowerCase()}`}>
           {values.map((value) => (

@@ -154,14 +154,14 @@ function readableStatus(value: string) {
 }
 
 function JobCard({ job }: { job: DashboardJob }) {
-  const score = job.rankingScore ?? job.jediPreferenceScore;
+  const score = job.jediPreferenceScore ?? job.rankingScore;
   const probability = job.applyPreferenceProbability;
   const applySignal =
     job.applyRecommendation === true
       ? "Apply"
       : probability === null
         ? "Not ranked"
-        : "Do not apply";
+        : "Review";
 
   return (
     <Link
@@ -299,8 +299,8 @@ export default function DashboardPage() {
           eyebrow="New opportunities"
           title={feed.data?.jobFeedScope === "latest" ? "Latest jobs" : "Today's jobs"}
           description={feed.data?.jobFeedScope === "latest"
-            ? "No jobs were generated today, so this shows the latest available batch."
-            : "Recently generated jobs for today in India Standard Time."}
+            ? "No jobs were generated today, so this shows the latest available jobs ordered by JEDI preference when ranked."
+            : "Today's jobs ordered by JEDI preference when ranked; apply probability remains a review signal."}
           action={
             <div className="flex flex-wrap gap-2">
               <Button
@@ -485,7 +485,7 @@ export default function DashboardPage() {
         ) : feed.data?.leaderboard.length ? (
           <div className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
             {feed.data.leaderboard.map((job, index) => {
-              const score = job.rankingScore ?? job.jediPreferenceScore;
+              const score = job.jediPreferenceScore ?? job.rankingScore;
               return (
                 <Link
                   key={job.id}
@@ -507,7 +507,7 @@ export default function DashboardPage() {
                     <p className={job.applyRecommendation ? "text-sm font-bold text-acid" : "text-sm font-bold text-coral"}>
                       {job.applyPreferenceProbability === null ? "--" : `${(job.applyPreferenceProbability * 100).toFixed(1)}%`}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">APPLY</p>
+                    <p className="text-[10px] text-muted-foreground">APPLY SIGNAL</p>
                   </div>
                 </Link>
               );

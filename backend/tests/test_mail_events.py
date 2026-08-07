@@ -13,6 +13,7 @@ from backend.database import (
     JobPrediction,
     MemberProfile,
 )
+from backend.services.email import normalized_smtp_app_password
 from backend.services.mail_events import (
     BatchCandidateCache,
     RankedCandidate,
@@ -57,6 +58,7 @@ def candidate(index: int, *, title: str = "Backend Engineer") -> RankedCandidate
 
 
 def test_personalization_formula_top_ten_and_four_entry_lru() -> None:
+    assert normalized_smtp_app_password("abcd efgh ijkl mnop") == "abcdefghijklmnop"
     profile = SimpleNamespace(
         preferred_titles=["Backend Engineer"],
         preferred_locations=["Remote"],
@@ -262,10 +264,23 @@ def test_worker_personalizes_sends_retries_and_reuses_snapshot() -> None:
         result = await run_mail_event_worker(factory, transport, now=now)
         assert (result.claimed, result.sent, result.failed) == (2, 1, 1)
         assert (result.cache_hits, result.cache_misses) == (1, 1)
+        rendered = transport.payloads["a@example.com"]
+        assert rendered["htmlBody"].count("class='job-row'") == 10
+        assert "Fit = your profile match" in rendered["htmlBody"]
+        assert "1–3 yrs" in rendered["htmlBody"]
+        assert "Salary not listed" in rendered["htmlBody"]
+        assert "View all opportunities in JEDI" in rendered["htmlBody"]
+        assert "Strongest signals" not in rendered["htmlBody"]
+        assert "Profile-adjusted composite" not in rendered["htmlBody"]
+        assert " / 100" not in rendered["htmlBody"]
+        assert "http://localhost:3000/jobs/job-01" in rendered["htmlBody"]
+        assert "https://example.test/1" not in rendered["htmlBody"]
+        assert "Fit 97.9 · JEDI 99.0" in rendered["textBody"]
         async with factory() as session:
             sent = await session.get(EmailDelivery, "event-a")
             failed = await session.get(EmailDelivery, "event-b")
             assert sent and sent.status == "SENT"
+            assert sent.template_version == "personalized-top-ten-v3"
             assert failed and failed.status == "FAILED"
             assert failed.error_code == "SMTP_DELIVERY_FAILED"
             assert failed.last_error == "Gmail SMTP delivery failed."

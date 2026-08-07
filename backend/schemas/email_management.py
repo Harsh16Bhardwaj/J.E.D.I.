@@ -138,3 +138,62 @@ class EmailRecipientResponse(ApiModel):
 class EmailRecipientWriteResponse(EmailRecipientResponse):
     replayed: bool
     reactivated: bool
+
+
+EmailEventStatus = Literal[
+    "UNTOUCHED", "SENDING", "SENT", "FAILED", "BLOCKED", "CANCELLED"
+]
+
+
+class EmailEventAttemptResponse(ApiModel):
+    id: str
+    attempt_number: int
+    retry_cycle: int
+    trigger: Literal["CRON", "MANUAL"]
+    status: Literal["SENDING", "SENT", "FAILED", "SKIPPED"]
+    started_at: datetime
+    completed_at: datetime | None
+    provider_message_id: str | None
+    error_code: str | None
+    safe_error_message: str | None
+
+
+class EmailEventResponse(ApiModel):
+    id: str
+    status: EmailEventStatus
+    recipient: str
+    recipient_display_name: str | None
+    group_member_id: str | None
+    batch_id: str | None
+    batch_name: str | None
+    batch_display_name: str | None
+    ranking_run_id: str | None
+    model_version_id: str | None
+    attempts: int
+    retry_cycle: int
+    retry_cycle_attempts: int
+    personalized_job_count: int
+    error_code: str | None
+    last_error: str | None
+    next_attempt_at: datetime | None
+    sent_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    can_send: bool
+    can_cancel: bool
+    can_requeue: bool
+    attempt_history: list[EmailEventAttemptResponse] = Field(default_factory=list)
+
+
+class EmailEventPage(ApiModel):
+    items: list[EmailEventResponse]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int
+    status_counts: dict[str, int]
+
+
+class EmailEventActionResponse(ApiModel):
+    event: EmailEventResponse
+    message: str

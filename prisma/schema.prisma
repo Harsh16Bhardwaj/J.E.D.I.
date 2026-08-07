@@ -74,6 +74,7 @@ enum EmailStatus {
   SENDING /// One sender owns a short delivery lease.
   SENT /// The email provider accepted the message.
   FAILED /// The current delivery attempts failed.
+  BLOCKED /// The event exists but cannot send until its member setup is repaired.
   CANCELLED /// The recipient was disabled before this queued delivery was sent.
 }
 
@@ -131,6 +132,7 @@ model GroupMember {
   memberProfile         MemberProfile? /// Stores the member's future-personalization profile.
   emailRecipient        EmailRecipient? /// Links this member to the only personalized newsletter destination allowed in v1.
   emailDeliveries       EmailDelivery[] /// Personalized mail events owned by this member.
+  emailDeliveryAttempts EmailDeliveryAttempt[] @relation("EmailDeliveryAttemptActor") /// Manual delivery actions requested by this member.
   jobStates             JobState[] /// Private review state for shared jobs.
   applications          Application[] /// Private application records for shared jobs.
   annotations           JobAnnotation[] /// Private labels saved by this member.
@@ -734,13 +736,40 @@ model EmailDelivery {
   sentAt               DateTime? /// Records when the provider accepted the email.
   createdAt            DateTime        @default(now()) /// Records when delivery was first queued.
   updatedAt            DateTime        @updatedAt /// Records snapshot, retry, and delivery state changes.
+  attemptHistory       EmailDeliveryAttempt[] /// Immutable provider-attempt and manual-action audit history.
 
-  // Retains idempotency for the legacy batch-specific sender.
-  @@unique([batchId, recipient])
   // Ensures one configured address is represented once in a daily campaign.
   @@unique([campaignId, recipientId])
   // Makes event creation idempotent for one recipient and one exact ranking run.
   @@unique([batchId, rankingRunId, recipientId])
+  // Ensures every group member receives one auditable event for an exact ranking.
+  @@unique([batchId, rankingRunId, groupMemberId])
   @@index([status, nextAttemptAt, createdAt])
   @@index([campaignId, status])
+  @@index([createdAt, id])
+  @@index([batchId, createdAt])
+  @@index([recipientId, createdAt])
+  @@index([groupMemberId, createdAt])
+}
+
+/// One immutable delivery attempt or owner-triggered send action for an email event.
+model EmailDeliveryAttempt {
+  id                       String        @id @default(cuid())
+  emailDeliveryId          String
+  emailDelivery            EmailDelivery @relation(fields: [emailDeliveryId], references: [id], onDelete: Cascade)
+  attemptNumber            Int
+  retryCycle               Int
+  trigger                  String /// CRON or MANUAL.
+  status                   String /// SENDING, SENT, FAILED, or SKIPPED.
+  requestedByGroupMemberId String?
+  requestedBy              GroupMember?  @relation("EmailDeliveryAttemptActor", fields: [requestedByGroupMemberId], references: [id], onDelete: SetNull)
+  startedAt                DateTime      @default(now())
+  completedAt              DateTime?
+  providerMessageId        String?
+  errorCode                String?
+  safeErrorMessage         String?
+
+  @@unique([emailDeliveryId, retryCycle, attemptNumber])
+  @@index([emailDeliveryId, startedAt])
+  @@index([requestedByGroupMemberId, startedAt])
 }

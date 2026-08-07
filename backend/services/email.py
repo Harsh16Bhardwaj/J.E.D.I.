@@ -10,7 +10,7 @@ from typing import Annotated, Protocol
 
 import aiosmtplib
 from fastapi import Depends
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import Settings, get_settings
@@ -24,11 +24,13 @@ from backend.database import (
     JobPrediction,
     MemberProfile,
     ProcessingRun,
+    User,
 )
+from backend.schemas.email_management import normalize_email
 from backend.schemas.product import EmailDeliverySummary
 
 TEMPLATE_VERSION = "top-ten-v1"
-PERSONALIZED_TEMPLATE_VERSION = "personalized-top-ten-v1"
+PERSONALIZED_TEMPLATE_VERSION = "personalized-top-ten-v3"
 DELIVERY_LEASE = timedelta(minutes=5)
 RETRY_DELAYS = (timedelta(minutes=15), timedelta(hours=2), timedelta(days=1))
 
@@ -47,6 +49,20 @@ class EmailTransport(Protocol):
     async def send(self, delivery: EmailDelivery) -> str: ...
 
 
+class MailTransportError(RuntimeError):
+    """Safe transport failure that can be persisted without provider secrets."""
+
+    def __init__(self, code: str, message: str, *, retryable: bool) -> None:
+        super().__init__(message)
+        self.code = code
+        self.retryable = retryable
+
+
+def normalized_smtp_app_password(value: str) -> str:
+    """Accept Google's grouped app-password display without sending its spaces."""
+    return "".join(value.split())
+
+
 class GmailSmtpTransport:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -62,15 +78,24 @@ class GmailSmtpTransport:
         message["Message-ID"] = delivery.message_id
         message.set_content(payload["textBody"])
         message.add_alternative(payload["htmlBody"], subtype="html")
-        await aiosmtplib.send(
-            message,
-            hostname="smtp.gmail.com",
-            port=587,
-            start_tls=True,
-            username=self.settings.gmail_smtp_user,
-            password=self.settings.gmail_smtp_app_password,
-            timeout=20,
-        )
+        try:
+            await aiosmtplib.send(
+                message,
+                hostname="smtp.gmail.com",
+                port=587,
+                start_tls=True,
+                username=self.settings.gmail_smtp_user.strip(),
+                password=normalized_smtp_app_password(
+                    self.settings.gmail_smtp_app_password
+                ),
+                timeout=20,
+            )
+        except aiosmtplib.SMTPAuthenticationError as exc:
+            raise MailTransportError(
+                "SMTP_AUTHENTICATION_FAILED",
+                "Gmail rejected the configured SMTP credentials.",
+                retryable=False,
+            ) from exc
         return delivery.message_id
 
 
@@ -114,90 +139,160 @@ async def enqueue_mail_events(
     *,
     group_id: str | None = None,
 ) -> MailEventEnqueueResult:
-    """Create one untouched event per active onboarded member, idempotently."""
+    """Reconcile one auditable event for every member of the ranking group."""
     if run.batch_id != batch.id or run.status != "SUCCEEDED":
         raise ValueError("Mail events require a successful run for this batch.")
 
-    active_total = (
-        await session.scalar(
-            select(func.count())
-            .select_from(EmailRecipient)
-            .where(
-                EmailRecipient.active.is_(True),
-                EmailRecipient.deleted_at.is_(None),
-            )
-        )
-        or 0
-    )
-    recipient_filters = [
-        EmailRecipient.active.is_(True),
-        EmailRecipient.deleted_at.is_(None),
-    ]
-    if group_id is not None:
-        recipient_filters.append(GroupMember.group_id == group_id)
-    recipients = list(
+    filters = [] if group_id is None else [GroupMember.group_id == group_id]
+    member_rows = list(
         (
             await session.execute(
-                select(EmailRecipient, GroupMember)
-                .join(
-                    GroupMember,
-                    EmailRecipient.group_member_id == GroupMember.id,
+                select(GroupMember, User, MemberProfile)
+                .join(User, User.id == GroupMember.user_id)
+                .outerjoin(
+                    MemberProfile, MemberProfile.group_member_id == GroupMember.id
                 )
-                .join(
-                    MemberProfile,
-                    MemberProfile.group_member_id == GroupMember.id,
-                )
-                .where(*recipient_filters)
-                .order_by(EmailRecipient.created_at, EmailRecipient.id)
+                .where(*filters)
+                .order_by(GroupMember.joined_at, GroupMember.id)
             )
         ).all()
     )
-    recipient_ids = [recipient.id for recipient, _member in recipients]
-    existing_ids: set[str] = set()
-    if recipient_ids:
-        existing_ids = set(
+    member_ids = [member.id for member, _user, _profile in member_rows]
+    normalized_emails = [
+        normalize_email(user.email) for _member, user, _profile in member_rows
+    ]
+    recipients = (
+        list(
             (
                 await session.scalars(
-                    select(EmailDelivery.recipient_id).where(
-                        EmailDelivery.batch_id == batch.id,
-                        EmailDelivery.ranking_run_id == run.id,
-                        EmailDelivery.recipient_id.in_(recipient_ids),
+                    select(EmailRecipient).where(
+                        or_(
+                            EmailRecipient.group_member_id.in_(member_ids),
+                            EmailRecipient.email_normalized.in_(normalized_emails),
+                        )
                     )
                 )
             ).all()
         )
+        if member_ids
+        else []
+    )
+    recipients_by_member = {
+        item.group_member_id: item for item in recipients if item.group_member_id
+    }
+    recipients_by_email = {item.email_normalized: item for item in recipients}
+    existing_events = (
+        {
+            item.group_member_id: item
+            for item in (
+                await session.scalars(
+                    select(EmailDelivery).where(
+                        EmailDelivery.batch_id == batch.id,
+                        EmailDelivery.ranking_run_id == run.id,
+                        EmailDelivery.group_member_id.in_(member_ids),
+                    )
+                )
+            ).all()
+            if item.group_member_id
+        }
+        if member_ids
+        else {}
+    )
+
+    # A rerank supersedes only unsent events; accepted mail remains immutable history.
+    old_events = (
+        (
+            await session.scalars(
+                select(EmailDelivery).where(
+                    EmailDelivery.batch_id == batch.id,
+                    EmailDelivery.ranking_run_id != run.id,
+                    EmailDelivery.group_member_id.in_(member_ids),
+                    EmailDelivery.status.in_(["UNTOUCHED", "FAILED", "BLOCKED"]),
+                )
+            )
+        ).all()
+        if member_ids
+        else []
+    )
+    for event in old_events:
+        event.status = "CANCELLED"
+        event.error_code = "SUPERSEDED_BY_RERANK"
+        event.last_error = "A newer successful ranking replaced this unsent event."
+        event.next_attempt_at = None
 
     created_count = 0
-    for recipient, member in recipients:
-        if recipient.id in existing_ids:
-            continue
-        session.add(
-            EmailDelivery(
+    eligible_count = 0
+    skipped_count = 0
+    now = datetime.now(UTC)
+    for member, user, profile in member_rows:
+        normalized = normalize_email(user.email)
+        recipient = recipients_by_member.get(member.id) or recipients_by_email.get(
+            normalized
+        )
+        if recipient is None:
+            recipient = EmailRecipient(
+                email=user.email,
+                email_normalized=normalized,
+                group_member_id=member.id,
+                active=True,
+            )
+            session.add(recipient)
+            await session.flush()
+        elif recipient.group_member_id is None:
+            recipient.group_member_id = member.id
+        is_active = recipient.active and recipient.deleted_at is None
+        if not is_active:
+            event_status, error_code, error_message = (
+                "CANCELLED",
+                "RECIPIENT_DISABLED",
+                "This member's recipient is paused.",
+            )
+            skipped_count += 1
+        elif profile is None:
+            event_status, error_code, error_message = (
+                "BLOCKED",
+                "PROFILE_MISSING",
+                "Complete this member's profile before sending.",
+            )
+            skipped_count += 1
+        else:
+            event_status, error_code, error_message = "UNTOUCHED", None, None
+            eligible_count += 1
+
+        event = existing_events.get(member.id)
+        if event is None:
+            event = EmailDelivery(
                 batch_id=batch.id,
                 ranking_run_id=run.id,
                 recipient_id=recipient.id,
                 group_member_id=member.id,
-                recipient=recipient.email_normalized,
+                recipient=normalized,
                 recipient_display_name=recipient.display_name,
                 template_version=PERSONALIZED_TEMPLATE_VERSION,
-                message_id=_message_id(batch.id, recipient.email_normalized, run.id),
-                payload_snapshot=None,
-                personalized_jobs=None,
-                profile_content_hash=None,
-                status="UNTOUCHED",
-                next_attempt_at=datetime.now(UTC),
+                message_id=_message_id(batch.id, normalized, run.id),
+                status=event_status,
+                error_code=error_code,
+                last_error=error_message,
+                next_attempt_at=now if event_status == "UNTOUCHED" else None,
             )
-        )
-        created_count += 1
+            session.add(event)
+            created_count += 1
+        elif event.status not in {"SENT", "SENDING"}:
+            event.recipient_id = recipient.id
+            event.recipient = normalized
+            event.recipient_display_name = recipient.display_name
+            event.status = event_status
+            event.error_code = error_code
+            event.last_error = error_message
+            event.next_attempt_at = now if event_status == "UNTOUCHED" else None
     await session.flush()
-    eligible_count = len(recipients)
     return MailEventEnqueueResult(
         batch_id=batch.id,
         ranking_run_id=run.id,
         created_count=created_count,
-        existing_count=eligible_count - created_count,
+        existing_count=len(member_rows) - created_count,
         eligible_recipient_count=eligible_count,
-        skipped_recipient_count=max(0, int(active_total) - eligible_count),
+        skipped_recipient_count=skipped_count,
     )
 
 
@@ -209,14 +304,9 @@ async def enqueue_configured_mail_events(
     group_id: str | None = None,
     force: bool = False,
 ) -> MailEventEnqueueResult | None:
-    """Queue personalized member events when newsletter delivery is enabled."""
-    configuration = await session.get(EmailConfiguration, "default")
-    if configuration is None:
-        return None
-    if not force and (
-        not configuration.enabled or not configuration.send_after_ranking
-    ):
-        return None
+    """Always create member events; configuration controls dispatch, not audit."""
+    if await session.get(EmailConfiguration, "default") is None:
+        session.add(EmailConfiguration(id="default"))
     result = await enqueue_mail_events(
         session,
         batch,

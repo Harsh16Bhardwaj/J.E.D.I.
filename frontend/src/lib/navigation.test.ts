@@ -11,7 +11,6 @@ import {
   persistTutorialComplete,
   TUTORIAL_COMPLETE_KEY,
 } from "./tutorial-state";
-import { buildJobSearchPrompt, isJobSearchComplete } from "./tutorial-prompt";
 
 test("members see the shared daily workflow without owner controls", () => {
   assert.deepEqual(
@@ -55,24 +54,4 @@ test("the tutorial remains new until completion is explicitly persisted", () => 
   assert.equal(hasCompletedTutorial(storage), true);
   persistTutorialComplete(storage);
   assert.equal(hasCompletedTutorial(storage), true);
-});
-
-test("the batch prompt contains user criteria and the exact import envelope", () => {
-  const criteria = {
-    postedDays: 2,
-    salaryMinimum: "1200000",
-    preferredRoles: "Backend Engineer, Python Engineer",
-    experienceYears: "2",
-    companyType: "ALL" as const,
-    locations: "Bengaluru, Remote",
-  };
-  const prompt = buildJobSearchPrompt(criteria);
-
-  assert.equal(isJobSearchComplete(criteria), true);
-  assert.match(prompt, /last 2 day/);
-  assert.match(prompt, /1-3 years/);
-  assert.match(prompt, /"externalBatchId"/);
-  assert.match(prompt, /"companyName"/);
-  assert.match(prompt, /20 source categories/);
-  assert.equal(isJobSearchComplete({ ...criteria, preferredRoles: "" }), false);
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -125,8 +126,16 @@ export function Sidebar({
   return (
     <div className="flex h-full flex-col bg-sidebar p-4">
       <Link href="/dashboard" className="mb-7 block px-2 pt-1" onClick={onNavigate}>
-        <span className="block text-4xl font-black tracking-[-0.08em]">
-          JEDI/
+        <span className="flex items-center gap-2">
+          <Image
+            src="/logo.png"
+            alt=""
+            width={50}
+            height={56}
+            className="h-14 w-[50px] shrink-0 object-contain"
+            priority
+          />
+          <span className="text-4xl font-black tracking-[-0.08em]">JEDI/</span>
         </span>
         <span className="mt-1 block font-mono text-[9px] uppercase tracking-[0.24em] text-muted-foreground">
           Job intelligence
