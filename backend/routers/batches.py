@@ -191,6 +191,7 @@ def job_response(
         salary_min=float(job.salary_min) if job.salary_min is not None else None,
         salary_max=float(job.salary_max) if job.salary_max is not None else None,
         salary_currency=job.salary_currency,
+        salary_period=job.salary_period,
         posted_at=job.posted_at,
         application_deadline=job.application_deadline,
         can_apply_now=job.can_apply_now,

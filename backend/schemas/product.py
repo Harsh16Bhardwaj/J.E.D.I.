@@ -30,6 +30,11 @@ class UserResponse(ApiModel):
     email: str
 
 
+class SalaryPeriod(StrEnum):
+    YEARLY = "YEARLY"
+    MONTHLY = "MONTHLY"
+
+
 class IncomingJob(ApiModel):
     company_name: str = Field(min_length=1, max_length=300)
     role_title: str = Field(min_length=1, max_length=500)
@@ -46,6 +51,7 @@ class IncomingJob(ApiModel):
     salary_min: float | None = Field(default=None, ge=0)
     salary_max: float | None = Field(default=None, ge=0)
     salary_currency: str | None = Field(default=None, max_length=10)
+    salary_period: SalaryPeriod | None = None
     posted_at: datetime | None = None
     application_deadline: datetime | None = None
     can_apply_now: bool | None = None
@@ -69,6 +75,11 @@ class IncomingJob(ApiModel):
             high = getattr(self, high_name)
             if low is not None and high is not None and low > high:
                 raise ValueError(f"{low_name} cannot exceed {high_name}")
+        if (
+            self.salary_period is None
+            and (self.salary_min is not None or self.salary_max is not None)
+        ):
+            self.salary_period = SalaryPeriod.YEARLY
         return self
 
 
@@ -151,6 +162,7 @@ class JobResponse(ApiModel):
     salary_min: float | None
     salary_max: float | None
     salary_currency: str | None
+    salary_period: SalaryPeriod | None
     posted_at: datetime | None
     application_deadline: datetime | None
     can_apply_now: bool | None
@@ -654,6 +666,11 @@ class JobListItem(ApiModel):
     role_title: str
     location: str | None
     work_mode: str | None
+    salary_min: float | None
+    salary_max: float | None
+    salary_currency: str | None
+    salary_period: SalaryPeriod | None
+    batch_created_at: datetime
     created_at: datetime
     relevance_label: str | None
     review_status: str

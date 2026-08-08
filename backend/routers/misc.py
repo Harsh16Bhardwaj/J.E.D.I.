@@ -170,6 +170,8 @@ def _incoming(row: dict[str, str]) -> IncomingJob:
         salary_max=salary_max,
         salary_currency=_value(row, "salary_currency")
         or ("INR" if salary_min or salary_max else None),
+        salary_period=_value(row, "salary_period", "salaryPeriod")
+        or ("YEARLY" if salary_min is not None or salary_max is not None else None),
         posted_at=_date(row),
         can_apply_now=_boolean(_value(row, "can_apply_now", "canApplyNow")),
         apply_url=apply_url,

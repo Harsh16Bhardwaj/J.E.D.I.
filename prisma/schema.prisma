@@ -122,13 +122,13 @@ model Group {
 
 /// Connects one user to the single shared JEDI group.
 model GroupMember {
-  id                    String            @id @default(cuid()) /// Internal membership identifier used by onboarding.
+  id                    String                 @id @default(cuid()) /// Internal membership identifier used by onboarding.
   groupId               String /// Identifies the shared workspace the member joined.
-  group                 Group             @relation(fields: [groupId], references: [id], onDelete: Cascade) /// Loads shared profile, model, and members.
-  userId                String            @unique /// Enforces one group membership per user in v1.
-  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade) /// Loads login credentials and email from the unchanged User record.
+  group                 Group                  @relation(fields: [groupId], references: [id], onDelete: Cascade) /// Loads shared profile, model, and members.
+  userId                String                 @unique /// Enforces one group membership per user in v1.
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade) /// Loads login credentials and email from the unchanged User record.
   onboardingCompletedAt DateTime? /// A null value forces the member through profile onboarding.
-  joinedAt              DateTime          @default(now()) /// Records when registration joined the group.
+  joinedAt              DateTime               @default(now()) /// Records when registration joined the group.
   memberProfile         MemberProfile? /// Stores the member's future-personalization profile.
   emailRecipient        EmailRecipient? /// Links this member to the only personalized newsletter destination allowed in v1.
   emailDeliveries       EmailDelivery[] /// Personalized mail events owned by this member.
@@ -210,6 +210,11 @@ model Batch {
 }
 
 /// One unique job retained after automatic deduplication.
+enum SalaryPeriod {
+  YEARLY
+  MONTHLY
+}
+
 model Job {
   id         String @id @default(cuid()) /// Internal database identifier.
   code       String @unique /// Short readable identifier used in URLs, emails, and the dashboard.
@@ -234,9 +239,10 @@ model Job {
   experienceMinYears Float? /// Lowest stated experience requirement when the listing provides one.
   experienceMaxYears Float? /// Highest stated experience requirement when the listing provides one.
 
-  salaryMin      Decimal? @db.Decimal(14, 2) /// Lowest stated salary or stipend amount.
-  salaryMax      Decimal? @db.Decimal(14, 2) /// Highest stated salary or stipend amount.
+  salaryMin      Decimal?      @db.Decimal(14, 2) /// Lowest stated salary or stipend amount.
+  salaryMax      Decimal?      @db.Decimal(14, 2) /// Highest stated salary or stipend amount.
   salaryCurrency String? /// Currency required to interpret the salary amounts.
+  salaryPeriod   SalaryPeriod? /// Whether the stated compensation is annual or monthly.
 
   postedAt            DateTime? /// Publication time used as an optional recency feature.
   applicationDeadline DateTime? /// Stated last application date when the listing provides one.
@@ -705,25 +711,25 @@ model EmailCampaignRun {
 
 /// One independently retryable recipient send within a daily campaign.
 model EmailDelivery {
-  id                   String          @id @default(cuid()) /// Internal identifier for this delivery record.
+  id                   String                 @id @default(cuid()) /// Internal identifier for this delivery record.
   campaignId           String? /// Identifies the daily newsletter; nullable only for legacy batch delivery compatibility.
-  campaign             EmailCampaign?  @relation(fields: [campaignId], references: [id], onDelete: Cascade) /// Loads aggregate campaign state.
+  campaign             EmailCampaign?         @relation(fields: [campaignId], references: [id], onDelete: Cascade) /// Loads aggregate campaign state.
   recipientId          String? /// Identifies the configured recipient; nullable only for legacy deliveries.
-  recipientRecord      EmailRecipient? @relation(fields: [recipientId], references: [id], onDelete: Restrict) /// Loads current recipient configuration.
+  recipientRecord      EmailRecipient?        @relation(fields: [recipientId], references: [id], onDelete: Restrict) /// Loads current recipient configuration.
   recipient            String /// Send-time destination snapshot retained after edits or deletion.
   recipientDisplayName String? /// Send-time friendly-name snapshot.
   groupMemberId        String? /// Identifies the member whose profile personalizes this event; nullable only for preserved legacy rows.
-  groupMember          GroupMember?    @relation(fields: [groupMemberId], references: [id], onDelete: Restrict) /// Loads the personalized event owner.
+  groupMember          GroupMember?           @relation(fields: [groupMemberId], references: [id], onDelete: Restrict) /// Loads the personalized event owner.
   batchId              String? /// Legacy batch provenance retained for compatibility routes.
-  batch                Batch?          @relation(fields: [batchId], references: [id], onDelete: Cascade) /// Loads legacy summarized batch when present.
+  batch                Batch?                 @relation(fields: [batchId], references: [id], onDelete: Cascade) /// Loads legacy summarized batch when present.
   rankingRunId         String? /// Legacy single-run provenance; campaigns use EmailCampaignRun instead.
-  rankingRun           ProcessingRun?  @relation(fields: [rankingRunId], references: [id], onDelete: Restrict) /// Loads legacy ranking provenance when present.
+  rankingRun           ProcessingRun?         @relation(fields: [rankingRunId], references: [id], onDelete: Restrict) /// Loads legacy ranking provenance when present.
   templateVersion      String /// Identifies the HTML and text rendering contract.
-  messageId            String          @unique /// Stable RFC Message-ID reused across retries.
-  status               EmailStatus     @default(UNTOUCHED) /// Current provider-delivery state.
-  attempts             Int             @default(0) /// Total send attempts across every manual retry cycle.
-  retryCycle           Int             @default(0) /// Increments when the owner explicitly restarts failed delivery.
-  retryCycleAttempts   Int             @default(0) /// Automatic attempts consumed in the current cycle.
+  messageId            String                 @unique /// Stable RFC Message-ID reused across retries.
+  status               EmailStatus            @default(UNTOUCHED) /// Current provider-delivery state.
+  attempts             Int                    @default(0) /// Total send attempts across every manual retry cycle.
+  retryCycle           Int                    @default(0) /// Increments when the owner explicitly restarts failed delivery.
+  retryCycleAttempts   Int                    @default(0) /// Automatic attempts consumed in the current cycle.
   providerMessageId    String? /// Provider identifier used to trace a successful send.
   payloadSnapshot      Json? /// Exact subject and body; null until an untouched event is first rendered.
   profileContentHash   String? /// Pins the member-profile content used to produce the stored payload.
@@ -734,8 +740,8 @@ model EmailDelivery {
   leaseExpiresAt       DateTime? /// Allows a later invocation to reclaim an abandoned send.
   nextAttemptAt        DateTime? /// Earliest time at which the cron may retry this delivery.
   sentAt               DateTime? /// Records when the provider accepted the email.
-  createdAt            DateTime        @default(now()) /// Records when delivery was first queued.
-  updatedAt            DateTime        @updatedAt /// Records snapshot, retry, and delivery state changes.
+  createdAt            DateTime               @default(now()) /// Records when delivery was first queued.
+  updatedAt            DateTime               @updatedAt /// Records snapshot, retry, and delivery state changes.
   attemptHistory       EmailDeliveryAttempt[] /// Immutable provider-attempt and manual-action audit history.
 
   // Ensures one configured address is represented once in a daily campaign.

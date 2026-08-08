@@ -27,6 +27,7 @@ import {
   type ProfileSummary,
   type ProfileWriteResult,
 } from "@/lib/api";
+import { formatCompensationLpa } from "@/lib/job-display";
 
 type ProfileForm = {
   resumeText: string;
@@ -37,7 +38,6 @@ type ProfileForm = {
   experienceMax: string;
   salaryMin: string;
   salaryMax: string;
-  currency: string;
 };
 
 const emptyForm: ProfileForm = {
@@ -49,7 +49,6 @@ const emptyForm: ProfileForm = {
   experienceMax: "",
   salaryMin: "",
   salaryMax: "",
-  currency: "INR",
 };
 
 const list = (value: string) =>
@@ -104,15 +103,15 @@ export default function ProfileSettingsPage() {
     setRequestError(undefined);
     const expMin = number(form.experienceMin);
     const expMax = number(form.experienceMax);
-    const salaryMin = number(form.salaryMin);
-    const salaryMax = number(form.salaryMax);
+    const salaryMinLpa = number(form.salaryMin);
+    const salaryMaxLpa = number(form.salaryMax);
     if (!form.resumeText.trim()) {
       setRequestError(new Error("Resume text is required."));
       return;
     }
     if (
       (expMin !== null && expMax !== null && expMin > expMax) ||
-      (salaryMin !== null && salaryMax !== null && salaryMin > salaryMax)
+      (salaryMinLpa !== null && salaryMaxLpa !== null && salaryMinLpa > salaryMaxLpa)
     ) {
       setRequestError(new Error("Minimum values cannot exceed maximum values."));
       return;
@@ -128,9 +127,9 @@ export default function ProfileSettingsPage() {
           preferredSkills: list(form.skills),
           experienceMinYears: expMin,
           experienceMaxYears: expMax,
-          salaryMin,
-          salaryMax,
-          salaryCurrency: form.currency.trim() || null,
+          salaryMin: salaryMinLpa === null ? null : salaryMinLpa * 100_000,
+          salaryMax: salaryMaxLpa === null ? null : salaryMaxLpa * 100_000,
+          salaryCurrency: "INR",
         }),
       });
       toast.success(result.replayed ? "Matching profile already exists." : "Profile version created.", {
@@ -254,7 +253,7 @@ export default function ProfileSettingsPage() {
                 </div>
                 <div>
                   <p className="ops-label text-muted-foreground">Salary</p>
-                  <p className="mt-2 text-sm">{detail.data.salaryCurrency ?? ""} {detail.data.salaryMin?.toLocaleString() ?? "Any"}–{detail.data.salaryMax?.toLocaleString() ?? "Any"}</p>
+                  <p className="mt-2 text-sm">{formatCompensationLpa({ ...detail.data, salaryPeriod: "YEARLY" })}</p>
                 </div>
               </div>
               {[
@@ -297,10 +296,9 @@ export default function ProfileSettingsPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <Input type="number" min="0" value={form.experienceMin} onChange={(event) => update("experienceMin", event.target.value)} placeholder="Experience minimum" />
             <Input type="number" min="0" value={form.experienceMax} onChange={(event) => update("experienceMax", event.target.value)} placeholder="Experience maximum" />
-            <Input type="number" min="0" value={form.salaryMin} onChange={(event) => update("salaryMin", event.target.value)} placeholder="Salary minimum" />
-            <Input type="number" min="0" value={form.salaryMax} onChange={(event) => update("salaryMax", event.target.value)} placeholder="Salary maximum" />
+            <Input type="number" min="0" step="0.1" value={form.salaryMin} onChange={(event) => update("salaryMin", event.target.value)} placeholder="Salary minimum (LPA)" />
+            <Input type="number" min="0" step="0.1" value={form.salaryMax} onChange={(event) => update("salaryMax", event.target.value)} placeholder="Salary maximum (LPA)" />
           </div>
-          <Input value={form.currency} maxLength={10} onChange={(event) => update("currency", event.target.value)} placeholder="Currency" />
           {Boolean(requestError) && <RequestError error={requestError} />}
           <DialogFooter className="rounded-none">
             <Button disabled={busy} className="min-h-11 bg-foreground text-background" onClick={() => void createProfile()}>

@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export function TagField({
@@ -48,7 +47,7 @@ export function TagField({
   return (
     <fieldset>
       <legend className="ops-label">{label}</legend>
-      <div className="mt-2 flex gap-2">
+      <div className="mt-2">
         <Input
           id={id}
           value={draft}
@@ -65,9 +64,6 @@ export function TagField({
           }}
           onBlur={() => add(draft)}
         />
-        <Button type="button" variant="outline" className="min-h-11" onClick={() => add(draft)} aria-label={`Add ${label.toLowerCase()}`}>
-          <Plus className="size-4" />
-        </Button>
       </div>
       {error ? <p id={`${id}-error`} className="mt-2 text-xs text-coral">{error}</p> : null}
       {values.length > 0 && (

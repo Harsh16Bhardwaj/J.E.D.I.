@@ -41,6 +41,7 @@ import {
   type JobPage,
   type JobStateResult,
 } from "@/lib/api";
+import { formatCompensationLpa, postedDaysAgo } from "@/lib/job-display";
 
 const PAGE_SIZE = 20;
 
@@ -125,7 +126,8 @@ function JobCard({
           </p>
 
           <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span>Added {new Date(job.createdAt).toLocaleDateString()}</span>
+            <span>{postedDaysAgo(job.batchCreatedAt)}</span>
+            <span className="font-semibold text-acid">{formatCompensationLpa(job)}</span>
             {job.relevanceLabel ? <span>Preference: {label(job.relevanceLabel)}</span> : null}
           </div>
         </div>

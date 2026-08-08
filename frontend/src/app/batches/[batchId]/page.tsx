@@ -61,6 +61,7 @@ import {
   type RankingRetryResult,
   type User,
 } from "@/lib/api";
+import { formatCompensationLpa, postedDaysAgo } from "@/lib/job-display";
 import { cn } from "@/lib/utils";
 
 type ActionKind = "normalize" | "rank" | "delete";
@@ -108,15 +109,6 @@ const componentLabels: Record<string, string> = {
 
 function componentMaximum(name: string) {
   return name === "salary_profile_fit_score" ? 8 : 5;
-}
-
-function salaryLabel(job: BatchDetail["jobs"][number]) {
-  if (job.salaryMin == null && job.salaryMax == null) return "Salary not listed";
-  const formatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
-  const values = [job.salaryMin, job.salaryMax]
-    .filter((value): value is number => value != null)
-    .map((value) => formatter.format(value));
-  return `${job.salaryCurrency ?? ""} ${values.join(" – ")}`.trim();
 }
 
 function durationLabel(run: ProcessingRun) {
@@ -797,8 +789,13 @@ export default function BatchDetailPage() {
                   {job.description}
                 </p>
                 <div className="mt-auto border-t border-border pt-4">
-                  <p className="ops-label text-muted-foreground">Salary</p>
-                  <p className="mt-1 font-bold text-acid">{salaryLabel(job)}</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="ops-label text-muted-foreground">Salary</p>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {postedDaysAgo(batch.createdAt)}
+                    </p>
+                  </div>
+                  <p className="mt-1 font-bold text-acid">{formatCompensationLpa(job)}</p>
                 </div>
                 <Link
                   href={`/jobs/${job.id}`}

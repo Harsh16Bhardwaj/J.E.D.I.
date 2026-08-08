@@ -3,7 +3,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from backend.schemas.product import ApiModel
+from backend.schemas.product import ApiModel, SalaryPeriod
 
 
 class LeaderboardPeriod(StrEnum):
@@ -25,10 +25,12 @@ class DashboardJob(ApiModel):
     salary_min: float | None
     salary_max: float | None
     salary_currency: str | None
+    salary_period: SalaryPeriod | None
     posted_at: datetime | None
     apply_url: str
     batch_id: str
     batch_name: str
+    batch_created_at: datetime
     review_status: str
     application_status: str
     rank: int | None

@@ -28,6 +28,7 @@ from backend.services.email import (
     MailTransportError,
 )
 from backend.services.product import (
+    annualized_salary_range,
     comparison_text,
     dice,
     overlap_ratio,
@@ -59,6 +60,7 @@ class RankedCandidate:
     salary_currency: str | None
     can_apply_now: bool | None
     apply_url: str
+    salary_period: str | None = None
 
 
 @dataclass(frozen=True)
@@ -149,6 +151,7 @@ async def load_ranked_candidates(
             salary_min=job.salary_min,
             salary_max=job.salary_max,
             salary_currency=job.salary_currency,
+            salary_period=job.salary_period,
             can_apply_now=job.can_apply_now,
             apply_url=job.apply_url,
         )
@@ -202,9 +205,14 @@ def _experience_signal(
 
 
 def _salary_signal(candidate: RankedCandidate, profile: MemberProfile) -> float:
-    matched = preference_range_match(
+    annual_minimum, annual_maximum = annualized_salary_range(
         candidate.salary_min,
         candidate.salary_max,
+        candidate.salary_period,
+    )
+    matched = preference_range_match(
+        annual_minimum,
+        annual_maximum,
         profile.salary_min,
         profile.salary_max,
     )

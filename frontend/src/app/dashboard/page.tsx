@@ -39,6 +39,7 @@ import {
   type TimedResult,
   type User,
 } from "@/lib/api";
+import { formatCompensationLpa, postedDaysAgo } from "@/lib/job-display";
 
 type Period = "daily" | "weekly" | "overall";
 
@@ -135,20 +136,6 @@ function PreferenceGauge({ score }: { score: number | null }) {
   );
 }
 
-function salaryLabel(job: DashboardJob) {
-  if (job.salaryMin === null && job.salaryMax === null) return "Salary not listed";
-  const compact = (value: number) =>
-    new Intl.NumberFormat(undefined, {
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(value);
-  const range = [job.salaryMin, job.salaryMax]
-    .filter((value): value is number => value !== null)
-    .map(compact)
-    .join(" - ");
-  return `${job.salaryCurrency ?? ""} ${range}`.trim();
-}
-
 function readableStatus(value: string) {
   return value.toLowerCase().replaceAll("_", " ");
 }
@@ -186,7 +173,7 @@ function JobCard({ job }: { job: DashboardJob }) {
         <div className="min-w-0">
           <p className="ops-label text-muted-foreground">Salary</p>
           <p className={`mt-1 truncate text-sm font-bold ${job.salaryMin === null && job.salaryMax === null ? "text-muted-foreground" : "text-acid"}`}>
-            {salaryLabel(job)}
+            {formatCompensationLpa(job)}
           </p>
         </div>
         <div className="text-right">
@@ -213,7 +200,7 @@ function JobCard({ job }: { job: DashboardJob }) {
         <div className="min-w-0">
           <p className="truncate text-xs font-medium">{job.location || "Location unspecified"}</p>
           <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-            {readableStatus(job.applicationStatus)}
+            {postedDaysAgo(job.batchCreatedAt)} · {readableStatus(job.applicationStatus)}
           </p>
         </div>
         <span className="flex shrink-0 items-center gap-1 text-xs font-semibold transition group-hover:text-acid">

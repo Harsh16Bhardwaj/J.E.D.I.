@@ -150,6 +150,7 @@ export type BatchJob = {
   salaryMin: number | null;
   salaryMax: number | null;
   salaryCurrency: string | null;
+  salaryPeriod: "YEARLY" | "MONTHLY" | null;
   postedAt: string | null;
   applicationDeadline: string | null;
   canApplyNow: boolean | null;
@@ -265,10 +266,12 @@ export type DashboardJob = {
   salaryMin: number | null;
   salaryMax: number | null;
   salaryCurrency: string | null;
+  salaryPeriod: "YEARLY" | "MONTHLY" | null;
   postedAt: string | null;
   applyUrl: string;
   batchId: string;
   batchName: string;
+  batchCreatedAt: string;
   reviewStatus: string;
   applicationStatus: string;
   rank: number | null;
@@ -307,6 +310,11 @@ export type JobListItem = {
   roleTitle: string;
   location: string | null;
   workMode: string | null;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  salaryCurrency: string | null;
+  salaryPeriod: "YEARLY" | "MONTHLY" | null;
+  batchCreatedAt: string;
   createdAt: string;
   relevanceLabel: string | null;
   reviewStatus: string;

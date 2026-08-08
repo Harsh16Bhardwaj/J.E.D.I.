@@ -10,7 +10,6 @@ import { TagField } from "@/components/tag-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import {
   apiRequest,
   errorSummary,
@@ -21,20 +20,23 @@ import {
 import {
   type OnboardingFieldErrors,
   type OnboardingFormState,
+  experienceRanges,
   validateOnboardingForm,
 } from "@/lib/onboarding-validation";
 
 const emptyForm: OnboardingFormState = {
-  resumeText: "",
   preferredTitles: [],
   preferredLocations: [],
   preferredSkills: [],
-  experienceMinYears: "",
-  experienceMaxYears: "",
-  salaryMin: "",
-  salaryMax: "",
-  salaryCurrency: "INR",
+  experienceRange: "",
+  salaryMinLpa: "",
 };
+
+function storedExperienceRange(minimum: number | null, maximum: number | null) {
+  return Object.entries(experienceRanges).find(
+    ([, range]) => range.minimum === minimum && range.maximum === maximum,
+  )?.[0] ?? "";
+}
 
 function RequestError({ error }: { error: unknown }) {
   return (
@@ -70,15 +72,15 @@ export default function OnboardingPage() {
   const profile = onboarding.data?.memberProfile;
   const serverForm: OnboardingFormState = profile
     ? {
-        resumeText: profile.resumeText,
         preferredTitles: profile.preferredTitles,
         preferredLocations: profile.preferredLocations,
         preferredSkills: profile.preferredSkills,
-        experienceMinYears: profile.experienceMinYears?.toString() ?? "",
-        experienceMaxYears: profile.experienceMaxYears?.toString() ?? "",
-        salaryMin: profile.salaryMin?.toString() ?? "",
-        salaryMax: profile.salaryMax?.toString() ?? "",
-        salaryCurrency: profile.salaryCurrency ?? "INR",
+        experienceRange: storedExperienceRange(
+          profile.experienceMinYears,
+          profile.experienceMaxYears,
+        ),
+        salaryMinLpa:
+          profile.salaryMin === null ? "" : (profile.salaryMin / 100_000).toString(),
       }
     : emptyForm;
   const [formOverride, setFormOverride] = useState<OnboardingFormState>();
@@ -90,11 +92,7 @@ export default function OnboardingPage() {
   function update<K extends keyof OnboardingFormState>(key: K, value: OnboardingFormState[K]) {
     setFormOverride((current) => ({ ...(current ?? serverForm), [key]: value }));
     setFieldErrors((current) => {
-      const relatedKeys: Array<keyof OnboardingFormState> = key.startsWith("experience")
-        ? ["experienceMinYears", "experienceMaxYears"]
-        : key.startsWith("salary") && key !== "salaryCurrency"
-          ? ["salaryMin", "salaryMax"]
-          : [key];
+      const relatedKeys: Array<keyof OnboardingFormState> = [key];
       if (!relatedKeys.some((relatedKey) => current[relatedKey])) return current;
       const next = { ...current };
       for (const relatedKey of relatedKeys) delete next[relatedKey];
@@ -190,9 +188,6 @@ export default function OnboardingPage() {
           <div>
             <div className="flex items-center gap-3"><UserRound className="size-5 text-acid" /><h2 className="text-2xl font-semibold">Member profile</h2></div>
             <p className="mt-2 text-xs text-muted-foreground">All fields are required.</p>
-            <label htmlFor="resumeText" className="ops-label mt-7 block">Profile or resume content *</label>
-            <Textarea id="resumeText" required aria-invalid={Boolean(fieldErrors.resumeText)} aria-describedby={fieldErrors.resumeText ? "resumeText-error" : undefined} value={form.resumeText} onChange={(event) => update("resumeText", event.target.value)} className="mt-2 min-h-48 border-border bg-background aria-invalid:border-coral/60" placeholder="Paste your resume text or write a detailed professional summary." />
-            <FieldError id="resumeText-error" message={fieldErrors.resumeText} />
           </div>
 
           <TagField id="titles" label="Target titles *" values={form.preferredTitles} suggestions={onboarding.data.suggestedTitles} placeholder="Type a title and press Enter" error={fieldErrors.preferredTitles} onChange={(values) => update("preferredTitles", values)} />
@@ -200,12 +195,30 @@ export default function OnboardingPage() {
           <TagField id="skills" label="Skills *" values={form.preferredSkills} suggestions={onboarding.data.suggestedSkills} placeholder="Paste comma-separated skills" error={fieldErrors.preferredSkills} onChange={(values) => update("preferredSkills", values)} />
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div><label htmlFor="experienceMin" className="ops-label">Experience minimum *</label><Input id="experienceMin" required aria-invalid={Boolean(fieldErrors.experienceMinYears)} aria-describedby={fieldErrors.experienceMinYears ? "experienceMin-error" : undefined} type="number" min="0" max="80" step="0.5" value={form.experienceMinYears} onChange={(event) => update("experienceMinYears", event.target.value)} className="mt-2 min-h-11 aria-invalid:border-coral/60" /><FieldError id="experienceMin-error" message={fieldErrors.experienceMinYears} /></div>
-            <div><label htmlFor="experienceMax" className="ops-label">Experience maximum *</label><Input id="experienceMax" required aria-invalid={Boolean(fieldErrors.experienceMaxYears)} aria-describedby={fieldErrors.experienceMaxYears ? "experienceMax-error" : undefined} type="number" min="0" max="80" step="0.5" value={form.experienceMaxYears} onChange={(event) => update("experienceMaxYears", event.target.value)} className="mt-2 min-h-11 aria-invalid:border-coral/60" /><FieldError id="experienceMax-error" message={fieldErrors.experienceMaxYears} /></div>
-            <div><label htmlFor="salaryMin" className="ops-label">Salary minimum *</label><Input id="salaryMin" required aria-invalid={Boolean(fieldErrors.salaryMin)} aria-describedby={fieldErrors.salaryMin ? "salaryMin-error" : undefined} type="number" min="0" value={form.salaryMin} onChange={(event) => update("salaryMin", event.target.value)} className="mt-2 min-h-11 aria-invalid:border-coral/60" /><FieldError id="salaryMin-error" message={fieldErrors.salaryMin} /></div>
-            <div><label htmlFor="salaryMax" className="ops-label">Salary maximum *</label><Input id="salaryMax" required aria-invalid={Boolean(fieldErrors.salaryMax)} aria-describedby={fieldErrors.salaryMax ? "salaryMax-error" : undefined} type="number" min="0" value={form.salaryMax} onChange={(event) => update("salaryMax", event.target.value)} className="mt-2 min-h-11 aria-invalid:border-coral/60" /><FieldError id="salaryMax-error" message={fieldErrors.salaryMax} /></div>
+            <div>
+              <label htmlFor="experienceRange" className="ops-label">Experience *</label>
+              <select
+                id="experienceRange"
+                required
+                aria-invalid={Boolean(fieldErrors.experienceRange)}
+                aria-describedby={fieldErrors.experienceRange ? "experienceRange-error" : undefined}
+                value={form.experienceRange}
+                onChange={(event) => update("experienceRange", event.target.value)}
+                className="mt-2 min-h-11 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-coral/60"
+              >
+                <option value="">Select experience</option>
+                {Object.entries(experienceRanges).map(([value, range]) => (
+                  <option key={value} value={value}>{range.label}</option>
+                ))}
+              </select>
+              <FieldError id="experienceRange-error" message={fieldErrors.experienceRange} />
+            </div>
+            <div>
+              <label htmlFor="salaryMinLpa" className="ops-label">Minimum salary (LPA) *</label>
+              <Input id="salaryMinLpa" required aria-invalid={Boolean(fieldErrors.salaryMinLpa)} aria-describedby={fieldErrors.salaryMinLpa ? "salaryMinLpa-error" : undefined} type="number" min="0" step="0.1" value={form.salaryMinLpa} onChange={(event) => update("salaryMinLpa", event.target.value)} className="mt-2 min-h-11 aria-invalid:border-coral/60" placeholder="e.g. 8" />
+              <FieldError id="salaryMinLpa-error" message={fieldErrors.salaryMinLpa} />
+            </div>
           </div>
-          <div className="max-w-64"><label htmlFor="currency" className="ops-label">Currency *</label><Input id="currency" required aria-invalid={Boolean(fieldErrors.salaryCurrency)} aria-describedby={fieldErrors.salaryCurrency ? "currency-error" : undefined} maxLength={3} value={form.salaryCurrency} onChange={(event) => update("salaryCurrency", event.target.value.toUpperCase())} className="mt-2 min-h-11 uppercase aria-invalid:border-coral/60" /><FieldError id="currency-error" message={fieldErrors.salaryCurrency} /></div>
 
           <ValidationSummary errors={fieldErrors} />
           {Boolean(requestError) && <RequestError error={requestError} />}

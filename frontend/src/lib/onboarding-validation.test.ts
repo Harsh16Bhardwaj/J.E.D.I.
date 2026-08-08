@@ -7,73 +7,69 @@ import {
 } from "./onboarding-validation";
 
 const validForm: OnboardingFormState = {
-  resumeText: "Python and FastAPI backend engineer",
   preferredTitles: ["Backend Engineer"],
   preferredLocations: ["Remote"],
   preferredSkills: ["Python", "FastAPI"],
-  experienceMinYears: "0",
-  experienceMaxYears: "2",
-  salaryMin: "800000",
-  salaryMax: "4000000",
-  salaryCurrency: "inr",
+  experienceRange: "2-3",
+  salaryMinLpa: "8",
 };
 
 test("requires every onboarding section before submission", () => {
   const result = validateOnboardingForm({
-    resumeText: "",
     preferredTitles: [],
     preferredLocations: [],
     preferredSkills: [],
-    experienceMinYears: "",
-    experienceMaxYears: "",
-    salaryMin: "",
-    salaryMax: "",
-    salaryCurrency: "",
+    experienceRange: "",
+    salaryMinLpa: "",
   });
 
   assert.equal(result.values, undefined);
   assert.deepEqual(Object.keys(result.errors).sort(), [
-    "experienceMaxYears",
-    "experienceMinYears",
+    "experienceRange",
     "preferredLocations",
     "preferredSkills",
     "preferredTitles",
-    "resumeText",
-    "salaryCurrency",
-    "salaryMax",
-    "salaryMin",
+    "salaryMinLpa",
   ]);
 });
 
-test("rejects malformed tags, ranges, and currency codes", () => {
+test("rejects malformed tags, experience choices, and salary", () => {
   const result = validateOnboardingForm({
     ...validForm,
     preferredSkills: ["---"],
-    experienceMinYears: "3",
-    experienceMaxYears: "1",
-    salaryMin: "not-a-number",
-    salaryCurrency: "rupees",
+    experienceRange: "1-2",
+    salaryMinLpa: "not-a-number",
   });
 
   assert.equal(result.values, undefined);
   assert.match(result.errors.preferredSkills ?? "", /letter or number/i);
-  assert.match(result.errors.experienceMaxYears ?? "", /greater than or equal/i);
-  assert.match(result.errors.salaryMin ?? "", /valid non-negative number/i);
-  assert.match(result.errors.salaryCurrency ?? "", /three-letter currency/i);
+  assert.match(result.errors.experienceRange ?? "", /select/i);
+  assert.match(result.errors.salaryMinLpa ?? "", /valid non-negative number/i);
 });
 
-test("returns normalized values for a complete valid form", () => {
+test("converts a valid LPA preference to annual INR", () => {
   const result = validateOnboardingForm({
     ...validForm,
-    resumeText: `  ${validForm.resumeText}  `,
     preferredTitles: ["  Backend Engineer  "],
   });
 
   assert(result.values);
   assert.deepEqual(result.errors, {});
-  assert.equal(result.values.resumeText, validForm.resumeText);
   assert.deepEqual(result.values.preferredTitles, ["Backend Engineer"]);
-  assert.equal(result.values.experienceMinYears, 0);
-  assert.equal(result.values.salaryMax, 4_000_000);
+  assert.equal(result.values.experienceMinYears, 2);
+  assert.equal(result.values.experienceMaxYears, 3);
+  assert.equal(result.values.salaryMin, 800_000);
+  assert.equal(result.values.salaryMax, null);
   assert.equal(result.values.salaryCurrency, "INR");
+});
+
+test("maps 8+ years to an open-ended range", () => {
+  const result = validateOnboardingForm({
+    ...validForm,
+    experienceRange: "8+",
+  });
+
+  assert(result.values);
+  assert.equal(result.values.experienceMinYears, 8);
+  assert.equal(result.values.experienceMaxYears, null);
 });

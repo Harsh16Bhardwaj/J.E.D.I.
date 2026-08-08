@@ -58,6 +58,9 @@ batch_status_type = Enum(
     "FAILED",
     name="BatchStatus",
 ).with_variant(String(), "sqlite")
+salary_period_type = Enum(
+    "YEARLY", "MONTHLY", name="SalaryPeriod"
+).with_variant(String(), "sqlite")
 relevance_label_type = Enum(
     "DREAM",
     "STRONG_APPLY",
@@ -346,6 +349,9 @@ class Job(Base):
     )
     salary_currency: Mapped[str | None] = mapped_column(
         "salaryCurrency", String, nullable=True
+    )
+    salary_period: Mapped[str | None] = mapped_column(
+        "salaryPeriod", salary_period_type, nullable=True
     )
     posted_at: Mapped[datetime | None] = mapped_column(
         "postedAt", DateTime(timezone=True), nullable=True

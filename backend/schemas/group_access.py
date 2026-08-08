@@ -68,7 +68,7 @@ class SharedModelSummary(ApiModel):
 
 
 class MemberProfileInput(ApiModel):
-    resume_text: str = Field(min_length=1, max_length=100_000)
+    resume_text: str | None = Field(default=None, max_length=100_000)
     preferred_titles: list[str] = Field(default_factory=list, max_length=100)
     preferred_locations: list[str] = Field(default_factory=list, max_length=100)
     preferred_skills: list[str] = Field(default_factory=list, max_length=200)
@@ -77,13 +77,6 @@ class MemberProfileInput(ApiModel):
     salary_min: float | None = Field(default=None, ge=0)
     salary_max: float | None = Field(default=None, ge=0)
     salary_currency: str | None = Field(default="INR", max_length=10)
-
-    @field_validator("resume_text")
-    @classmethod
-    def resume_has_content(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("resumeText cannot contain only whitespace")
-        return value
 
     @model_validator(mode="after")
     def ranges_are_ordered(self) -> "MemberProfileInput":

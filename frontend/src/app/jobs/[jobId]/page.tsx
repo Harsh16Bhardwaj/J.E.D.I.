@@ -47,6 +47,7 @@ import {
   type JobStateResult,
   type PredictionSummary,
 } from "@/lib/api";
+import { formatCompensationLpa, postedDaysAgo } from "@/lib/job-display";
 
 const statuses = [
   "NOT_STARTED",
@@ -75,17 +76,6 @@ function RequestError({ error }: { error: unknown }) {
       ) : null}
     </div>
   );
-}
-
-function salaryLabel(job: JobDetail["job"]) {
-  if (job.salaryMin === null && job.salaryMax === null) return "Not disclosed";
-  const format = (value: number) =>
-    new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(value);
-  const amount = [job.salaryMin, job.salaryMax]
-    .filter((value): value is number => value !== null)
-    .map(format)
-    .join(" – ");
-  return `${job.salaryCurrency ?? ""} ${amount}`.trim();
 }
 
 function experienceLabel(job: JobDetail["job"]) {
@@ -459,9 +449,9 @@ export default function JobDetailPage() {
 
       <section className="grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 xl:grid-cols-4">
         {[
-          ["Salary", salaryLabel(data.job)],
+          ["Salary", formatCompensationLpa(data.job)],
           ["Experience", experienceLabel(data.job)],
-          ["Posted", dateLabel(data.job.postedAt)],
+          ["Posted", postedDaysAgo(data.batch.createdAt)],
           ["Deadline", dateLabel(data.job.applicationDeadline)],
         ].map(([label, value]) => <div key={label} className="bg-card p-5"><p className="ops-label text-muted-foreground">{label}</p><p className="mt-2 font-bold">{value}</p></div>)}
       </section>
@@ -490,7 +480,7 @@ export default function JobDetailPage() {
               <Fact label="Work mode" value={fallback(data.job.workMode)} />
               <Fact label="Employment type" value={fallback(data.job.employmentType)} />
               <Fact label="Location" value={fallback(data.job.location)} />
-              <Fact label="Salary" value={salaryLabel(data.job)} />
+              <Fact label="Salary" value={formatCompensationLpa(data.job)} />
               <Fact label="Can apply now" value={data.job.canApplyNow === null ? "Unknown" : data.job.canApplyNow ? "Yes" : "No"} />
             </div>
           </BrutalCard>

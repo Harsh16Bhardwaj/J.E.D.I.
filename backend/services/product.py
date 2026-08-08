@@ -133,6 +133,23 @@ def ranges_overlap(
     return max(left_low, right_low) <= min(left_high, right_high)
 
 
+def annualized_salary(
+    value: float | Decimal | None,
+    period: str | None,
+) -> float | Decimal | None:
+    if value is None:
+        return None
+    return value * 12 if period == "MONTHLY" else value
+
+
+def annualized_salary_range(
+    minimum: float | Decimal | None,
+    maximum: float | Decimal | None,
+    period: str | None,
+) -> tuple[float | Decimal | None, float | Decimal | None]:
+    return annualized_salary(minimum, period), annualized_salary(maximum, period)
+
+
 def clean_job(job: IncomingJob) -> dict[str, Any]:
     apply_url = canonical_url(job.apply_url)
     cleaned = {
@@ -157,6 +174,7 @@ def clean_job(job: IncomingJob) -> dict[str, Any]:
             if job.salary_currency
             else None
         ),
+        "salary_period": job.salary_period.value if job.salary_period else None,
         "posted_at": job.posted_at,
         "application_deadline": job.application_deadline,
         "can_apply_now": job.can_apply_now,
@@ -188,16 +206,22 @@ def make_code(company: str, role: str, dedupe_key: str) -> str:
 
 
 def duplicate_signals(incoming: dict[str, Any], candidate: Any) -> dict[str, bool]:
+    incoming_salary = annualized_salary_range(
+        incoming["salary_min"], incoming["salary_max"], incoming["salary_period"]
+    )
+    candidate_salary = annualized_salary_range(
+        candidate.salary_min,
+        candidate.salary_max,
+        getattr(candidate, "salary_period", None),
+    )
     salary_compatible = (
         incoming["salary_currency"] is not None
         and candidate.salary_currency is not None
         and incoming["salary_currency"].casefold()
         == candidate.salary_currency.casefold()
         and ranges_overlap(
-            incoming["salary_min"],
-            incoming["salary_max"],
-            candidate.salary_min,
-            candidate.salary_max,
+            *incoming_salary,
+            *candidate_salary,
         )
     )
     incoming_location = comparison_text(incoming["location"])
@@ -306,9 +330,12 @@ def prepare_job(
         for preferred in preferred_locations
         if preferred
     )
+    annual_salary_min, annual_salary_max = annualized_salary_range(
+        job.salary_min, job.salary_max, job.salary_period
+    )
     salary_match = preference_range_match(
-        job.salary_min,
-        job.salary_max,
+        annual_salary_min,
+        annual_salary_max,
         profile.salary_min,
         profile.salary_max,
     )
@@ -334,8 +361,12 @@ def prepare_job(
         skills=[comparison_text(item) for item in job.skills],
         experience_min_years=job.experience_min_years,
         experience_max_years=job.experience_max_years,
-        salary_min=float(job.salary_min) if job.salary_min is not None else None,
-        salary_max=float(job.salary_max) if job.salary_max is not None else None,
+        salary_min=(
+            float(annual_salary_min) if annual_salary_min is not None else None
+        ),
+        salary_max=(
+            float(annual_salary_max) if annual_salary_max is not None else None
+        ),
         salary_currency=job.salary_currency or "",
         can_apply_now=job.can_apply_now,
         resume_text=clean_text(profile.resume_text),

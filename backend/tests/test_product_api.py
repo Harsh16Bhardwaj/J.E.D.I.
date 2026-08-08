@@ -24,6 +24,7 @@ from backend.database import (
 from backend.main import app
 from backend.routers import operations
 from backend.services.email import get_email_transport
+from backend.services.product import annualized_salary_range
 
 BUNDLE_MANIFEST = json.loads(
     (
@@ -428,6 +429,38 @@ def test_batch_import_rejects_unverified_and_stale_jobs(
     ]
     assert any("30-day" in message for message in messages)
     assert any("postedAt is required" in message for message in messages)
+
+
+def test_monthly_salary_period_is_persisted_and_annualized(
+    product_client: TestClient,
+) -> None:
+    login(product_client)
+    payload = batch_payload()
+    payload["externalBatchId"] = "monthly-internship"
+    payload["jobs"] = [
+        {
+            **payload["jobs"][0],
+            "companyName": "Intern Labs",
+            "employmentType": "Internship",
+            "salaryMin": 30_000,
+            "salaryMax": 50_000,
+            "salaryCurrency": "INR",
+            "salaryPeriod": "MONTHLY",
+        }
+    ]
+
+    created = product_client.post("/api/batches", json=payload)
+    assert created.status_code == 201
+    batch_id = created.json()["batchId"]
+    detail = product_client.get(f"/api/batches/{batch_id}").json()
+    assert detail["jobs"][0]["salaryPeriod"] == "MONTHLY"
+    job = product_client.get("/api/jobs").json()["items"][0]
+    assert job["salaryPeriod"] == "MONTHLY"
+    assert job["batchCreatedAt"]
+    assert annualized_salary_range(30_000, 50_000, "MONTHLY") == (
+        360_000,
+        600_000,
+    )
 
 
 def test_batch_review_training_and_ranking_flow(

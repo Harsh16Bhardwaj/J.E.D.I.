@@ -1,31 +1,33 @@
 export type OnboardingFormState = {
-  resumeText: string;
   preferredTitles: string[];
   preferredLocations: string[];
   preferredSkills: string[];
-  experienceMinYears: string;
-  experienceMaxYears: string;
-  salaryMin: string;
-  salaryMax: string;
-  salaryCurrency: string;
+  experienceRange: string;
+  salaryMinLpa: string;
 };
 
 export type OnboardingFieldErrors = Partial<
   Record<keyof OnboardingFormState, string>
 >;
 
-export type OnboardingSubmission = Omit<
+export type OnboardingSubmission = Pick<
   OnboardingFormState,
-  | "experienceMinYears"
-  | "experienceMaxYears"
-  | "salaryMin"
-  | "salaryMax"
+  "preferredTitles" | "preferredLocations" | "preferredSkills"
 > & {
   experienceMinYears: number;
-  experienceMaxYears: number;
+  experienceMaxYears: number | null;
   salaryMin: number;
-  salaryMax: number;
+  salaryMax: null;
+  salaryCurrency: "INR";
 };
+
+export const experienceRanges = {
+  "0-1": { label: "0–1 years", minimum: 0, maximum: 1 },
+  "2-3": { label: "2–3 years", minimum: 2, maximum: 3 },
+  "3-5": { label: "3–5 years", minimum: 3, maximum: 5 },
+  "5-7": { label: "5–7 years", minimum: 5, maximum: 7 },
+  "8+": { label: "8+ years", minimum: 8, maximum: null },
+} as const;
 
 type ValidationResult =
   | { errors: OnboardingFieldErrors; values?: never }
@@ -91,85 +93,37 @@ export function validateOnboardingForm(
   form: OnboardingFormState,
 ): ValidationResult {
   const errors: OnboardingFieldErrors = {};
-  const resumeText = form.resumeText.trim();
-  if (!resumeText) {
-    errors.resumeText = "Add your profile or resume content.";
-  } else if (resumeText.length > 100_000) {
-    errors.resumeText = "Profile or resume content cannot exceed 100,000 characters.";
-  }
-
   validateTags("preferredTitles", form.preferredTitles, errors);
   validateTags("preferredLocations", form.preferredLocations, errors);
   validateTags("preferredSkills", form.preferredSkills, errors);
 
-  const experienceMinYears = requiredNumber(
-    form.experienceMinYears,
-    "minimum experience",
-    "experienceMinYears",
-    errors,
-    80,
-  );
-  const experienceMaxYears = requiredNumber(
-    form.experienceMaxYears,
-    "maximum experience",
-    "experienceMaxYears",
-    errors,
-    80,
-  );
-  const salaryMin = requiredNumber(
-    form.salaryMin,
-    "minimum salary",
-    "salaryMin",
-    errors,
-    999_999_999_999,
-  );
-  const salaryMax = requiredNumber(
-    form.salaryMax,
-    "maximum salary",
-    "salaryMax",
-    errors,
-    999_999_999_999,
-  );
-
-  if (
-    experienceMinYears !== undefined &&
-    experienceMaxYears !== undefined &&
-    experienceMinYears > experienceMaxYears
-  ) {
-    errors.experienceMaxYears =
-      "Maximum experience must be greater than or equal to the minimum.";
+  const experience = experienceRanges[
+    form.experienceRange as keyof typeof experienceRanges
+  ];
+  if (!experience) {
+    errors.experienceRange = "Select your experience range.";
   }
-  if (
-    salaryMin !== undefined &&
-    salaryMax !== undefined &&
-    salaryMin > salaryMax
-  ) {
-    errors.salaryMax =
-      "Maximum salary must be greater than or equal to the minimum.";
-  }
-
-  const salaryCurrency = form.salaryCurrency.trim().toUpperCase();
-  if (!salaryCurrency) {
-    errors.salaryCurrency = "Enter a salary currency.";
-  } else if (!/^[A-Z]{3}$/.test(salaryCurrency)) {
-    errors.salaryCurrency = "Use a three-letter currency code such as INR or USD.";
-  }
+  const salaryMinLpa = requiredNumber(
+    form.salaryMinLpa,
+    "minimum salary in LPA",
+    "salaryMinLpa",
+    errors,
+    10_000,
+  );
 
   if (Object.keys(errors).length) return { errors };
 
   return {
     errors,
     values: {
-      ...form,
-      resumeText,
       preferredTitles: form.preferredTitles.map((value) => value.trim()),
       preferredLocations: form.preferredLocations.map((value) => value.trim()),
       preferredSkills: form.preferredSkills.map((value) => value.trim()),
-      experienceMinYears: experienceMinYears!,
-      experienceMaxYears: experienceMaxYears!,
-      salaryMin: salaryMin!,
-      salaryMax: salaryMax!,
-      salaryCurrency,
+      experienceMinYears: experience!.minimum,
+      experienceMaxYears: experience!.maximum,
+      salaryMin: salaryMinLpa! * 100_000,
+      salaryMax: null,
+      salaryCurrency: "INR",
     },
   };
 }

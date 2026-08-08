@@ -143,6 +143,7 @@ def state_response(
 
 def list_item(
     job: Job,
+    batch: Batch,
     state: JobState | None,
     annotation: JobAnnotation | None,
     application: Application | None = None,
@@ -155,6 +156,11 @@ def list_item(
         role_title=job.role_title,
         location=job.location,
         work_mode=job.work_mode,
+        salary_min=float(job.salary_min) if job.salary_min is not None else None,
+        salary_max=float(job.salary_max) if job.salary_max is not None else None,
+        salary_currency=job.salary_currency,
+        salary_period=job.salary_period,
+        batch_created_at=batch.created_at,
         created_at=job.created_at,
         relevance_label=state.relevance_label if state else None,
         review_status=state.review_status if state else "NEW",
@@ -481,7 +487,8 @@ async def list_jobs(
     member_id = context.membership.id
     ranked, prediction = latest_prediction_alias()
     joins = (
-        select(Job, JobState, JobAnnotation, Application, prediction)
+        select(Job, Batch, JobState, JobAnnotation, Application, prediction)
+        .join(Batch, Batch.id == Job.batch_id)
         .outerjoin(
             JobState,
             and_(JobState.job_id == Job.id, JobState.group_member_id == member_id),
@@ -819,7 +826,8 @@ async def list_applications(
     member_id = context.membership.id
     ranked, prediction = latest_prediction_alias()
     statement = (
-        select(Job, JobState, JobAnnotation, Application, prediction)
+        select(Job, Batch, JobState, JobAnnotation, Application, prediction)
+        .join(Batch, Batch.id == Job.batch_id)
         .outerjoin(
             JobState,
             and_(JobState.job_id == Job.id, JobState.group_member_id == member_id),
@@ -930,7 +938,9 @@ async def list_applications(
     ).all()
     latest_events: dict[str, JobEvent] = {}
     application_jobs = {
-        application.id: job.id for job, _, _, application, _ in rows if application
+        application.id: job.id
+        for job, _, _, _, application, _ in rows
+        if application
     }
     if application_jobs:
         events = (
@@ -949,7 +959,9 @@ async def list_applications(
     return ApplicationPage(
         items=[
             ApplicationListItem(
-                job=list_item(job, state, annotation, application, prediction),
+                job=list_item(
+                    job, batch, state, annotation, application, prediction
+                ),
                 notes=application.notes,
                 application=application_response(application, job.id),
                 latest_event=(
@@ -958,7 +970,7 @@ async def list_applications(
                     else None
                 ),
             )
-            for job, state, annotation, application, prediction in rows
+            for job, batch, state, annotation, application, prediction in rows
         ],
         page=page,
         page_size=page_size,

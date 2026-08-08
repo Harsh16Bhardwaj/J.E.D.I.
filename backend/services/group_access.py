@@ -205,11 +205,39 @@ def normalize_list(values: list[str]) -> list[str]:
 
 
 def normalized_member_profile(body: MemberProfileInput) -> dict:
+    titles = normalize_list(body.preferred_titles)
+    locations = normalize_list(body.preferred_locations)
+    skills = normalize_list(body.preferred_skills)
+    if body.experience_min_years is None and body.experience_max_years is None:
+        experience = "Experience: Not specified"
+    elif body.experience_max_years is None:
+        experience = f"Experience: {body.experience_min_years:g}+ years"
+    elif body.experience_min_years is None:
+        experience = f"Experience: Up to {body.experience_max_years:g} years"
+    else:
+        experience = (
+            f"Experience: {body.experience_min_years:g}-"
+            f"{body.experience_max_years:g} years"
+        )
+    salary = (
+        f"Minimum salary: {body.salary_currency or 'INR'} {body.salary_min:g}"
+        if body.salary_min is not None
+        else "Minimum salary: Not specified"
+    )
+    structured_profile = " | ".join(
+        (
+            f"Target titles: {', '.join(titles)}",
+            f"Preferred locations: {', '.join(locations)}",
+            f"Skills: {', '.join(skills)}",
+            experience,
+            salary,
+        )
+    )
     data = {
-        "resume_text": clean_text(body.resume_text),
-        "preferred_titles": normalize_list(body.preferred_titles),
-        "preferred_locations": normalize_list(body.preferred_locations),
-        "preferred_skills": normalize_list(body.preferred_skills),
+        "resume_text": clean_text(body.resume_text) or structured_profile,
+        "preferred_titles": titles,
+        "preferred_locations": locations,
+        "preferred_skills": skills,
         "experience_min_years": body.experience_min_years,
         "experience_max_years": body.experience_max_years,
         "salary_min": body.salary_min,
