@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require"
     direct_database_url: str | None = None
     session_secret: str = "replace-with-at-least-32-random-characters"
+    owner_registration_code: str = ""
     ml_service_secret: str = "replace-with-a-different-32-character-secret"
     session_cookie_name: str = "jedi_session"
     session_days: int = 7
@@ -59,6 +60,13 @@ class Settings(BaseSettings):
                 raise ValueError(
                     f"{name} must be a non-placeholder 32+ character secret."
                 )
+        if self.owner_registration_code and (
+            len(self.owner_registration_code) < 12
+            or not self.owner_registration_code.isalnum()
+        ):
+            raise ValueError(
+                "OWNER_REGISTRATION_CODE must contain 12+ letters and numbers."
+            )
         if not self.session_cookie_secure:
             raise ValueError("SESSION_COOKIE_SECURE must be true in production.")
         if not self.allowed_origins or any(

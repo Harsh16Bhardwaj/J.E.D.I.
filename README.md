@@ -42,30 +42,24 @@ development database is ready. Do not run a migration against the placeholder.
 
 ### Create the first group owner
 
-Generate an Argon2 password hash. The command prompts for the password so it does
-not appear in shell history:
+Set `OWNER_REGISTRATION_CODE` to a private, static value containing at least 12
+letters and numbers. It must be configured on the backend before its first
+startup. The owner enters that code on `/register`; the backend atomically
+creates the first user, the JEDI group, and its owner membership.
 
-```powershell
-backend\.venv\Scripts\python.exe -m backend.auth
-```
+The owner code is not stored in PostgreSQL and is never returned by the API.
+Ordinary member invitations are exactly five characters, so a 12+ character
+owner code can never be emitted by their random generator. After the first group
+has been created, the reserved code permanently returns `OWNER_ALREADY_CLAIMED`.
 
-After applying the schema to the approved development database, open Prisma
-Studio:
-
-```powershell
-npm run db:studio
-```
-
-Create or update the one private login interactively:
+The trusted interactive fallback remains available:
 
 ```powershell
 npm run user:bootstrap
 ```
 
-The command normalizes the email and stores an Argon2 hash; it never accepts the
-plaintext password as a command-line argument. Login compares the submitted
-email and password with that database row and sets an HTTP-only signed cookie.
-There is no registration or password-reset flow.
+Both paths normalize the email and store only an Argon2 password hash. Login
+sets an HTTP-only signed cookie. There is intentionally no password-reset flow.
 
 ## Start the servers
 

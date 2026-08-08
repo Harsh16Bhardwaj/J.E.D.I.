@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,6 +35,7 @@ from backend.schemas.group_access import (
 from backend.services.group_access import (
     generate_invite_code,
     invitation_hash,
+    is_owner_registration_code,
     normalized_member_profile,
     onboarding_state,
     require_group_context,
@@ -46,6 +47,7 @@ router = APIRouter(tags=["group access"])
 DatabaseSession = Annotated[AsyncSession, Depends(get_session)]
 GROUP_MEMBER_LIMIT = 50
 EMAIL_CONFIGURATION_ID = "default"
+OWNER_CLAIM_LOCK_ID = 7_403_321_026
 
 
 def invitation_summary(item: GroupInvitation) -> InvitationSummary:
@@ -169,6 +171,9 @@ async def register(
     response: Response,
     session: DatabaseSession,
 ) -> SessionUserResponse:
+    if is_owner_registration_code(body.invite_code):
+        return await register_first_owner(body, response, session)
+
     item = await session.scalar(
         select(GroupInvitation)
         .where(GroupInvitation.code_hash == invitation_hash(body.invite_code))
@@ -241,6 +246,61 @@ async def register(
             status_code=409,
             detail="Registration conflicted with another request; retry.",
         ) from exc
+    set_session_cookie(response, user)
+    return await session_response(session, user)
+
+
+async def register_first_owner(
+    body: RegisterRequest,
+    response: Response,
+    session: AsyncSession,
+) -> SessionUserResponse:
+    """Atomically let the reserved code create the one initial group owner."""
+    bind = session.get_bind()
+    if bind.dialect.name == "postgresql":
+        await session.execute(
+            text("SELECT pg_advisory_xact_lock(:lock_id)"),
+            {"lock_id": OWNER_CLAIM_LOCK_ID},
+        )
+
+    if await session.scalar(select(Group.id).limit(1)) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "OWNER_ALREADY_CLAIMED",
+                "message": "The JEDI group already has an owner.",
+            },
+        )
+    if await session.scalar(
+        select(User.id).where(func.lower(User.email) == body.email)
+    ) is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "EMAIL_EXISTS",
+                "message": "An account already uses this email.",
+            },
+        )
+
+    user = User(email=body.email, password_hash=hash_password(body.password))
+    session.add(user)
+    try:
+        await session.flush()
+        group = Group(name="JEDI", owner_id=user.id)
+        session.add(group)
+        await session.flush()
+        session.add(GroupMember(group_id=group.id, user_id=user.id))
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "OWNER_ALREADY_CLAIMED",
+                "message": "The JEDI group already has an owner.",
+            },
+        ) from exc
+
     set_session_cookie(response, user)
     return await session_response(session, user)
 

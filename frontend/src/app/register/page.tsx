@@ -25,7 +25,10 @@ const registerSchema = z
     inviteCode: z
       .string()
       .trim()
-      .regex(/^[A-Za-z0-9]{5}$/, "Enter the five-character invitation code."),
+      .regex(
+        /^[A-Za-z0-9]{5,64}$/,
+        "Enter the invitation or owner registration code.",
+      ),
     email: z.string().trim().email("Enter a valid email address."),
     password: z.string().min(8, "Use at least eight characters.").max(256),
     confirmPassword: z.string(),
@@ -129,7 +132,7 @@ export default function RegisterPage() {
               <Input
                 id="inviteCode"
                 autoComplete="one-time-code"
-                maxLength={5}
+                maxLength={64}
                 className="mt-2 min-h-12 border-2 bg-card font-mono text-lg uppercase tracking-[0.35em]"
                 aria-invalid={Boolean(errors.inviteCode)}
                 {...register("inviteCode", {
@@ -138,7 +141,7 @@ export default function RegisterPage() {
                       "inviteCode",
                       event.target.value
                         .replace(/[^a-z0-9]/gi, "")
-                        .slice(0, 5)
+                        .slice(0, 64)
                         .toUpperCase(),
                       { shouldValidate: true },
                     ),

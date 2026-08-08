@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -23,6 +23,7 @@ from backend.database import (
     get_session,
 )
 from backend.main import app
+from backend.services import group_access as group_access_service
 from backend.services.group_access import invitation_hash
 
 
@@ -30,6 +31,7 @@ from backend.services.group_access import invitation_hash
 def group_client() -> Iterator[tuple[TestClient, async_sessionmaker[AsyncSession]]]:
     settings = get_settings()
     original_secret = settings.session_secret
+    original_owner_code = settings.owner_registration_code
     settings.session_secret = "test-session-secret-that-is-longer-than-32-bytes"
     engine = create_async_engine(
         "sqlite+aiosqlite://",
@@ -96,6 +98,7 @@ def group_client() -> Iterator[tuple[TestClient, async_sessionmaker[AsyncSession
     app.dependency_overrides.clear()
     asyncio.run(engine.dispose())
     settings.session_secret = original_secret
+    settings.owner_registration_code = original_owner_code
 
 
 def login_owner(client: TestClient) -> dict:
@@ -365,3 +368,67 @@ def test_invitation_hash_never_matches_plaintext(group_client) -> None:
     saved = asyncio.run(stored_hash())
     assert saved == invitation_hash(invitation["code"])
     assert saved != invitation["code"]
+
+
+def test_reserved_code_claims_the_only_group_owner(group_client) -> None:
+    client, session_factory = group_client
+    settings = get_settings()
+    settings.owner_registration_code = "JEDIOWNER2026"
+
+    async def clear_existing_owner() -> None:
+        async with session_factory() as session:
+            await session.execute(delete(GroupMember))
+            await session.execute(delete(Group))
+            await session.execute(delete(User))
+            await session.commit()
+
+    asyncio.run(clear_existing_owner())
+    claimed = client.post(
+        "/api/auth/register",
+        json={
+            "inviteCode": "jediowner2026",
+            "email": "new-owner@example.com",
+            "password": "owner-password",
+        },
+    )
+    assert claimed.status_code == 201
+    assert claimed.json()["isGroupOwner"] is True
+    assert claimed.json()["onboardingComplete"] is False
+
+    replay = client.post(
+        "/api/auth/register",
+        json={
+            "inviteCode": "JEDIOWNER2026",
+            "email": "second-owner@example.com",
+            "password": "owner-password",
+        },
+    )
+    assert replay.status_code == 409
+    assert replay.json()["error"]["code"] == "OWNER_ALREADY_CLAIMED"
+
+    async def owner_counts() -> tuple[int, int, int]:
+        async with session_factory() as session:
+            return (
+                int(await session.scalar(select(func.count()).select_from(User)) or 0),
+                int(await session.scalar(select(func.count()).select_from(Group)) or 0),
+                int(
+                    await session.scalar(select(func.count()).select_from(GroupMember))
+                    or 0
+                ),
+            )
+
+    assert asyncio.run(owner_counts()) == (1, 1, 1)
+
+
+def test_random_invitation_skips_a_reserved_five_character_code(
+    group_client,
+    monkeypatch,
+) -> None:
+    get_settings().owner_registration_code = "ABCDE"
+    characters = iter("ABCDEFGHIJ")
+    monkeypatch.setattr(
+        group_access_service.secrets,
+        "choice",
+        lambda _alphabet: next(characters),
+    )
+    assert group_access_service.generate_invite_code() == "FGHIJ"

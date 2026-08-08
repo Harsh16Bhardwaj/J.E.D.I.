@@ -79,7 +79,20 @@ class GroupContext:
 
 
 def generate_invite_code() -> str:
-    return "".join(secrets.choice(INVITE_ALPHABET) for _ in range(INVITE_LENGTH))
+    reserved_code = get_settings().owner_registration_code.strip().upper()
+    for _ in range(100):
+        candidate = "".join(
+            secrets.choice(INVITE_ALPHABET) for _ in range(INVITE_LENGTH)
+        )
+        if not reserved_code or not hmac.compare_digest(candidate, reserved_code):
+            return candidate
+    raise RuntimeError("Unable to generate a non-reserved invitation code.")
+
+
+def is_owner_registration_code(code: str) -> bool:
+    reserved_code = get_settings().owner_registration_code.strip().upper()
+    normalized = code.strip().upper()
+    return bool(reserved_code) and hmac.compare_digest(normalized, reserved_code)
 
 
 def invitation_hash(code: str) -> str:

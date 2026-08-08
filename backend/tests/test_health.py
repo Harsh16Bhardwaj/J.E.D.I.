@@ -84,6 +84,18 @@ def test_production_settings_reject_unsafe_values() -> None:
             database_url="postgresql://owner:strong@database.internal/jedi",
             cors_origins="https://jedi.example.net",
             session_secret="s" * 64,
+            owner_registration_code="TOO-SHORT",
+            ml_service_secret="m" * 64,
+            session_cookie_secure=True,
+        )
+
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            app_env="production",
+            database_url="postgresql://owner:strong@database.internal/jedi",
+            cors_origins="https://jedi.example.net",
+            session_secret="s" * 64,
             ml_service_secret="m" * 64,
             session_cookie_secure=True,
             gmail_smtp_user="sender@example.net",
