@@ -54,12 +54,13 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
         try:
             response = await call_next(request)
-        except Exception:
+        except Exception as exception:
             logger.error(
-                "request_failed method=%s path=%s request_id=%s",
+                "request_failed method=%s path=%s request_id=%s error_type=%s",
                 request.method,
                 request.url.path,
                 request_id,
+                type(exception).__name__,
             )
             response = JSONResponse(
                 status_code=500,

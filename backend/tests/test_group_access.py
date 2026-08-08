@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -23,6 +24,7 @@ from backend.database import (
     get_session,
 )
 from backend.main import app
+from backend.routers.group_access import registration_database_error
 from backend.services import group_access as group_access_service
 from backend.services.group_access import invitation_hash
 
@@ -295,6 +297,8 @@ def test_onboarding_saves_profile_and_newsletter_recipient(group_client) -> None
     completed = client.post("/api/onboarding", json=payload)
     assert completed.status_code == 200
     assert completed.json()["rankingMode"] == "SHARED_GROUP_PROFILE"
+    assert completed.json()["initializedSharedProfile"] is False
+    assert completed.json()["sharedProfile"]["id"] == "profile-1"
     assert completed.json()["memberProfile"]["preferredTitles"] == ["Backend Engineer"]
     assert client.get("/api/auth/session").json()["onboardingComplete"] is True
     assert client.post("/api/onboarding", json=payload).json()["replayed"] is True
@@ -380,6 +384,7 @@ def test_reserved_code_claims_the_only_group_owner(group_client) -> None:
             await session.execute(delete(GroupMember))
             await session.execute(delete(Group))
             await session.execute(delete(User))
+            await session.execute(delete(ProfileVersion))
             await session.commit()
 
     asyncio.run(clear_existing_owner())
@@ -395,6 +400,25 @@ def test_reserved_code_claims_the_only_group_owner(group_client) -> None:
     assert claimed.json()["isGroupOwner"] is True
     assert claimed.json()["onboardingComplete"] is False
 
+    onboarding = client.post(
+        "/api/onboarding",
+        json={
+            "resumeText": "Python API owner",
+            "preferredTitles": ["Backend Engineer"],
+            "preferredLocations": ["Remote"],
+            "preferredSkills": ["Python", "FastAPI"],
+            "experienceMinYears": 0,
+            "experienceMaxYears": 2,
+            "salaryMin": 800000,
+            "salaryMax": 4000000,
+            "salaryCurrency": "INR",
+        },
+    )
+    assert onboarding.status_code == 200
+    assert onboarding.json()["initializedSharedProfile"] is True
+    assert onboarding.json()["sharedProfile"] is not None
+    assert onboarding.json()["replayed"] is False
+
     replay = client.post(
         "/api/auth/register",
         json={
@@ -406,8 +430,12 @@ def test_reserved_code_claims_the_only_group_owner(group_client) -> None:
     assert replay.status_code == 409
     assert replay.json()["error"]["code"] == "OWNER_ALREADY_CLAIMED"
 
-    async def owner_counts() -> tuple[int, int, int]:
+    async def owner_counts() -> tuple[int, int, int, int, bool]:
         async with session_factory() as session:
+            group = await session.scalar(select(Group))
+            active_profile = await session.scalar(
+                select(ProfileVersion).where(ProfileVersion.active.is_(True))
+            )
             return (
                 int(await session.scalar(select(func.count()).select_from(User)) or 0),
                 int(await session.scalar(select(func.count()).select_from(Group)) or 0),
@@ -415,9 +443,20 @@ def test_reserved_code_claims_the_only_group_owner(group_client) -> None:
                     await session.scalar(select(func.count()).select_from(GroupMember))
                     or 0
                 ),
+                int(
+                    await session.scalar(
+                        select(func.count()).select_from(ProfileVersion)
+                    )
+                    or 0
+                ),
+                bool(
+                    group
+                    and active_profile
+                    and group.active_profile_version_id == active_profile.id
+                ),
             )
 
-    assert asyncio.run(owner_counts()) == (1, 1, 1)
+    assert asyncio.run(owner_counts()) == (1, 1, 1, 1, True)
 
 
 def test_random_invitation_skips_a_reserved_five_character_code(
@@ -432,3 +471,75 @@ def test_random_invitation_skips_a_reserved_five_character_code(
         lambda _alphabet: next(characters),
     )
     assert group_access_service.generate_invite_code() == "FGHIJ"
+
+
+def test_long_owner_code_reports_missing_deployment_configuration(
+    group_client,
+) -> None:
+    client, _ = group_client
+    get_settings().owner_registration_code = ""
+    response = client.post(
+        "/api/auth/register",
+        json={
+            "inviteCode": "JEDIOWNER2026",
+            "email": "owner@example.com",
+            "password": "owner-password",
+        },
+    )
+    assert response.status_code == 503
+    assert (
+        response.json()["error"]["code"]
+        == "OWNER_REGISTRATION_NOT_CONFIGURED"
+    )
+    assert response.json()["error"]["requestId"]
+
+
+@pytest.mark.parametrize(
+    ("exception", "expected_code"),
+    [
+        (
+            OperationalError(
+                "connect",
+                {},
+                Exception("password authentication failed for user postgres"),
+            ),
+            "DATABASE_AUTH_FAILED",
+        ),
+        (
+            OperationalError(
+                "connect",
+                {},
+                Exception("project has exceeded the data transfer quota"),
+            ),
+            "DATABASE_QUOTA_EXCEEDED",
+        ),
+        (
+            OperationalError(
+                "connect",
+                {},
+                Exception("getaddrinfo failed"),
+            ),
+            "DATABASE_HOST_UNREACHABLE",
+        ),
+        (
+            ProgrammingError(
+                "select",
+                {},
+                Exception('relation "GroupInvitation" does not exist'),
+            ),
+            "DATABASE_MIGRATION_REQUIRED",
+        ),
+        (
+            OperationalError("connect", {}, Exception("connection timed out")),
+            "DATABASE_UNAVAILABLE",
+        ),
+    ],
+)
+def test_registration_database_errors_are_specific(
+    exception,
+    expected_code: str,
+) -> None:
+    error = registration_database_error(exception)
+    assert error.status_code == 503
+    assert error.detail["code"] == expected_code
+    assert "postgres" not in error.detail["message"].casefold()

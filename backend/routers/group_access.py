@@ -5,10 +5,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func, select, text, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth import CurrentUser, hash_password
+from backend.config import get_settings
 from backend.database import (
     EmailConfiguration,
     EmailRecipient,
@@ -16,6 +17,7 @@ from backend.database import (
     GroupInvitation,
     GroupMember,
     MemberProfile,
+    ProfileVersion,
     User,
     get_session,
     utc_now,
@@ -48,6 +50,52 @@ DatabaseSession = Annotated[AsyncSession, Depends(get_session)]
 GROUP_MEMBER_LIMIT = 50
 EMAIL_CONFIGURATION_ID = "default"
 OWNER_CLAIM_LOCK_ID = 7_403_321_026
+
+
+def registration_database_error(exception: SQLAlchemyError) -> HTTPException:
+    """Convert provider failures into specific errors without exposing secrets."""
+    message = str(getattr(exception, "orig", exception)).casefold()
+    if (
+        "password authentication failed" in message
+        or "authentication failed" in message
+    ):
+        code = "DATABASE_AUTH_FAILED"
+        detail = "The backend database credentials were rejected."
+    elif "data transfer quota" in message or "quota" in message:
+        code = "DATABASE_QUOTA_EXCEEDED"
+        detail = "The configured database has exceeded its provider quota."
+    elif any(
+        fragment in message
+        for fragment in (
+            "could not translate host name",
+            "getaddrinfo failed",
+            "name or service not known",
+            "network is unreachable",
+            "nodename nor servname provided",
+        )
+    ):
+        code = "DATABASE_HOST_UNREACHABLE"
+        detail = "The backend could not resolve the configured database host."
+    elif (
+        "does not exist" in message
+        and any(
+            relation in message
+            for relation in (
+                'relation "groupinvitation"',
+                'relation "group"',
+                'relation "user"',
+            )
+        )
+    ):
+        code = "DATABASE_MIGRATION_REQUIRED"
+        detail = "The database is reachable but the registration tables are missing."
+    else:
+        code = "DATABASE_UNAVAILABLE"
+        detail = "The backend could not reach the registration database."
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail={"code": code, "message": detail},
+    )
 
 
 def invitation_summary(item: GroupInvitation) -> InvitationSummary:
@@ -170,6 +218,31 @@ async def register(
     body: RegisterRequest,
     response: Response,
     session: DatabaseSession,
+) -> SessionUserResponse:
+    if len(body.invite_code) > 5 and not get_settings().owner_registration_code:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "OWNER_REGISTRATION_NOT_CONFIGURED",
+                "message": (
+                    "Owner registration is not configured on the deployed backend."
+                ),
+            },
+        )
+    try:
+        return await register_account(body, response, session)
+    except SQLAlchemyError as exc:
+        try:
+            await session.rollback()
+        except SQLAlchemyError:
+            pass
+        raise registration_database_error(exc) from exc
+
+
+async def register_account(
+    body: RegisterRequest,
+    response: Response,
+    session: AsyncSession,
 ) -> SessionUserResponse:
     if is_owner_registration_code(body.invite_code):
         return await register_first_owner(body, response, session)
@@ -340,6 +413,29 @@ async def complete_onboarding(
         for key, value in normalized.items():
             setattr(profile, key, value)
 
+    initialized_shared_profile = False
+    if (
+        context.group.owner_id == user.id
+        and context.group.active_profile_version_id is None
+    ):
+        shared_profile = await session.scalar(
+            select(ProfileVersion).where(
+                ProfileVersion.content_hash == normalized["content_hash"]
+            )
+        )
+        if shared_profile is None:
+            shared_profile = ProfileVersion(active=False, **normalized)
+            session.add(shared_profile)
+            await session.flush()
+        await session.execute(
+            update(ProfileVersion)
+            .where(ProfileVersion.id != shared_profile.id)
+            .values(active=False)
+        )
+        shared_profile.active = True
+        context.group.active_profile_version_id = shared_profile.id
+        initialized_shared_profile = True
+
     configuration = await session.scalar(
         select(EmailConfiguration)
         .where(EmailConfiguration.id == EMAIL_CONFIGURATION_ID)
@@ -399,7 +495,19 @@ async def complete_onboarding(
             detail="Onboarding conflicted with another request; retry.",
         ) from exc
     state = await onboarding_state(session, context)
-    return OnboardingResult(**state.model_dump(), replayed=replayed)
+    return OnboardingResult(
+        **state.model_dump(),
+        replayed=replayed and not initialized_shared_profile,
+        initialized_shared_profile=initialized_shared_profile,
+        message=(
+            "Your profile was saved and activated as the shared ranking profile."
+            if initialized_shared_profile
+            else (
+                "Your profile is saved for future personalization. "
+                "JEDI v1 currently uses the group ranking profile."
+            )
+        ),
+    )
 
 
 @router.get("/api/group", response_model=GroupSettingsResponse)

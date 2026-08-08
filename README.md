@@ -47,6 +47,10 @@ letters and numbers. It must be configured on the backend before its first
 startup. The owner enters that code on `/register`; the backend atomically
 creates the first user, the JEDI group, and its owner membership.
 
+When that first owner completes onboarding, the submitted member profile also
+becomes the initial active immutable shared profile. Later member onboarding
+remains private and never replaces the profile used for group normalization.
+
 The owner code is not stored in PostgreSQL and is never returned by the API.
 Ordinary member invitations are exactly five characters, so a 12+ character
 owner code can never be emitted by their random generator. After the first group

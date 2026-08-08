@@ -83,6 +83,7 @@ export type OnboardingState = {
 
 export type OnboardingResult = OnboardingState & {
   replayed: boolean;
+  initializedSharedProfile: boolean;
   message: string;
 };
 

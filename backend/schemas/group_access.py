@@ -122,6 +122,7 @@ class OnboardingState(ApiModel):
 
 class OnboardingResult(OnboardingState):
     replayed: bool
+    initialized_shared_profile: bool = False
     message: str = (
         "Your profile is saved for future personalization. "
         "JEDI v1 currently uses the group ranking profile."
