@@ -95,9 +95,52 @@ Useful local URLs:
 | `http://localhost:8000/health/ready` | Database and migration readiness |
 | `http://localhost:8000/api/auth/login` | Private login |
 | `http://localhost:8000/api/batches` | Batch ingestion and active list |
+| `http://localhost:3000/scraper` | Owner-only manual ATS scraper |
 
 On the configured Vercel service, Python paths are available under `/svc/ml`;
 for example `/svc/ml/api/batches`.
+
+### Manual scraper setup
+
+The owner-only `/scraper` workspace ships with employer-direct Greenhouse,
+Lever, Ashby, Workable, and SmartRecruiters boards. V2 also detects Recruitee,
+Personio XML, selected public Workday career sites, and employer `JobPosting`
+JSON-LD pages. The manual **Refresh sources** run follows career links from the
+configured company registry, validates employer identity and direct vacancies,
+and activates only healthy unique boards. These direct sources do not require
+Bright Data.
+
+Collection targets 60 trustworthy jobs, automatically selecting only verified
+postings from the last 14 days. Updated or uncertain evidence up to 30 days old
+is retained for owner review, while stale, closed, non-India, senior, incomplete,
+or duplicated postings are rejected. `backend/scraper_taxonomy.toml` versions
+the deterministic skills, experience, employment, education, authorization,
+and compensation extraction rules; evidence spans remain attached to each
+candidate for audit.
+
+Bright Data is optional and fallback-only. Direct ATS polling never uses SERP;
+Web Unlocker is used only when a shortlisted detail page is blocked or lacks a
+required description/date and its separate zone is configured:
+
+```text
+BRIGHT_DATA_API_KEY=...
+BRIGHT_DATA_SERP_ZONE=...
+BRIGHT_DATA_UNLOCKER_ZONE=...
+```
+
+Leaving either zone blank is supported. `BRIGHT_DATA_SERP_ZONE` is retained for
+deployment compatibility but is not used by the scraper workflow. An API key
+without an Unlocker zone cannot spend Bright Data credits and does not prevent
+seeded ATS runs.
+
+Approved scraper jobs are imported and automatically normalized with audited
+annual INR compensation when a supported FBIL reference rate is available.
+Ranking and email remain separate explicit actions.
+
+Keep those values in deployment environment variables; do not add them to
+`backend/scraper.toml` or PostgreSQL. Before using the scraper in an existing
+environment, apply the committed migration with `npm.cmd run db:deploy`. Never
+use `prisma db push` for JEDI deployments.
 
 ## Try the API
 

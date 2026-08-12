@@ -148,10 +148,18 @@ async def load_ranked_candidates(
             skills=tuple(job.skills or []),
             experience_min_years=job.experience_min_years,
             experience_max_years=job.experience_max_years,
-            salary_min=job.salary_min,
-            salary_max=job.salary_max,
-            salary_currency=job.salary_currency,
-            salary_period=job.salary_period,
+            salary_min=job.salary_inr_min or job.salary_min,
+            salary_max=job.salary_inr_max or job.salary_max,
+            salary_currency=(
+                "INR"
+                if job.salary_inr_min is not None or job.salary_inr_max is not None
+                else job.salary_currency
+            ),
+            salary_period=(
+                "YEARLY"
+                if job.salary_inr_min is not None or job.salary_inr_max is not None
+                else job.salary_period
+            ),
             can_apply_now=job.can_apply_now,
             apply_url=job.apply_url,
         )
@@ -353,9 +361,12 @@ def render_personalized_snapshot(
     ]
     html_rows: list[str] = []
     for index, item in enumerate(jobs, start=1):
-        context = " · ".join(
-            str(value) for value in (item["location"], item["workMode"]) if value
-        ) or "Location and work mode not listed"
+        context = (
+            " · ".join(
+                str(value) for value in (item["location"], item["workMode"]) if value
+            )
+            or "Location and work mode not listed"
+        )
         details = f"{item['experienceText']} · {item['salaryText']}"
         job_url = f"{app_base}/jobs/{quote(item['jobId'], safe='')}"
         text_lines.extend(

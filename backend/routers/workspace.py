@@ -156,10 +156,18 @@ def list_item(
         role_title=job.role_title,
         location=job.location,
         work_mode=job.work_mode,
-        salary_min=float(job.salary_min) if job.salary_min is not None else None,
-        salary_max=float(job.salary_max) if job.salary_max is not None else None,
-        salary_currency=job.salary_currency,
-        salary_period=job.salary_period,
+        salary_min=float(job.salary_inr_min or job.salary_min)
+        if job.salary_inr_min is not None or job.salary_min is not None
+        else None,
+        salary_max=float(job.salary_inr_max or job.salary_max)
+        if job.salary_inr_max is not None or job.salary_max is not None
+        else None,
+        salary_currency="INR"
+        if job.salary_inr_min is not None or job.salary_inr_max is not None
+        else job.salary_currency,
+        salary_period="YEARLY"
+        if job.salary_inr_min is not None or job.salary_inr_max is not None
+        else job.salary_period,
         batch_created_at=batch.created_at,
         created_at=job.created_at,
         relevance_label=state.relevance_label if state else None,
@@ -938,9 +946,7 @@ async def list_applications(
     ).all()
     latest_events: dict[str, JobEvent] = {}
     application_jobs = {
-        application.id: job.id
-        for job, _, _, _, application, _ in rows
-        if application
+        application.id: job.id for job, _, _, _, application, _ in rows if application
     }
     if application_jobs:
         events = (
@@ -959,9 +965,7 @@ async def list_applications(
     return ApplicationPage(
         items=[
             ApplicationListItem(
-                job=list_item(
-                    job, batch, state, annotation, application, prediction
-                ),
+                job=list_item(job, batch, state, annotation, application, prediction),
                 notes=application.notes,
                 application=application_response(application, job.id),
                 latest_event=(

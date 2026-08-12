@@ -75,9 +75,8 @@ class IncomingJob(ApiModel):
             high = getattr(self, high_name)
             if low is not None and high is not None and low > high:
                 raise ValueError(f"{low_name} cannot exceed {high_name}")
-        if (
-            self.salary_period is None
-            and (self.salary_min is not None or self.salary_max is not None)
+        if self.salary_period is None and (
+            self.salary_min is not None or self.salary_max is not None
         ):
             self.salary_period = SalaryPeriod.YEARLY
         return self
@@ -163,6 +162,12 @@ class JobResponse(ApiModel):
     salary_max: float | None
     salary_currency: str | None
     salary_period: SalaryPeriod | None
+    source_salary_min: float | None
+    source_salary_max: float | None
+    source_salary_currency: str | None
+    salary_fx_rate: float | None
+    salary_fx_as_of: datetime | None
+    salary_fx_provider: str | None
     posted_at: datetime | None
     application_deadline: datetime | None
     can_apply_now: bool | None

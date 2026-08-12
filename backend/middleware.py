@@ -7,6 +7,8 @@ from uuid import uuid4
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -62,16 +64,30 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                 request_id,
                 type(exception).__name__,
             )
+            database_unavailable = isinstance(
+                exception, (OperationalError, SQLAlchemyTimeoutError)
+            )
             response = JSONResponse(
-                status_code=500,
+                status_code=503 if database_unavailable else 500,
                 content={
                     "error": {
-                        "code": "INTERNAL_ERROR",
-                        "message": "Unexpected server error.",
+                        "code": (
+                            "DATABASE_UNAVAILABLE"
+                            if database_unavailable
+                            else "INTERNAL_ERROR"
+                        ),
+                        "message": (
+                            "The database is temporarily busy. "
+                            "Please retry this action."
+                            if database_unavailable
+                            else "Unexpected server error."
+                        ),
                         "requestId": request_id,
                     }
                 },
             )
+            if database_unavailable:
+                response.headers["Retry-After"] = "2"
 
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"

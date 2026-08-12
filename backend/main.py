@@ -30,6 +30,7 @@ from backend.routers import (
     normalization,
     operations,
     scoring,
+    scraper,
     workflow,
     workspace,
 )
@@ -51,6 +52,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Starlette applies the last-added middleware first. Request context must sit
+# inside CORS so even a handled database/server failure remains readable by the
+# browser instead of being misreported as a network failure.
+app.add_middleware(RequestContextMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
@@ -66,7 +71,6 @@ app.add_middleware(
         "X-Request-ID",
     ],
 )
-app.add_middleware(RequestContextMiddleware)
 app.add_middleware(ServicePrefixMiddleware)
 install_error_handlers(app)
 
@@ -84,3 +88,4 @@ app.include_router(email.router)
 app.include_router(normalization.router)
 app.include_router(embeddings.router)
 app.include_router(scoring.router)
+app.include_router(scraper.router)

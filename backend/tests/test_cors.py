@@ -36,3 +36,19 @@ def test_unlisted_origin_is_not_allowed() -> None:
     )
 
     assert "access-control-allow-origin" not in response.headers
+
+
+def test_local_ip_frontend_preflight_is_allowed() -> None:
+    response = client.options(
+        "/api/scraper/config",
+        headers={
+            "Origin": "http://127.0.0.1:3000",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+
+    assert response.status_code == 200
+    assert (
+        response.headers["access-control-allow-origin"]
+        == "http://127.0.0.1:3000"
+    )

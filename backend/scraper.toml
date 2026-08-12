@@ -1,0 +1,509 @@
+version = "jedi-site-scraper-v2"
+lookback_days = 14
+review_lookback_days = 30
+target_job_count = 60
+bright_data_limit = 150
+request_timeout_seconds = 15
+concurrent_sources = 3
+max_retries = 2
+max_candidates_per_company = 8
+minimum_description_characters = 300
+lease_seconds = 90
+retention_days = 30
+
+title_aliases = [
+  "full stack engineer", "full-stack engineer", "full stack developer",
+  "software engineer", "software developer", "web developer",
+  "backend engineer", "backend developer", "python developer",
+  "machine learning engineer", "ml engineer", "ai engineer",
+  "applied ai engineer", "generative ai engineer", "llm engineer",
+]
+excluded_title_terms = [
+  "senior", "sr.", "staff", "principal", "lead", "manager",
+  "director", "architect", "head of", "vice president",
+]
+india_terms = [
+  "india", "remote - india", "remote india", "bengaluru", "bangalore",
+  "hyderabad", "pune", "gurugram", "gurgaon", "noida", "delhi",
+  "mumbai", "chennai", "kolkata", "ahmedabad",
+]
+remote_terms = ["remote", "worldwide", "anywhere", "global"]
+ats_types = [
+  "greenhouse", "lever", "ashby", "workable", "smartrecruiters",
+  "recruitee", "personio", "workday", "jsonld",
+]
+
+# Verified public ATS boards. These are polled directly and require no Bright
+# Data subscription. Empty boards remain useful because employers reopen roles.
+seed_sources = [
+  { name = "Postman", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "postman" },
+  { name = "PhonePe", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "phonepe" },
+  { name = "Groww", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "groww" },
+  { name = "Thoughtworks", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "thoughtworks" },
+  { name = "Cloudflare", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "cloudflare" },
+  { name = "Datadog", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "datadog" },
+  { name = "MongoDB", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "mongodb" },
+  { name = "Elastic", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "elastic" },
+  { name = "Rubrik", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "rubrik" },
+  { name = "Canonical", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "canonical" },
+  { name = "GitLab", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "gitlab" },
+  { name = "Stripe", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "stripe" },
+  { name = "Figma", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "figma" },
+  { name = "Databricks", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "databricks" },
+  { name = "Brex", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "brex" },
+  { name = "Coinbase", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "coinbase" },
+  { name = "Discord", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "discord" },
+  { name = "Dropbox", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "dropbox" },
+  { name = "Glean", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "gleanwork" },
+  { name = "Klaviyo", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "klaviyo" },
+  { name = "Lyft", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "lyft" },
+  { name = "Netlify", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "netlify" },
+  { name = "Okta", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "okta" },
+  { name = "Reddit", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "reddit" },
+  { name = "Robinhood", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "robinhood" },
+  { name = "Samsara", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "samsara" },
+  { name = "Scale AI", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "scaleai" },
+  { name = "Twilio", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "twilio" },
+  { name = "Vercel", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "vercel" },
+  { name = "Grafana Labs", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "grafanalabs" },
+  { name = "HackerRank", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "hackerrank" },
+  { name = "InMobi", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "inmobi" },
+  { name = "Observe.AI", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "observeai" },
+  { name = "Remote", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "remotecom" },
+  { name = "Slice", ats_type = "greenhouse", domain_hint = "boards.greenhouse.io", board_token = "slice" },
+  { name = "Confluent", ats_type = "ashby", domain_hint = "jobs.ashbyhq.com", board_token = "confluent" },
+  { name = "Notion", ats_type = "ashby", domain_hint = "jobs.ashbyhq.com", board_token = "notion" },
+  { name = "Plaid", ats_type = "ashby", domain_hint = "jobs.ashbyhq.com", board_token = "plaid" },
+  { name = "Snowflake", ats_type = "ashby", domain_hint = "jobs.ashbyhq.com", board_token = "snowflake" },
+  { name = "Cohere", ats_type = "ashby", domain_hint = "jobs.ashbyhq.com", board_token = "cohere" },
+  { name = "Docker", ats_type = "ashby", domain_hint = "jobs.ashbyhq.com", board_token = "docker" },
+  { name = "OpenAI", ats_type = "ashby", domain_hint = "jobs.ashbyhq.com", board_token = "openai" },
+  { name = "Sentry", ats_type = "ashby", domain_hint = "jobs.ashbyhq.com", board_token = "sentry" },
+  { name = "Supabase", ats_type = "ashby", domain_hint = "jobs.ashbyhq.com", board_token = "supabase" },
+  { name = "Zapier", ats_type = "ashby", domain_hint = "jobs.ashbyhq.com", board_token = "zapier" },
+  { name = "Airbyte", ats_type = "ashby", domain_hint = "jobs.ashbyhq.com", board_token = "airbyte" },
+  { name = "HackerOne", ats_type = "ashby", domain_hint = "jobs.ashbyhq.com", board_token = "hackerone" },
+  { name = "Tekion", ats_type = "ashby", domain_hint = "jobs.ashbyhq.com", board_token = "tekion" },
+  { name = "CRED", ats_type = "lever", domain_hint = "jobs.lever.co", board_token = "cred" },
+  { name = "Meesho", ats_type = "lever", domain_hint = "jobs.lever.co", board_token = "meesho" },
+  { name = "MindTickle", ats_type = "lever", domain_hint = "jobs.lever.co", board_token = "mindtickle" },
+  { name = "Paytm", ats_type = "lever", domain_hint = "jobs.lever.co", board_token = "paytm" },
+  { name = "Zeta", ats_type = "lever", domain_hint = "jobs.lever.co", board_token = "zeta" },
+  { name = "Fi Money", ats_type = "lever", domain_hint = "jobs.lever.co", board_token = "fi" },
+  { name = "Starling Bank", ats_type = "workable", domain_hint = "apply.workable.com", board_token = "starling-bank" },
+  { name = "Bosch", ats_type = "smartrecruiters", domain_hint = "jobs.smartrecruiters.com", board_token = "BoschGroup" },
+  { name = "NielsenIQ", ats_type = "smartrecruiters", domain_hint = "jobs.smartrecruiters.com", board_token = "NielsenIQ" },
+  { name = "ServiceNow", ats_type = "smartrecruiters", domain_hint = "jobs.smartrecruiters.com", board_token = "ServiceNow" },
+  { name = "Ubisoft", ats_type = "smartrecruiters", domain_hint = "jobs.smartrecruiters.com", board_token = "Ubisoft2" },
+  { name = "Western Digital", ats_type = "smartrecruiters", domain_hint = "jobs.smartrecruiters.com", board_token = "WesternDigital" },
+  { name = "Wise", ats_type = "smartrecruiters", domain_hint = "jobs.smartrecruiters.com", board_token = "Wise" },
+]
+
+# Domain hints are discovery inputs, not proof that a company currently uses a
+# supported ATS. The owner-triggered source refresh follows employer career
+# links and validates public board identity before activation.
+[[company_hints]]
+name = "Google"
+domain = "google.com"
+[[company_hints]]
+name = "Microsoft"
+domain = "microsoft.com"
+[[company_hints]]
+name = "Amazon"
+domain = "amazon.jobs"
+[[company_hints]]
+name = "Adobe"
+domain = "adobe.com"
+[[company_hints]]
+name = "Atlassian"
+domain = "atlassian.com"
+[[company_hints]]
+name = "Salesforce"
+domain = "salesforce.com"
+[[company_hints]]
+name = "Oracle"
+domain = "oracle.com"
+[[company_hints]]
+name = "SAP"
+domain = "sap.com"
+[[company_hints]]
+name = "IBM"
+domain = "ibm.com"
+[[company_hints]]
+name = "Cisco"
+domain = "cisco.com"
+[[company_hints]]
+name = "Intel"
+domain = "intel.com"
+[[company_hints]]
+name = "NVIDIA"
+domain = "nvidia.com"
+[[company_hints]]
+name = "Qualcomm"
+domain = "qualcomm.com"
+[[company_hints]]
+name = "AMD"
+domain = "amd.com"
+[[company_hints]]
+name = "Dell Technologies"
+domain = "dell.com"
+[[company_hints]]
+name = "HP"
+domain = "hp.com"
+[[company_hints]]
+name = "HPE"
+domain = "hpe.com"
+[[company_hints]]
+name = "Samsung R&D India"
+domain = "samsung.com"
+[[company_hints]]
+name = "Sony India"
+domain = "sony.co.in"
+[[company_hints]]
+name = "ServiceNow"
+domain = "servicenow.com"
+[[company_hints]]
+name = "Intuit"
+domain = "intuit.com"
+[[company_hints]]
+name = "Walmart Global Tech"
+domain = "tech.walmart.com"
+[[company_hints]]
+name = "Target India"
+domain = "target.com"
+[[company_hints]]
+name = "Lowe's India"
+domain = "lowes.co.in"
+[[company_hints]]
+name = "Tesco Bengaluru"
+domain = "tesco-careers.com"
+[[company_hints]]
+name = "Bloomberg"
+domain = "bloomberg.com"
+[[company_hints]]
+name = "Thomson Reuters"
+domain = "thomsonreuters.com"
+[[company_hints]]
+name = "S&P Global"
+domain = "spglobal.com"
+[[company_hints]]
+name = "Moody's"
+domain = "moodys.com"
+[[company_hints]]
+name = "Autodesk"
+domain = "autodesk.com"
+[[company_hints]]
+name = "VMware by Broadcom"
+domain = "broadcom.com"
+[[company_hints]]
+name = "Red Hat"
+domain = "redhat.com"
+[[company_hints]]
+name = "Cloudflare"
+domain = "cloudflare.com"
+[[company_hints]]
+name = "Datadog"
+domain = "datadoghq.com"
+[[company_hints]]
+name = "MongoDB"
+domain = "mongodb.com"
+[[company_hints]]
+name = "Elastic"
+domain = "elastic.co"
+[[company_hints]]
+name = "Snowflake"
+domain = "snowflake.com"
+[[company_hints]]
+name = "Confluent"
+domain = "confluent.io"
+[[company_hints]]
+name = "Rubrik"
+domain = "rubrik.com"
+[[company_hints]]
+name = "Palo Alto Networks"
+domain = "paloaltonetworks.com"
+[[company_hints]]
+name = "Siemens"
+domain = "siemens.com"
+[[company_hints]]
+name = "Bosch"
+domain = "bosch.in"
+[[company_hints]]
+name = "Schneider Electric"
+domain = "se.com"
+[[company_hints]]
+name = "Honeywell"
+domain = "honeywell.com"
+[[company_hints]]
+name = "GE Aerospace"
+domain = "geaerospace.com"
+[[company_hints]]
+name = "GE HealthCare"
+domain = "gehealthcare.com"
+[[company_hints]]
+name = "Philips"
+domain = "philips.com"
+[[company_hints]]
+name = "Ericsson"
+domain = "ericsson.com"
+[[company_hints]]
+name = "Nokia"
+domain = "nokia.com"
+[[company_hints]]
+name = "Airbus India"
+domain = "airbus.com"
+[[company_hints]]
+name = "Boeing India"
+domain = "boeing.com"
+[[company_hints]]
+name = "Shell India"
+domain = "shell.in"
+[[company_hints]]
+name = "Mastercard"
+domain = "mastercard.com"
+[[company_hints]]
+name = "Visa"
+domain = "visa.com"
+[[company_hints]]
+name = "American Express"
+domain = "americanexpress.com"
+[[company_hints]]
+name = "PayPal"
+domain = "paypal.com"
+[[company_hints]]
+name = "JPMorgan Chase"
+domain = "jpmorganchase.com"
+[[company_hints]]
+name = "Goldman Sachs"
+domain = "goldmansachs.com"
+[[company_hints]]
+name = "Morgan Stanley"
+domain = "morganstanley.com"
+[[company_hints]]
+name = "Barclays"
+domain = "barclays.com"
+[[company_hints]]
+name = "UBS"
+domain = "ubs.com"
+[[company_hints]]
+name = "Deutsche Bank"
+domain = "db.com"
+[[company_hints]]
+name = "Wells Fargo"
+domain = "wellsfargo.com"
+[[company_hints]]
+name = "Bank of America"
+domain = "bankofamerica.com"
+[[company_hints]]
+name = "Citi"
+domain = "citi.com"
+[[company_hints]]
+name = "HSBC"
+domain = "hsbc.com"
+[[company_hints]]
+name = "Standard Chartered"
+domain = "sc.com"
+[[company_hints]]
+name = "Fidelity Investments"
+domain = "fidelity.com"
+[[company_hints]]
+name = "BlackRock"
+domain = "blackrock.com"
+[[company_hints]]
+name = "Accenture"
+domain = "accenture.com"
+[[company_hints]]
+name = "Deloitte India"
+domain = "deloitte.com"
+[[company_hints]]
+name = "EY India"
+domain = "ey.com"
+[[company_hints]]
+name = "KPMG India"
+domain = "kpmg.com"
+[[company_hints]]
+name = "PwC India"
+domain = "pwc.in"
+[[company_hints]]
+name = "Capgemini"
+domain = "capgemini.com"
+[[company_hints]]
+name = "Cognizant"
+domain = "cognizant.com"
+[[company_hints]]
+name = "Infosys"
+domain = "infosys.com"
+[[company_hints]]
+name = "TCS"
+domain = "tcs.com"
+[[company_hints]]
+name = "Wipro"
+domain = "wipro.com"
+[[company_hints]]
+name = "HCLTech"
+domain = "hcltech.com"
+[[company_hints]]
+name = "Tech Mahindra"
+domain = "techmahindra.com"
+[[company_hints]]
+name = "LTIMindtree"
+domain = "ltimindtree.com"
+[[company_hints]]
+name = "Persistent Systems"
+domain = "persistent.com"
+[[company_hints]]
+name = "Mphasis"
+domain = "mphasis.com"
+[[company_hints]]
+name = "Coforge"
+domain = "coforge.com"
+[[company_hints]]
+name = "Genpact"
+domain = "genpact.com"
+[[company_hints]]
+name = "Nagarro"
+domain = "nagarro.com"
+[[company_hints]]
+name = "Thoughtworks"
+domain = "thoughtworks.com"
+[[company_hints]]
+name = "GlobalLogic"
+domain = "globallogic.com"
+[[company_hints]]
+name = "EPAM"
+domain = "epam.com"
+[[company_hints]]
+name = "Publicis Sapient"
+domain = "publicissapient.com"
+[[company_hints]]
+name = "Virtusa"
+domain = "virtusa.com"
+[[company_hints]]
+name = "UST"
+domain = "ust.com"
+[[company_hints]]
+name = "ZS Associates"
+domain = "zs.com"
+[[company_hints]]
+name = "Fractal"
+domain = "fractal.ai"
+[[company_hints]]
+name = "Tiger Analytics"
+domain = "tigeranalytics.com"
+[[company_hints]]
+name = "Tredence"
+domain = "tredence.com"
+[[company_hints]]
+name = "Quantiphi"
+domain = "quantiphi.com"
+[[company_hints]]
+name = "Mu Sigma"
+domain = "mu-sigma.com"
+[[company_hints]]
+name = "Flipkart"
+domain = "flipkartcareers.com"
+[[company_hints]]
+name = "PhonePe"
+domain = "phonepe.com"
+[[company_hints]]
+name = "Razorpay"
+domain = "razorpay.com"
+[[company_hints]]
+name = "CRED"
+domain = "cred.club"
+[[company_hints]]
+name = "Groww"
+domain = "groww.in"
+[[company_hints]]
+name = "Zerodha"
+domain = "zerodha.com"
+[[company_hints]]
+name = "Upstox"
+domain = "upstox.com"
+[[company_hints]]
+name = "Paytm"
+domain = "paytm.com"
+[[company_hints]]
+name = "BharatPe"
+domain = "bharatpe.com"
+[[company_hints]]
+name = "Navi"
+domain = "navi.com"
+[[company_hints]]
+name = "Slice"
+domain = "sliceit.com"
+[[company_hints]]
+name = "Jupiter"
+domain = "jupiter.money"
+[[company_hints]]
+name = "Fi Money"
+domain = "fi.money"
+[[company_hints]]
+name = "Pine Labs"
+domain = "pinelabs.com"
+[[company_hints]]
+name = "Cashfree Payments"
+domain = "cashfree.com"
+[[company_hints]]
+name = "Juspay"
+domain = "juspay.in"
+[[company_hints]]
+name = "M2P Fintech"
+domain = "m2pfintech.com"
+[[company_hints]]
+name = "Zeta"
+domain = "zeta.tech"
+[[company_hints]]
+name = "Open Financial Technologies"
+domain = "open.money"
+[[company_hints]]
+name = "Chargebee"
+domain = "chargebee.com"
+[[company_hints]]
+name = "Freshworks"
+domain = "freshworks.com"
+[[company_hints]]
+name = "Zoho"
+domain = "zoho.com"
+[[company_hints]]
+name = "Postman"
+domain = "postman.com"
+[[company_hints]]
+name = "BrowserStack"
+domain = "browserstack.com"
+[[company_hints]]
+name = "Hasura"
+domain = "hasura.io"
+[[company_hints]]
+name = "Whatfix"
+domain = "whatfix.com"
+[[company_hints]]
+name = "Druva"
+domain = "druva.com"
+[[company_hints]]
+name = "Innovaccer"
+domain = "innovaccer.com"
+[[company_hints]]
+name = "InMobi"
+domain = "inmobi.com"
+[[company_hints]]
+name = "Glance"
+domain = "glance.com"
+[[company_hints]]
+name = "Meesho"
+domain = "meesho.io"
+[[company_hints]]
+name = "Myntra"
+domain = "myntra.com"
+[[company_hints]]
+name = "Swiggy"
+domain = "swiggy.com"
+[[company_hints]]
+name = "Zomato"
+domain = "zomato.com"
+[[company_hints]]
+name = "Zepto"
+domain = "zeptonow.com"
+[[company_hints]]
+name = "Blinkit"
+domain = "blinkit.com"

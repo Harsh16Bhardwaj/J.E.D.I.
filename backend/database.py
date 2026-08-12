@@ -58,9 +58,9 @@ batch_status_type = Enum(
     "FAILED",
     name="BatchStatus",
 ).with_variant(String(), "sqlite")
-salary_period_type = Enum(
-    "YEARLY", "MONTHLY", name="SalaryPeriod"
-).with_variant(String(), "sqlite")
+salary_period_type = Enum("YEARLY", "MONTHLY", name="SalaryPeriod").with_variant(
+    String(), "sqlite"
+)
 relevance_label_type = Enum(
     "DREAM",
     "STRONG_APPLY",
@@ -100,6 +100,29 @@ application_milestone_status_type = Enum(
 ).with_variant(String(), "sqlite")
 processing_status_type = Enum(
     "QUEUED", "RUNNING", "SUCCEEDED", "FAILED", name="ProcessingStatus"
+).with_variant(String(), "sqlite")
+scrape_run_status_type = Enum(
+    "CREATED",
+    "RUNNING",
+    "REVIEW_READY",
+    "IMPORTING",
+    "NORMALIZING",
+    "NORMALIZATION_FAILED",
+    "IMPORTED",
+    "FAILED",
+    "CANCELLED",
+    name="ScrapeRunStatus",
+).with_variant(String(), "sqlite")
+scrape_attempt_status_type = Enum(
+    "PENDING", "RUNNING", "SUCCEEDED", "FAILED", name="ScrapeAttemptStatus"
+).with_variant(String(), "sqlite")
+source_discovery_status_type = Enum(
+    "CREATED",
+    "RUNNING",
+    "COMPLETED",
+    "FAILED",
+    "CANCELLED",
+    name="SourceDiscoveryRunStatus",
 ).with_variant(String(), "sqlite")
 email_status_type = Enum(
     "UNTOUCHED", "SENDING", "SENT", "FAILED", "BLOCKED", "CANCELLED", name="EmailStatus"
@@ -353,6 +376,21 @@ class Job(Base):
     salary_period: Mapped[str | None] = mapped_column(
         "salaryPeriod", salary_period_type, nullable=True
     )
+    salary_inr_min: Mapped[Decimal | None] = mapped_column(
+        "salaryInrMin", Numeric(14, 2), nullable=True
+    )
+    salary_inr_max: Mapped[Decimal | None] = mapped_column(
+        "salaryInrMax", Numeric(14, 2), nullable=True
+    )
+    salary_fx_rate: Mapped[Decimal | None] = mapped_column(
+        "salaryFxRate", Numeric(18, 8), nullable=True
+    )
+    salary_fx_as_of: Mapped[datetime | None] = mapped_column(
+        "salaryFxAsOf", DateTime(timezone=True), nullable=True
+    )
+    salary_fx_provider: Mapped[str | None] = mapped_column(
+        "salaryFxProvider", String, nullable=True
+    )
     posted_at: Mapped[datetime | None] = mapped_column(
         "postedAt", DateTime(timezone=True), nullable=True
     )
@@ -371,6 +409,359 @@ class Job(Base):
         DateTime(timezone=True),
         default=utc_now,
         onupdate=utc_now,
+    )
+
+
+class ScrapeRun(Base):
+    __tablename__ = "ScrapeRun"
+    __table_args__ = (
+        Index("ScrapeRun_groupId_createdAt_idx", "groupId", "createdAt"),
+        Index("ScrapeRun_status_updatedAt_idx", "status", "updatedAt"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    group_id: Mapped[str] = mapped_column(
+        "groupId", ForeignKey("Group.id", ondelete="CASCADE")
+    )
+    status: Mapped[str] = mapped_column(scrape_run_status_type, default="CREATED")
+    config_version: Mapped[str] = mapped_column("configVersion", String)
+    config_hash: Mapped[str] = mapped_column("configHash", String)
+    target_job_count: Mapped[int] = mapped_column(
+        "targetJobCount", Integer, default=100
+    )
+    bright_data_limit: Mapped[int] = mapped_column(
+        "brightDataLimit", Integer, default=150
+    )
+    bright_data_used: Mapped[int] = mapped_column("brightDataUsed", Integer, default=0)
+    free_request_count: Mapped[int] = mapped_column(
+        "freeRequestCount", Integer, default=0
+    )
+    bright_data_fallback_count: Mapped[int] = mapped_column(
+        "brightDataFallbackCount", Integer, default=0
+    )
+    provider_usage_reason: Mapped[str | None] = mapped_column(
+        "providerUsageReason", Text, nullable=True
+    )
+    discovered_count: Mapped[int] = mapped_column("discoveredCount", Integer, default=0)
+    valid_count: Mapped[int] = mapped_column("validCount", Integer, default=0)
+    selected_count: Mapped[int] = mapped_column("selectedCount", Integer, default=0)
+    failed_source_count: Mapped[int] = mapped_column(
+        "failedSourceCount", Integer, default=0
+    )
+    source_count: Mapped[int] = mapped_column("sourceCount", Integer, default=0)
+    processed_source_count: Mapped[int] = mapped_column(
+        "processedSourceCount", Integer, default=0
+    )
+    stopped_early: Mapped[bool] = mapped_column(
+        "stoppedEarly", Boolean, default=False
+    )
+    imported_batch_id: Mapped[str | None] = mapped_column(
+        "importedBatchId",
+        ForeignKey("Batch.id", ondelete="SET NULL"),
+        unique=True,
+        nullable=True,
+    )
+    error_message: Mapped[str | None] = mapped_column(
+        "errorMessage", Text, nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        "createdAt", DateTime(timezone=True), default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        "updatedAt", DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        "completedAt", DateTime(timezone=True), nullable=True
+    )
+
+
+class ScrapeAttempt(Base):
+    __tablename__ = "ScrapeAttempt"
+    __table_args__ = (
+        UniqueConstraint("runId", "stepKey", name="ScrapeAttempt_runId_stepKey_key"),
+        Index(
+            "ScrapeAttempt_runId_status_createdAt_idx",
+            "runId",
+            "status",
+            "createdAt",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(
+        "runId", ForeignKey("ScrapeRun.id", ondelete="CASCADE")
+    )
+    step_key: Mapped[str] = mapped_column("stepKey", String)
+    source_key: Mapped[str] = mapped_column("sourceKey", String)
+    provider: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(scrape_attempt_status_type, default="PENDING")
+    attempt_count: Mapped[int] = mapped_column("attemptCount", Integer, default=0)
+    discovered_count: Mapped[int] = mapped_column("discoveredCount", Integer, default=0)
+    valid_count: Mapped[int] = mapped_column("validCount", Integer, default=0)
+    bright_data_used: Mapped[int] = mapped_column("brightDataUsed", Integer, default=0)
+    error_message: Mapped[str | None] = mapped_column(
+        "errorMessage", Text, nullable=True
+    )
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        "leaseExpiresAt", DateTime(timezone=True), nullable=True
+    )
+    checkpoint: Mapped[dict | None] = mapped_column(json_type, nullable=True)
+    response_time_ms: Mapped[int | None] = mapped_column(
+        "responseTimeMs", Integer, nullable=True
+    )
+    free_request_count: Mapped[int] = mapped_column(
+        "freeRequestCount", Integer, default=0
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        "createdAt", DateTime(timezone=True), default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        "updatedAt", DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+class ScrapeCandidate(Base):
+    __tablename__ = "ScrapeCandidate"
+    __table_args__ = (
+        UniqueConstraint(
+            "runId", "canonicalUrl", name="ScrapeCandidate_runId_canonicalUrl_key"
+        ),
+        Index(
+            "ScrapeCandidate_runId_schemaValid_selected_idx",
+            "runId",
+            "schemaValid",
+            "selected",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(
+        "runId", ForeignKey("ScrapeRun.id", ondelete="CASCADE")
+    )
+    source_key: Mapped[str] = mapped_column("sourceKey", String)
+    source_provider: Mapped[str] = mapped_column("sourceProvider", String)
+    ats_type: Mapped[str] = mapped_column("atsType", String, default="unknown")
+    source_url: Mapped[str] = mapped_column("sourceUrl", Text)
+    canonical_url: Mapped[str] = mapped_column("canonicalUrl", Text)
+    company_name: Mapped[str] = mapped_column("companyName", String)
+    role_title: Mapped[str] = mapped_column("roleTitle", String)
+    location: Mapped[str | None] = mapped_column(String, nullable=True)
+    experience_min_years: Mapped[float | None] = mapped_column(
+        "experienceMinYears", Float, nullable=True
+    )
+    experience_max_years: Mapped[float | None] = mapped_column(
+        "experienceMaxYears", Float, nullable=True
+    )
+    posted_at: Mapped[datetime | None] = mapped_column(
+        "postedAt", DateTime(timezone=True), nullable=True
+    )
+    geography_eligibility: Mapped[str] = mapped_column(
+        "geographyEligibility", String, default="INELIGIBLE"
+    )
+    source_quality_valid: Mapped[bool] = mapped_column(
+        "sourceQualityValid", Boolean, default=False
+    )
+    quality_failures: Mapped[list | None] = mapped_column(
+        "qualityFailures", json_type, nullable=True
+    )
+    description_length: Mapped[int] = mapped_column(
+        "descriptionLength", Integer, default=0
+    )
+    date_evidence: Mapped[str | None] = mapped_column(
+        "dateEvidence", String, nullable=True
+    )
+    freshness_tier: Mapped[str] = mapped_column(
+        "freshnessTier", String, default="REJECTED"
+    )
+    quality_score: Mapped[float] = mapped_column("qualityScore", Float, default=0)
+    review_group: Mapped[str] = mapped_column("reviewGroup", String, default="REJECTED")
+    extracted_facts: Mapped[dict | None] = mapped_column(
+        "extractedFacts", json_type, nullable=True
+    )
+    evidence_spans: Mapped[list | None] = mapped_column(
+        "evidenceSpans", json_type, nullable=True
+    )
+    extraction_version: Mapped[str | None] = mapped_column(
+        "extractionVersion", String, nullable=True
+    )
+    description_fingerprint: Mapped[str | None] = mapped_column(
+        "descriptionFingerprint", String, nullable=True
+    )
+    payload: Mapped[dict] = mapped_column(json_type)
+    schema_valid: Mapped[bool] = mapped_column("schemaValid", Boolean, default=False)
+    selected: Mapped[bool] = mapped_column(Boolean, default=False)
+    validation_errors: Mapped[list | None] = mapped_column(
+        "validationErrors", json_type, nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        "createdAt", DateTime(timezone=True), default=utc_now
+    )
+
+
+class ScrapeSource(Base):
+    __tablename__ = "ScrapeSource"
+    __table_args__ = (
+        UniqueConstraint(
+            "groupId", "sourceKey", name="ScrapeSource_groupId_sourceKey_key"
+        ),
+        Index(
+            "ScrapeSource_groupId_atsType_active_idx",
+            "groupId",
+            "atsType",
+            "active",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    group_id: Mapped[str] = mapped_column(
+        "groupId", ForeignKey("Group.id", ondelete="CASCADE")
+    )
+    source_key: Mapped[str] = mapped_column("sourceKey", String)
+    name: Mapped[str] = mapped_column(String)
+    ats_type: Mapped[str] = mapped_column("atsType", String)
+    domain_hint: Mapped[str] = mapped_column("domainHint", String)
+    board_token: Mapped[str] = mapped_column("boardToken", String)
+    discovered: Mapped[bool] = mapped_column(Boolean, default=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(
+        "lastSeenAt", DateTime(timezone=True), nullable=True
+    )
+    health_status: Mapped[str] = mapped_column(
+        "healthStatus", String, default="UNKNOWN"
+    )
+    last_success_at: Mapped[datetime | None] = mapped_column(
+        "lastSuccessAt", DateTime(timezone=True), nullable=True
+    )
+    last_failure_at: Mapped[datetime | None] = mapped_column(
+        "lastFailureAt", DateTime(timezone=True), nullable=True
+    )
+    consecutive_failures: Mapped[int] = mapped_column(
+        "consecutiveFailures", Integer, default=0
+    )
+    consecutive_zero_yield: Mapped[int] = mapped_column(
+        "consecutiveZeroYield", Integer, default=0
+    )
+    response_time_ms: Mapped[int | None] = mapped_column(
+        "responseTimeMs", Integer, nullable=True
+    )
+    jobs_scanned: Mapped[int] = mapped_column("jobsScanned", Integer, default=0)
+    eligible_yield: Mapped[int] = mapped_column("eligibleYield", Integer, default=0)
+    duplicate_yield: Mapped[int] = mapped_column("duplicateYield", Integer, default=0)
+    cooldown_until: Mapped[datetime | None] = mapped_column(
+        "cooldownUntil", DateTime(timezone=True), nullable=True
+    )
+    etag: Mapped[str | None] = mapped_column(String, nullable=True)
+    last_modified: Mapped[str | None] = mapped_column(
+        "lastModified", String, nullable=True
+    )
+    response_cache: Mapped[list | None] = mapped_column(
+        "responseCache", json_type, nullable=True
+    )
+    last_checkpoint: Mapped[dict | None] = mapped_column(
+        "lastCheckpoint", json_type, nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        "createdAt", DateTime(timezone=True), default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        "updatedAt", DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+class ScrapeProviderUse(Base):
+    __tablename__ = "ScrapeProviderUse"
+    __table_args__ = (
+        Index("ScrapeProviderUse_runId_createdAt_idx", "runId", "createdAt"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(
+        "runId", ForeignKey("ScrapeRun.id", ondelete="CASCADE")
+    )
+    attempt_id: Mapped[str | None] = mapped_column("attemptId", String, nullable=True)
+    candidate_url: Mapped[str] = mapped_column("candidateUrl", Text)
+    provider: Mapped[str] = mapped_column(String)
+    units: Mapped[int] = mapped_column(Integer, default=1)
+    reason: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(
+        "createdAt", DateTime(timezone=True), default=utc_now
+    )
+
+
+class SourceDiscoveryRun(Base):
+    __tablename__ = "SourceDiscoveryRun"
+    __table_args__ = (
+        Index("SourceDiscoveryRun_groupId_createdAt_idx", "groupId", "createdAt"),
+        Index("SourceDiscoveryRun_status_updatedAt_idx", "status", "updatedAt"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    group_id: Mapped[str] = mapped_column(
+        "groupId", ForeignKey("Group.id", ondelete="CASCADE")
+    )
+    status: Mapped[str] = mapped_column(source_discovery_status_type, default="CREATED")
+    config_version: Mapped[str] = mapped_column("configVersion", String)
+    config_hash: Mapped[str] = mapped_column("configHash", String)
+    total_hints: Mapped[int] = mapped_column("totalHints", Integer, default=0)
+    processed_hints: Mapped[int] = mapped_column("processedHints", Integer, default=0)
+    detected_sources: Mapped[int] = mapped_column("detectedSources", Integer, default=0)
+    activated_sources: Mapped[int] = mapped_column(
+        "activatedSources", Integer, default=0
+    )
+    failed_hints: Mapped[int] = mapped_column("failedHints", Integer, default=0)
+    error_message: Mapped[str | None] = mapped_column(
+        "errorMessage", Text, nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        "createdAt", DateTime(timezone=True), default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        "updatedAt", DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        "completedAt", DateTime(timezone=True), nullable=True
+    )
+
+
+class SourceDiscoveryAttempt(Base):
+    __tablename__ = "SourceDiscoveryAttempt"
+    __table_args__ = (
+        UniqueConstraint(
+            "runId", "stepKey", name="SourceDiscoveryAttempt_runId_stepKey_key"
+        ),
+        Index(
+            "SourceDiscoveryAttempt_runId_status_createdAt_idx",
+            "runId",
+            "status",
+            "createdAt",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    run_id: Mapped[str] = mapped_column(
+        "runId", ForeignKey("SourceDiscoveryRun.id", ondelete="CASCADE")
+    )
+    step_key: Mapped[str] = mapped_column("stepKey", String)
+    company_name: Mapped[str] = mapped_column("companyName", String)
+    company_domain: Mapped[str] = mapped_column("companyDomain", String)
+    status: Mapped[str] = mapped_column(scrape_attempt_status_type, default="PENDING")
+    attempt_count: Mapped[int] = mapped_column("attemptCount", Integer, default=0)
+    detected_count: Mapped[int] = mapped_column("detectedCount", Integer, default=0)
+    activated_count: Mapped[int] = mapped_column("activatedCount", Integer, default=0)
+    response_time_ms: Mapped[int | None] = mapped_column(
+        "responseTimeMs", Integer, nullable=True
+    )
+    error_message: Mapped[str | None] = mapped_column(
+        "errorMessage", Text, nullable=True
+    )
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        "leaseExpiresAt", DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        "createdAt", DateTime(timezone=True), default=utc_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        "updatedAt", DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
 
 
@@ -425,6 +816,9 @@ class PreparedJob(Base):
     feature_schema_version: Mapped[str] = mapped_column("featureSchemaVersion", String)
     payload_hash: Mapped[str] = mapped_column("payloadHash", String)
     payload: Mapped[dict] = mapped_column(json_type)
+    normalization_policy_version: Mapped[str] = mapped_column(
+        "normalizationPolicyVersion", String, default="legacy-v1"
+    )
     job_id: Mapped[str] = mapped_column(
         "jobId", ForeignKey("Job.id", ondelete="CASCADE")
     )
@@ -921,6 +1315,9 @@ class ProcessingRun(Base):
     feature_schema_version: Mapped[str | None] = mapped_column(
         "featureSchemaVersion", String, nullable=True
     )
+    normalization_policy_version: Mapped[str | None] = mapped_column(
+        "normalizationPolicyVersion", String, nullable=True
+    )
     lease_token: Mapped[str | None] = mapped_column("leaseToken", String, nullable=True)
     lease_expires_at: Mapped[datetime | None] = mapped_column(
         "leaseExpiresAt", DateTime(timezone=True), nullable=True
@@ -1304,9 +1701,13 @@ settings = get_settings()
 engine = create_async_engine(
     settings.sqlalchemy_database_url,
     pool_pre_ping=True,
-    pool_size=3,
-    max_overflow=0,
-    pool_timeout=10,
+    # Three scraper workers may finish together while the browser also asks for
+    # progress or sends a cancellation. Keep spare capacity for those control
+    # requests instead of reporting a healthy API as "unreachable" while every
+    # pooled connection is occupied by a worker transaction.
+    pool_size=5,
+    max_overflow=2,
+    pool_timeout=20,
     pool_recycle=300,
 )
 SessionFactory = async_sessionmaker(engine, expire_on_commit=False)

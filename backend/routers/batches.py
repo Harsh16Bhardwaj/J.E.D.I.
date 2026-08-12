@@ -1,7 +1,5 @@
 """Batch ingestion, review reads, filters, and guarded deletion."""
 
-import secrets
-from datetime import UTC, datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import (
@@ -13,10 +11,7 @@ from fastapi import (
     Response,
     status,
 )
-from fastapi.encoders import jsonable_encoder
-from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import and_, delete, func, or_, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth import CurrentUser
@@ -32,7 +27,6 @@ from backend.database import (
     ProcessingRun,
     TrainingExample,
     get_session,
-    new_id,
 )
 from backend.schemas.product import (
     ActionAvailability,
@@ -43,18 +37,14 @@ from backend.schemas.product import (
     BatchMetricsResponse,
     BatchPage,
     BatchSummary,
-    ImportEnvelope,
-    IncomingJob,
     JobResponse,
     RelevanceLabel,
-    ValidationIssue,
 )
+from backend.services.batch_ingestion import ingest_batch
 from backend.services.group_access import require_group_context
-from backend.services.product import clean_job, remove_duplicates, stable_hash
 
 router = APIRouter(prefix="/api/batches", tags=["batches"])
 DatabaseSession = Annotated[AsyncSession, Depends(get_session)]
-job_adapter = TypeAdapter(IncomingJob)
 
 ANNOTATION_FIELDS = (
     "apply_label",
@@ -68,66 +58,6 @@ ANNOTATION_FIELDS = (
     "salary_fit",
     "overall_preference",
 )
-
-FRIENDLY_ATTRIBUTES = (
-    "Agile", "Bright", "Bold", "Brave", "Calm", "Candid", "Capable", "Clever",
-    "Curious", "Daring", "Earnest", "Eager", "Focused", "Gallant", "Gentle",
-    "Golden", "Grounded", "Happy", "Hardy", "Helpful", "Honest", "Keen", "Kind",
-    "Lively", "Loyal", "Lucid", "Mighty", "Nimble", "Noble", "Patient", "Plucky",
-    "Polished", "Quick", "Radiant", "Ready", "Resolute", "Sharp", "Steady",
-    "Stellar", "Sunny", "Swift", "Thoughtful", "True", "Valiant", "Vibrant",
-    "Warm", "Wise", "Witty", "Zesty", "Zealous",
-)
-FRIENDLY_SUBJECTS = (
-    "Badger", "Beacon", "Bear", "Bee", "Bison", "Comet", "Condor", "Crane",
-    "Dolphin", "Eagle", "Falcon", "Finch", "Fox", "Gazelle", "Harbor", "Heron",
-    "Horizon", "Jaguar", "Kestrel", "Koala", "Lantern", "Leopard", "Lion", "Lynx",
-    "Maple", "Meadow", "Meteor", "Narwhal", "Orca", "Otter", "Owl", "Panda",
-    "Panther", "Pine", "Puffin", "Quill", "Raven", "River", "Robin", "Sequoia",
-    "Sparrow", "Summit", "Swan", "Tiger", "Toucan", "Voyager", "Willow", "Wolf",
-    "Wren", "Yak",
-)
-MAX_JOB_AGE = timedelta(days=30)
-MAX_POSTED_AT_CLOCK_SKEW = timedelta(days=1)
-
-
-def friendly_batch_name() -> str:
-    """Return one of 250,000 friendly names; database uniqueness is authoritative."""
-    return (
-        f"{secrets.choice(FRIENDLY_ATTRIBUTES)} "
-        f"{secrets.choice(FRIENDLY_SUBJECTS)} {secrets.randbelow(100):02d}"
-    )
-
-
-async def available_friendly_batch_name(session: AsyncSession) -> str:
-    for _ in range(20):
-        candidate = friendly_batch_name()
-        exists = await session.scalar(
-            select(Batch.id).where(Batch.display_name == candidate)
-        )
-        if exists is None:
-            return candidate
-    raise HTTPException(
-        status_code=503,
-        detail="A friendly batch name could not be allocated. Please retry.",
-    )
-
-
-def clean_current_job(job: IncomingJob) -> dict:
-    """Reject unverifiable, stale, or implausibly future job postings."""
-    if job.posted_at is None:
-        raise ValueError(
-            "postedAt is required to enforce the 30-day job freshness limit"
-        )
-    posted_at = job.posted_at
-    if posted_at.tzinfo is None:
-        posted_at = posted_at.replace(tzinfo=UTC)
-    now = datetime.now(UTC)
-    if posted_at < now - MAX_JOB_AGE:
-        raise ValueError("postedAt is older than JEDI's 30-day import limit")
-    if posted_at > now + MAX_POSTED_AT_CLOCK_SKEW:
-        raise ValueError("postedAt cannot be more than one day in the future")
-    return clean_job(job)
 
 
 def batch_summary(batch: Batch) -> BatchSummary:
@@ -188,10 +118,26 @@ def job_response(
         skills=job.skills,
         experience_min_years=job.experience_min_years,
         experience_max_years=job.experience_max_years,
-        salary_min=float(job.salary_min) if job.salary_min is not None else None,
-        salary_max=float(job.salary_max) if job.salary_max is not None else None,
-        salary_currency=job.salary_currency,
-        salary_period=job.salary_period,
+        salary_min=float(job.salary_inr_min or job.salary_min)
+        if job.salary_inr_min is not None or job.salary_min is not None
+        else None,
+        salary_max=float(job.salary_inr_max or job.salary_max)
+        if job.salary_inr_max is not None or job.salary_max is not None
+        else None,
+        salary_currency="INR"
+        if job.salary_inr_min is not None or job.salary_inr_max is not None
+        else job.salary_currency,
+        salary_period="YEARLY"
+        if job.salary_inr_min is not None or job.salary_inr_max is not None
+        else job.salary_period,
+        source_salary_min=float(job.salary_min) if job.salary_min is not None else None,
+        source_salary_max=float(job.salary_max) if job.salary_max is not None else None,
+        source_salary_currency=job.salary_currency,
+        salary_fx_rate=float(job.salary_fx_rate)
+        if job.salary_fx_rate is not None
+        else None,
+        salary_fx_as_of=job.salary_fx_as_of,
+        salary_fx_provider=job.salary_fx_provider,
         posted_at=job.posted_at,
         application_deadline=job.application_deadline,
         can_apply_now=job.can_apply_now,
@@ -218,138 +164,7 @@ async def create_batch(
         raw_body = await request.json()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Body must be valid JSON.") from exc
-    try:
-        envelope = ImportEnvelope.model_validate(raw_body)
-    except ValidationError as exc:
-        raise HTTPException(
-            status_code=422, detail=exc.errors(include_context=False)
-        ) from exc
-
-    canonical_envelope = envelope.model_dump(mode="json", by_alias=True)
-    content_hash = stable_hash(canonical_envelope)
-    replay = await session.scalar(
-        select(Batch).where(Batch.content_hash == content_hash)
-    )
-    if replay is not None:
-        return BatchCreateResponse(
-            batch_id=replay.id,
-            status=replay.status,
-            received_count=replay.received_count,
-            valid_count=replay.valid_count,
-            duplicate_count=replay.duplicate_count,
-            job_count=replay.job_count,
-            replayed=True,
-            validation_report=[
-                ValidationIssue.model_validate(item)
-                for item in (replay.validation_report or [])
-            ],
-        )
-    reused_id = await session.scalar(
-        select(Batch).where(Batch.external_batch_id == envelope.external_batch_id)
-    )
-    if reused_id is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="externalBatchId already exists with different content.",
-        )
-
-    issues: list[ValidationIssue] = []
-    cleaned_jobs: list[dict] = []
-    for index, raw_job in enumerate(envelope.jobs):
-        try:
-            cleaned_jobs.append(
-                clean_current_job(job_adapter.validate_python(raw_job))
-            )
-        except (ValidationError, ValueError) as exc:
-            errors = (
-                exc.errors(include_context=False)
-                if isinstance(exc, ValidationError)
-                else [{"type": "value_error", "msg": str(exc)}]
-            )
-            issues.append(ValidationIssue(source_index=index, errors=errors))
-
-    company_keys = {item["company_key"] for item in cleaned_jobs}
-    apply_urls = {item["apply_url"] for item in cleaned_jobs}
-    candidates: list[Job] = []
-    if company_keys or apply_urls:
-        candidates = list(
-            (
-                await session.scalars(
-                    select(Job).where(
-                        or_(
-                            Job.company_key.in_(company_keys),
-                            Job.apply_url.in_(apply_urls),
-                        )
-                    )
-                )
-            ).all()
-        )
-    accepted, duplicate_count = remove_duplicates(cleaned_jobs, candidates)
-    if not accepted:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "message": "No valid unique jobs remain; nothing was created.",
-                "validCount": len(cleaned_jobs),
-                "duplicateCount": duplicate_count,
-                "validationReport": [
-                    issue.model_dump(mode="json", by_alias=True) for issue in issues
-                ],
-            },
-        )
-
-    batch = Batch(
-        id=new_id(),
-        display_name=await available_friendly_batch_name(session),
-        external_batch_id=envelope.external_batch_id,
-        content_hash=content_hash,
-        schema_version=envelope.schema_version,
-        prompt_version=envelope.prompt_version,
-        generated_at=envelope.generated_at,
-        raw_envelope=jsonable_encoder(raw_body),
-        status="READY",
-        received_count=len(envelope.jobs),
-        valid_count=len(cleaned_jobs),
-        duplicate_count=duplicate_count,
-        job_count=len(accepted),
-        validation_report=[
-            issue.model_dump(mode="json", by_alias=True) for issue in issues
-        ],
-    )
-    session.add(batch)
-    session.add_all(Job(batch_id=batch.id, **item) for item in accepted)
-    try:
-        await session.commit()
-    except IntegrityError as exc:
-        await session.rollback()
-        concurrent = await session.scalar(
-            select(Batch).where(Batch.content_hash == content_hash)
-        )
-        if concurrent is not None:
-            return BatchCreateResponse(
-                batch_id=concurrent.id,
-                status=concurrent.status,
-                received_count=concurrent.received_count,
-                valid_count=concurrent.valid_count,
-                duplicate_count=concurrent.duplicate_count,
-                job_count=concurrent.job_count,
-                replayed=True,
-                validation_report=[],
-            )
-        raise HTTPException(
-            status_code=409,
-            detail="A concurrent import stored one of these unique jobs.",
-        ) from exc
-    return BatchCreateResponse(
-        batch_id=batch.id,
-        status=batch.status,
-        received_count=batch.received_count,
-        valid_count=batch.valid_count,
-        duplicate_count=batch.duplicate_count,
-        job_count=batch.job_count,
-        replayed=False,
-        validation_report=issues,
-    )
+    return await ingest_batch(session, raw_body)
 
 
 async def list_batches_query(
@@ -593,10 +408,7 @@ async def get_batch(
             PreparedJob.feature_schema_version == active_model.feature_schema_version
         )
     prepared_count = await session.scalar(
-        select(func.count())
-        .select_from(PreparedJob)
-        .join(Job)
-        .where(*prepared_filters)
+        select(func.count()).select_from(PreparedJob).join(Job).where(*prepared_filters)
     )
     normalization_complete = (
         batch.job_count > 0 and (prepared_count or 0) == batch.job_count

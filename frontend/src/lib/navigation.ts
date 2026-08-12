@@ -7,6 +7,7 @@ import {
   DatabaseZap,
   Mail,
   Newspaper,
+  Radar,
   Sparkles,
   UserRound,
   UsersRound,
@@ -26,6 +27,7 @@ export const primaryNavigation = [
   { href: "/applications", label: "Applications", icon: ClipboardCheck },
   { href: "/tutorial", label: "Tutorial", icon: BookOpenCheck, tutorial: true },
   { href: "/batches", label: "Batches", icon: Boxes },
+  { href: "/scraper", label: "Scraper", icon: Radar, ownerOnly: true },
 ] satisfies readonly NavigationItem[];
 
 export const settingsNavigation = [

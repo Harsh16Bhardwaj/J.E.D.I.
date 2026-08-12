@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   images: {
     // Vercel Services currently routes /_next/image away from the Next service.
     // Local assets are already deployment-owned, so serve them directly.

@@ -1,0 +1,40 @@
+version = "jedi-scraper-taxonomy-v1"
+
+[skills]
+languages = [
+  "Python", "JavaScript", "TypeScript", "Java", "Kotlin", "Go", "Rust",
+  "C++", "C#", "Ruby", "PHP", "Scala", "R", "SQL",
+]
+frameworks = [
+  "React", "Next.js", "Node.js", "Django", "Flask", "FastAPI", "Spring",
+  "Angular", "Vue", "Express", "Rails", ".NET", "PyTorch", "TensorFlow",
+  "LangChain", "Hugging Face",
+]
+databases = [
+  "PostgreSQL", "MySQL", "MongoDB", "Redis", "Elasticsearch", "DynamoDB",
+  "Snowflake", "BigQuery", "Cassandra",
+]
+cloud = [
+  "AWS", "Azure", "GCP", "Docker", "Kubernetes", "Terraform", "Kafka",
+  "Airflow", "Spark",
+]
+ml = [
+  "Machine Learning", "Deep Learning", "NLP", "Computer Vision", "LLM",
+  "Generative AI", "MLOps", "RAG",
+]
+
+[employment]
+full_time = ["full-time", "full time", "permanent"]
+part_time = ["part-time", "part time"]
+contract = ["contract", "contractor", "fixed-term"]
+internship = ["internship", "intern"]
+
+[education]
+bachelors = ["bachelor's degree", "bachelors degree", "bachelor degree", "b.tech", "b.e."]
+masters = ["master's degree", "masters degree", "m.tech", "m.s."]
+
+[work_authorization]
+required = [
+  "must be authorized to work", "work authorization required",
+  "no visa sponsorship", "unable to sponsor", "citizenship required",
+]

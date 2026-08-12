@@ -68,6 +68,33 @@ enum ProcessingStatus {
   FAILED /// The run stopped and recorded an error.
 }
 
+enum ScrapeRunStatus {
+  CREATED
+  RUNNING
+  REVIEW_READY
+  IMPORTING
+  NORMALIZING
+  NORMALIZATION_FAILED
+  IMPORTED
+  FAILED
+  CANCELLED
+}
+
+enum ScrapeAttemptStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum SourceDiscoveryRunStatus {
+  CREATED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 /// The delivery state of an email digest.
 enum EmailStatus {
   UNTOUCHED /// The personalized mail event is waiting for its first claim.
@@ -113,6 +140,9 @@ model Group {
   activeModelVersion     ModelVersion?     @relation("GroupActiveModel", fields: [activeModelVersionId], references: [id], onDelete: SetNull) /// Loads the shared ranking model when configured.
   members                GroupMember[] /// Users who can access the shared workspace.
   invitations            GroupInvitation[] /// Reusable short codes that can admit new members.
+  scrapeRuns             ScrapeRun[]
+  scrapeSources          ScrapeSource[]
+  sourceDiscoveryRuns    SourceDiscoveryRun[]
   createdAt              DateTime          @default(now()) /// Records when the shared workspace was created.
   updatedAt              DateTime          @updatedAt /// Records profile, model, name, or owner changes.
 
@@ -195,6 +225,7 @@ model Batch {
   jobCount       Int @default(0) /// Number of unique jobs retained after validation and deduplication.
 
   validationReport Json? /// Contains actionable validation errors for the batch when needed.
+  scrapeRun        ScrapeRun?
 
   jobs             Job[] /// Unique jobs retained from this upload; each job belongs to one batch.
   predictions      JobPrediction[] /// Ranking results produced for jobs in this batch.
@@ -207,6 +238,192 @@ model Batch {
 
   // Supports the dashboard and worker queries for recent batches by status.
   @@index([status, createdAt])
+}
+
+model ScrapeRun {
+  id                String            @id @default(cuid())
+  groupId           String
+  group             Group             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  status            ScrapeRunStatus   @default(CREATED)
+  configVersion     String
+  configHash        String
+  targetJobCount    Int               @default(100)
+  brightDataLimit   Int               @default(150)
+  brightDataUsed    Int               @default(0)
+  freeRequestCount  Int               @default(0)
+  brightDataFallbackCount Int         @default(0)
+  providerUsageReason String?
+  discoveredCount   Int               @default(0)
+  validCount        Int               @default(0)
+  selectedCount     Int               @default(0)
+  failedSourceCount Int               @default(0)
+  sourceCount       Int               @default(0)
+  processedSourceCount Int            @default(0)
+  stoppedEarly      Boolean           @default(false)
+  importedBatchId   String?           @unique
+  importedBatch     Batch?            @relation(fields: [importedBatchId], references: [id], onDelete: SetNull)
+  errorMessage      String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  completedAt       DateTime?
+  attempts          ScrapeAttempt[]
+  candidates        ScrapeCandidate[]
+  providerUses      ScrapeProviderUse[]
+
+  @@index([groupId, createdAt])
+  @@index([status, updatedAt])
+}
+
+model ScrapeAttempt {
+  id              String              @id @default(cuid())
+  runId           String
+  run             ScrapeRun           @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stepKey         String
+  sourceKey       String
+  provider        String
+  status          ScrapeAttemptStatus @default(PENDING)
+  attemptCount    Int                 @default(0)
+  discoveredCount Int                 @default(0)
+  validCount      Int                 @default(0)
+  brightDataUsed  Int                 @default(0)
+  errorMessage    String?
+  leaseExpiresAt  DateTime?
+  checkpoint      Json?
+  responseTimeMs  Int?
+  freeRequestCount Int                 @default(0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([runId, stepKey])
+  @@index([runId, status, createdAt])
+}
+
+model ScrapeCandidate {
+  id                 String    @id @default(cuid())
+  runId              String
+  run                ScrapeRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  sourceKey          String
+  sourceProvider     String
+  atsType            String
+  sourceUrl          String
+  canonicalUrl       String
+  companyName        String
+  roleTitle          String
+  location           String?
+  experienceMinYears Float?
+  experienceMaxYears Float?
+  postedAt           DateTime?
+  geographyEligibility String
+  sourceQualityValid Boolean @default(false)
+  qualityFailures    Json?
+  descriptionLength  Int @default(0)
+  dateEvidence       String?
+  freshnessTier      String    @default("REJECTED")
+  qualityScore       Float     @default(0)
+  reviewGroup        String    @default("REJECTED")
+  extractedFacts     Json?
+  evidenceSpans      Json?
+  extractionVersion String?
+  descriptionFingerprint String?
+  payload            Json
+  schemaValid        Boolean   @default(false)
+  selected           Boolean   @default(false)
+  validationErrors   Json?
+  createdAt          DateTime  @default(now())
+
+  @@unique([runId, canonicalUrl])
+  @@index([runId, schemaValid, selected])
+}
+
+model ScrapeSource {
+  id         String    @id @default(cuid())
+  groupId    String
+  group      Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sourceKey  String
+  name       String
+  atsType    String
+  domainHint String
+  boardToken String
+  discovered Boolean   @default(false)
+  active     Boolean   @default(true)
+  lastSeenAt DateTime?
+  healthStatus String    @default("UNKNOWN")
+  lastSuccessAt DateTime?
+  lastFailureAt DateTime?
+  consecutiveFailures Int @default(0)
+  consecutiveZeroYield Int @default(0)
+  responseTimeMs Int?
+  jobsScanned Int @default(0)
+  eligibleYield Int @default(0)
+  duplicateYield Int @default(0)
+  cooldownUntil DateTime?
+  etag String?
+  lastModified String?
+  responseCache Json?
+  lastCheckpoint Json?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([groupId, sourceKey])
+  @@index([groupId, atsType, active])
+  @@index([groupId, healthStatus, cooldownUntil])
+}
+
+model ScrapeProviderUse {
+  id          String   @id @default(cuid())
+  runId       String
+  run         ScrapeRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  attemptId   String?
+  candidateUrl String
+  provider    String
+  units       Int      @default(1)
+  reason      String
+  createdAt   DateTime @default(now())
+
+  @@index([runId, createdAt])
+}
+
+model SourceDiscoveryRun {
+  id              String                   @id @default(cuid())
+  groupId         String
+  group           Group                    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  status          SourceDiscoveryRunStatus @default(CREATED)
+  configVersion   String
+  configHash      String
+  totalHints      Int                      @default(0)
+  processedHints  Int                      @default(0)
+  detectedSources Int                      @default(0)
+  activatedSources Int                     @default(0)
+  failedHints     Int                      @default(0)
+  errorMessage    String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  completedAt     DateTime?
+  attempts        SourceDiscoveryAttempt[]
+
+  @@index([groupId, createdAt])
+  @@index([status, updatedAt])
+}
+
+model SourceDiscoveryAttempt {
+  id              String              @id @default(cuid())
+  runId           String
+  run             SourceDiscoveryRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stepKey         String
+  companyName     String
+  companyDomain   String
+  status          ScrapeAttemptStatus @default(PENDING)
+  attemptCount    Int                 @default(0)
+  detectedCount   Int                 @default(0)
+  activatedCount  Int                 @default(0)
+  responseTimeMs  Int?
+  errorMessage    String?
+  leaseExpiresAt  DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([runId, stepKey])
+  @@index([runId, status, createdAt])
 }
 
 /// One unique job retained after automatic deduplication.
@@ -243,6 +460,11 @@ model Job {
   salaryMax      Decimal?      @db.Decimal(14, 2) /// Highest stated salary or stipend amount.
   salaryCurrency String? /// Currency required to interpret the salary amounts.
   salaryPeriod   SalaryPeriod? /// Whether the stated compensation is annual or monthly.
+  salaryInrMin   Decimal?      @db.Decimal(14, 2) /// Derived annual INR lower bound used for display and scoring.
+  salaryInrMax   Decimal?      @db.Decimal(14, 2) /// Derived annual INR upper bound used for display and scoring.
+  salaryFxRate   Decimal?      @db.Decimal(18, 8) /// Source-currency to INR reference rate used during normalization.
+  salaryFxAsOf   DateTime? /// Effective date supplied by the reference-rate provider.
+  salaryFxProvider String? /// Provider and policy identifier retained for audit.
 
   postedAt            DateTime? /// Publication time used as an optional recency feature.
   applicationDeadline DateTime? /// Stated last application date when the listing provides one.
@@ -299,6 +521,7 @@ model PreparedJob {
   featureSchemaVersion String /// Exact input contract used to build the payload.
   payloadHash          String /// Detects an unchanged transformation and makes retries idempotent.
   payload              Json /// Complete model-ready row consumed by future inference.
+  normalizationPolicyVersion String @default("legacy-v1") /// Semantic preprocessing policy applied without changing the model shape.
 
   jobId String /// Identifies the source job.
   job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade) /// Loads the source job.
@@ -590,6 +813,7 @@ model ProcessingRun {
   modelVersionId       String? /// Pins ranking to one immutable model registry entry.
   modelVersion         ModelVersion?      @relation(fields: [modelVersionId], references: [id], onDelete: Restrict) /// Loads the pinned model when the stage is ranking.
   featureSchemaVersion String? /// Pins the exact prepared-row contract consumed by the run.
+  normalizationPolicyVersion String? /// Pins semantic preprocessing such as audited INR conversion.
   leaseToken           String? /// Secret worker ownership proof; never returned by user-facing endpoints.
   leaseExpiresAt       DateTime? /// Time after which another worker may reclaim an abandoned run.
   nextAttemptAt        DateTime? /// Earliest time at which an outbound dispatcher may retry the run.

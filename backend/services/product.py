@@ -330,9 +330,16 @@ def prepare_job(
         for preferred in preferred_locations
         if preferred
     )
-    annual_salary_min, annual_salary_max = annualized_salary_range(
-        job.salary_min, job.salary_max, job.salary_period
-    )
+    salary_inr_min = getattr(job, "salary_inr_min", None)
+    salary_inr_max = getattr(job, "salary_inr_max", None)
+    if salary_inr_min is not None or salary_inr_max is not None:
+        annual_salary_min, annual_salary_max = salary_inr_min, salary_inr_max
+        prepared_salary_currency = "INR"
+    else:
+        annual_salary_min, annual_salary_max = annualized_salary_range(
+            job.salary_min, job.salary_max, job.salary_period
+        )
+        prepared_salary_currency = job.salary_currency or ""
     salary_match = preference_range_match(
         annual_salary_min,
         annual_salary_max,
@@ -341,9 +348,9 @@ def prepare_job(
     )
     if (
         salary_match is not None
-        and job.salary_currency
+        and prepared_salary_currency
         and profile.salary_currency
-        and job.salary_currency.casefold() != profile.salary_currency.casefold()
+        and prepared_salary_currency.casefold() != profile.salary_currency.casefold()
     ):
         salary_match = False
     legacy = PreparedJobV1(
@@ -367,7 +374,7 @@ def prepare_job(
         salary_max=(
             float(annual_salary_max) if annual_salary_max is not None else None
         ),
-        salary_currency=job.salary_currency or "",
+        salary_currency=prepared_salary_currency,
         can_apply_now=job.can_apply_now,
         resume_text=clean_text(profile.resume_text),
         preferred_titles=profile.preferred_titles,

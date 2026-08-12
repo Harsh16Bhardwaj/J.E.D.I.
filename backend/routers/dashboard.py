@@ -73,10 +73,18 @@ def _job(
         work_mode=job.work_mode,
         employment_type=job.employment_type,
         description=job.description,
-        salary_min=float(job.salary_min) if job.salary_min is not None else None,
-        salary_max=float(job.salary_max) if job.salary_max is not None else None,
-        salary_currency=job.salary_currency,
-        salary_period=job.salary_period,
+        salary_min=float(job.salary_inr_min or job.salary_min)
+        if job.salary_inr_min is not None or job.salary_min is not None
+        else None,
+        salary_max=float(job.salary_inr_max or job.salary_max)
+        if job.salary_inr_max is not None or job.salary_max is not None
+        else None,
+        salary_currency="INR"
+        if job.salary_inr_min is not None or job.salary_inr_max is not None
+        else job.salary_currency,
+        salary_period="YEARLY"
+        if job.salary_inr_min is not None or job.salary_inr_max is not None
+        else job.salary_period,
         posted_at=job.posted_at,
         apply_url=job.apply_url,
         batch_id=batch.id,
@@ -167,8 +175,9 @@ async def dashboard_feed(
     if not feed_rows:
         feed_rows = (
             await session.execute(
-                feed_query.order_by(Batch.generated_at.desc(), Job.created_at.desc())
-                .limit(FEED_CANDIDATE_LIMIT)
+                feed_query.order_by(
+                    Batch.generated_at.desc(), Job.created_at.desc()
+                ).limit(FEED_CANDIDATE_LIMIT)
             )
         ).all()
         job_feed_scope = "latest"

@@ -151,6 +151,12 @@ export type BatchJob = {
   salaryMax: number | null;
   salaryCurrency: string | null;
   salaryPeriod: "YEARLY" | "MONTHLY" | null;
+  sourceSalaryMin: number | null;
+  sourceSalaryMax: number | null;
+  sourceSalaryCurrency: string | null;
+  salaryFxRate: number | null;
+  salaryFxAsOf: string | null;
+  salaryFxProvider: string | null;
   postedAt: string | null;
   applicationDeadline: string | null;
   canApplyNow: boolean | null;
@@ -187,6 +193,176 @@ export type BatchCreateResult = {
   jobCount: number;
   replayed: boolean;
   validationReport: Array<{ sourceIndex: number; errors: unknown[] }>;
+};
+
+export type ScraperConfigSummary = {
+  version: string;
+  lookbackDays: number;
+  reviewLookbackDays: number;
+  targetJobCount: number;
+  brightDataLimit: number;
+  atsTypes: string[];
+  titleAliases: string[];
+  companyHintCount: number;
+  seededSourceCount: number;
+  brightDataConfigured: boolean;
+  unlockerConfigured: boolean;
+  concurrentSources: number;
+  maxCandidatesPerCompany: number;
+  minimumDescriptionCharacters: number;
+};
+
+export type ScrapeSource = {
+  id: string;
+  sourceKey: string;
+  name: string;
+  atsType: string;
+  domainHint: string;
+  boardToken: string;
+  active: boolean;
+  lastSeenAt: string | null;
+  createdAt: string;
+  healthStatus: string;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  consecutiveFailures: number;
+  consecutiveZeroYield: number;
+  responseTimeMs: number | null;
+  jobsScanned: number;
+  eligibleYield: number;
+  duplicateYield: number;
+  cooldownUntil: string | null;
+};
+
+export type ScrapeAttempt = {
+  id: string;
+  stepKey: string;
+  sourceKey: string;
+  provider: string;
+  status: string;
+  attemptCount: number;
+  discoveredCount: number;
+  validCount: number;
+  brightDataUsed: number;
+  errorMessage: string | null;
+  checkpoint: Record<string, unknown> | null;
+  responseTimeMs: number | null;
+  freeRequestCount: number;
+};
+
+export type ScrapeCandidate = {
+  id: string;
+  sourceKey: string;
+  sourceProvider: string;
+  atsType: string;
+  sourceUrl: string;
+  companyName: string;
+  roleTitle: string;
+  location: string | null;
+  experienceMinYears: number | null;
+  experienceMaxYears: number | null;
+  postedAt: string | null;
+  geographyEligibility: string;
+  sourceQualityValid: boolean;
+  qualityFailures: string[];
+  descriptionLength: number;
+  dateEvidence: string | null;
+  schemaValid: boolean;
+  selected: boolean;
+  validationErrors: unknown[] | null;
+  freshnessTier: string;
+  qualityScore: number;
+  reviewGroup: "RECOMMENDED" | "NEEDS_REVIEW" | "REJECTED";
+  extractedFacts: Record<string, unknown> | null;
+  extractionVersion: string | null;
+};
+
+export type ScrapeCandidateDetail = ScrapeCandidate & {
+  payload: Record<string, unknown>;
+  evidenceSpans: Array<{
+    field: string;
+    value: unknown;
+    start: number;
+    end: number;
+    text: string;
+    rule: string;
+  }>;
+};
+
+export type ScrapeRunSummary = {
+  id: string;
+  status: string;
+  configVersion: string;
+  targetJobCount: number;
+  brightDataLimit: number;
+  brightDataUsed: number;
+  freeRequestCount: number;
+  brightDataFallbackCount: number;
+  providerUsageReason: string;
+  normalizationStatus: string | null;
+  discoveredCount: number;
+  validCount: number;
+  selectedCount: number;
+  failedSourceCount: number;
+  sourceCount: number;
+  processedSourceCount: number;
+  stoppedEarly: boolean;
+  importedBatchId: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+};
+
+export type ScrapeRunDetail = ScrapeRunSummary & {
+  attempts: ScrapeAttempt[];
+  candidates: ScrapeCandidate[];
+};
+
+export type ScrapeRunPage = {
+  items: ScrapeRunSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
+export type ScrapeAttemptPage = {
+  items: ScrapeAttempt[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
+export type ScrapeCandidatePage = {
+  items: ScrapeCandidate[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
+export type ScrapeRunStats = {
+  byAts: Record<string, { recommended: number; needsReview: number; rejected: number }>;
+  byRejectionReason: Record<string, number>;
+};
+
+export type SourceDiscoveryRun = {
+  id: string;
+  status: string;
+  totalHints: number;
+  processedHints: number;
+  detectedSources: number;
+  activatedSources: number;
+  failedHints: number;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+};
+
+export type ScrapeImportResult = {
+  run: ScrapeRunSummary;
+  batch: BatchCreateResult;
+  normalization: Record<string, unknown> | null;
 };
 
 export type ProfileSummary = {
@@ -591,7 +767,7 @@ function apiBase(): string {
     typeof window !== "undefined" &&
     ["localhost", "127.0.0.1"].includes(window.location.hostname)
   ) {
-    return "http://localhost:8000";
+    return `http://${window.location.hostname}:8000`;
   }
   return "/svc/ml";
 }
@@ -615,7 +791,7 @@ export async function apiRequest<T>(
     });
   } catch {
     throw new ApiError(
-      "The JEDI backend is unreachable. Check that the API server is running.",
+      `Could not connect to the JEDI API at ${apiBase()}. Check the API process and local site address.`,
       0,
       "NETWORK_ERROR",
     );

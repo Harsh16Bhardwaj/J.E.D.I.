@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     app_name: str = "JEDI ML Service"
     app_version: str = "0.2.0"
     app_env: Literal["development", "test", "production"] = "development"
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     database_url: str = "postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require"
     direct_database_url: str | None = None
     session_secret: str = "replace-with-at-least-32-random-characters"
@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     model_load_timeout_seconds: int = 30
     model_execution_timeout_seconds: int = 240
     model_max_batch_size: int = 500
+    bright_data_api_key: str = ""
+    bright_data_serp_zone: str = ""
+    bright_data_unlocker_zone: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

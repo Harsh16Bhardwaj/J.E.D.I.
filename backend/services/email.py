@@ -382,7 +382,7 @@ async def _render_snapshot(
         html_rows.append(
             "<li style='margin:0 0 20px'>"
             f"<strong>#{item['rank']} {escape(item['title'])}</strong>"
-            f" — {escape(item['company'])}<br>"
+            f"  {escape(item['company'])}<br>"
             f"Score: {item['score']:.1f}"
             + (f" · {escape(context)}" if context else "")
             + f"<br><span>{escape(highlights)}</span><br>"
