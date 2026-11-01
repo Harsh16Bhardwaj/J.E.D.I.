@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BookOpenCheck,
+  GraduationCap,
   Boxes,
   BriefcaseBusiness,
   ClipboardCheck,
@@ -24,6 +25,7 @@ export const primaryNavigation = [
   { href: "/dashboard", label: "Daily Feed", icon: Newspaper },
   { href: "/jobs", label: "Jobs", icon: BriefcaseBusiness },
   { href: "/applications", label: "Applications", icon: ClipboardCheck },
+  { href: "/learning", label: "Learning", icon: GraduationCap },
   { href: "/tutorial", label: "Tutorial", icon: BookOpenCheck, tutorial: true },
   { href: "/batches", label: "Batches", icon: Boxes },
 ] satisfies readonly NavigationItem[];

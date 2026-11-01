@@ -24,3 +24,11 @@ test("shows the dashboard action for an authenticated member", () => {
 test("falls back to anonymous actions after an absent or failed session", () => {
   assert.equal(publicSessionMode(undefined, false), "anonymous");
 });
+
+test("completed members can revisit onboarding to review resume evidence", async () => {
+  const { onboardingRedirect } = await import("./public-session");
+  assert.equal(onboardingRedirect(member, "/onboarding"), null);
+  assert.equal(onboardingRedirect({ ...member, onboardingComplete: false }, "/learning"), "/onboarding");
+  assert.equal(onboardingRedirect({ ...member, onboardingComplete: false }, "/onboarding"), null);
+  assert.equal(onboardingRedirect(undefined, "/learning"), null);
+});

@@ -14,6 +14,7 @@ import { Sidebar } from "@/components/sidebar";
 import { MobileNavigation } from "@/components/top-bar";
 import { Button } from "@/components/ui/button";
 import { apiGet, ApiError, type User } from "@/lib/api";
+import { onboardingRedirect } from "@/lib/public-session";
 
 const publicRoutes = new Set(["/", "/login", "/register"]);
 const refreshCacheKey = "jedi:swr-refresh-cache:v1";
@@ -97,20 +98,11 @@ function ProtectedShell({ children }: { children: React.ReactNode }) {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`);
       return;
     }
-    if (user && !user.onboardingComplete && pathname !== "/onboarding") {
-      router.replace("/onboarding");
-      return;
-    }
-    if (user?.onboardingComplete && pathname === "/onboarding") {
-      router.replace("/dashboard");
-    }
+    const destination = onboardingRedirect(user, pathname);
+    if (destination) router.replace(destination);
   }, [cache, error, pathname, router, user]);
 
-  const redirecting = Boolean(
-    user &&
-      ((!user.onboardingComplete && pathname !== "/onboarding") ||
-        (user.onboardingComplete && pathname === "/onboarding")),
-  );
+  const redirecting = Boolean(onboardingRedirect(user, pathname));
 
   if (
     isLoading ||

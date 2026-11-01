@@ -1300,6 +1300,48 @@ class EmailDeliveryAttempt(Base):
     )
 
 
+class ResumeEvidenceRecord(Base):
+    """Member-private reviewed resume facts, separate from ranking profiles."""
+
+    __tablename__ = "ResumeEvidence"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    group_member_id: Mapped[str] = mapped_column(
+        "groupMemberId", ForeignKey("GroupMember.id", ondelete="CASCADE"), unique=True
+    )
+    evidence: Mapped[dict] = mapped_column(json_type)
+    updated_at: Mapped[datetime] = mapped_column(
+        "updatedAt", DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
+class LearningAttempt(Base):
+    """A stable question snapshot and committed answers owned by one member."""
+
+    __tablename__ = "LearningAttempt"
+    __table_args__ = (
+        Index(
+            "LearningAttempt_groupMemberId_startedAt_idx", "groupMemberId", "startedAt"
+        ),
+    )
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
+    group_member_id: Mapped[str] = mapped_column(
+        "groupMemberId", ForeignKey("GroupMember.id", ondelete="CASCADE")
+    )
+    topic_id: Mapped[str] = mapped_column("topicId", String)
+    job_id: Mapped[str | None] = mapped_column("jobId", String, nullable=True)
+    snapshot: Mapped[dict] = mapped_column(json_type)
+    answers: Mapped[dict] = mapped_column(json_type, default=dict)
+    status: Mapped[str] = mapped_column(String, default="ACTIVE")
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    started_at: Mapped[datetime] = mapped_column(
+        "startedAt", DateTime(timezone=True), default=utc_now
+    )
+    deadline_at: Mapped[datetime] = mapped_column("deadlineAt", DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(
+        "finishedAt", DateTime(timezone=True), nullable=True
+    )
+
+
 settings = get_settings()
 engine = create_async_engine(
     settings.sqlalchemy_database_url,
