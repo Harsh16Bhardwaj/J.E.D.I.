@@ -129,6 +129,8 @@ model GroupMember {
   user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade) /// Loads login credentials and email from the unchanged User record.
   onboardingCompletedAt DateTime? /// A null value forces the member through profile onboarding.
   joinedAt              DateTime               @default(now()) /// Records when registration joined the group.
+  resumeEvidence        ResumeEvidence?
+  learningAttempts      LearningAttempt[]
   memberProfile         MemberProfile? /// Stores the member's future-personalization profile.
   emailRecipient        EmailRecipient? /// Links this member to the only personalized newsletter destination allowed in v1.
   emailDeliveries       EmailDelivery[] /// Personalized mail events owned by this member.
@@ -778,4 +780,32 @@ model EmailDeliveryAttempt {
   @@unique([emailDeliveryId, retryCycle, attemptNumber])
   @@index([emailDeliveryId, startedAt])
   @@index([requestedByGroupMemberId, startedAt])
+}
+
+
+/// Reviewed personal resume facts; never the shared model profile.
+model ResumeEvidence {
+  id String @id @default(cuid())
+  groupMemberId String @unique
+  groupMember GroupMember @relation(fields: [groupMemberId], references: [id], onDelete: Cascade)
+  evidence Json
+  updatedAt DateTime @updatedAt
+}
+
+/// Private timed sprint, with versioned content and immutable submitted answers.
+model LearningAttempt {
+  id String @id @default(cuid())
+  groupMemberId String
+  groupMember GroupMember @relation(fields: [groupMemberId], references: [id], onDelete: Cascade)
+  topicId String
+  jobId String?
+  snapshot Json
+  answers Json
+  status String @default("ACTIVE")
+  revision Int @default(0)
+  startedAt DateTime @default(now())
+  deadlineAt DateTime
+  finishedAt DateTime?
+
+  @@index([groupMemberId, startedAt])
 }
