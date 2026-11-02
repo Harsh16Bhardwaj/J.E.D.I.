@@ -7,7 +7,12 @@ from pathlib import Path
 from backend.schemas.learning import QuestionBank, ResumeEvidence
 from backend.services.resume import canonical_skill, skill_names
 
-TOPIC_SKILLS = {"react-rendering": ["React"]}
+TOPIC_SKILLS = {
+    "react-rendering": ["React"],
+    "python-fundamentals": ["Python"],
+    "fastapi-fundamentals": ["FastAPI"],
+    "sql-fundamentals": ["SQL"],
+}
 
 
 @lru_cache

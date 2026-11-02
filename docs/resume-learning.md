@@ -5,19 +5,39 @@ A member reviews extracted facts and saves them independently of the group ranki
 profile. Job details now offer **Compare skills**. The **Learning** page recommends
 available question banks for missing skills and provides a general practice library.
 
+The library includes React Rendering and Keys, Python Fundamentals, FastAPI
+Fundamentals, and SQL Fundamentals. Each bank has three questions: one easy, one
+medium, and one hard, with per-option explanations.
+
+Batch normalization and ranking use the active profile and model referenced by
+the member’s group. Global active flags belonging to another group do not select
+these contracts. After deploying this correction, normalize previously affected
+batches again before requesting ranking.
+
 ## Runtime and deployment
 
 Install the updated Python dependencies (`pip install -e 'backend[dev]'` in the
 Python 3.12 environment), and build the frontend with Node 22 and `npm ci` / `npm run build`.
 The PDF dependency is `pypdf>=6.12,<7`.
 
-Prisma and SQLAlchemy now define `ResumeEvidence` and `LearningAttempt`, linked to
-`GroupMember`. No database migration has been created or executed in this change:
-the repository requires an approved development PostgreSQL URL first. Before
-shipping these endpoints, create and review the migration using `prisma migrate dev
---name resume_learning` against that approved development database, then apply the
-reviewed migration using `prisma migrate deploy` in deployment. Never use
-`prisma db push` in production. Existing records do not need backfilling.
+Prisma and SQLAlchemy define `ResumeEvidence` and `LearningAttempt`, linked to
+`GroupMember`. The reviewed migration is
+`prisma/migrations/20261102000000_resume_learning/migration.sql`. It creates only
+the two new tables, indexes and ownership foreign keys; it does not rewrite or
+remove existing records. It is transactional, uses a five-second lock timeout,
+and enables RLS with no direct `anon` or `authenticated` table access.
+
+Before applying it, verify the target database and migration checksums, take a
+protected backup, and test restoration plus migration against a disposable
+PostgreSQL copy. Inspect pending migrations and use `prisma migrate deploy`
+only when the reviewed migration is the intended pending change. Never use
+`prisma migrate dev`, `prisma db push`, or a reset command against production.
+Existing records do not need backfilling.
+
+Four historical scraper migrations are retained unchanged from the existing
+scraper branch because they were already applied to the production database.
+Their restored files reconcile migration history; they are not new scraper
+features and must not be reapplied to an already-migrated database.
 
 Keep the question JSON files in the deployed Python package. `backend/pyproject.toml`
 includes `content/*.json` as package data. PDF extraction runs in a short-lived
