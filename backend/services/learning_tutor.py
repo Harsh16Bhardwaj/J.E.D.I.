@@ -70,6 +70,17 @@ async def explain_answer(
                     "message": "AI is busy. Please try again shortly.",
                 },
             )
+        if response.status_code == 404:
+            raise HTTPException(
+                503,
+                detail={
+                    "code": "AI_MODEL_UNAVAILABLE",
+                    "message": (
+                        "The configured Groq model is unavailable. "
+                        "Check GROQ_MODEL in the backend environment and redeploy."
+                    ),
+                },
+            )
         response.raise_for_status()
         content = response.json()["choices"][0]["message"]["content"]
         if not isinstance(content, str) or not content.strip():
