@@ -106,3 +106,23 @@ resumed from history with the original deadline.
 All routes require an authenticated group member. Attempt IDs never grant access
 to another member's state. Resume and learning tables are independent of manual
 onboarding and existing ranking models.
+
+## Groq answer tutor
+
+After each successful answer submission, a Groq explanation loads automatically
+without blocking grading or the next question. Follow-up questions are available
+below it. Existing answers reviewed later offer **Ask AI about this answer**
+without automatically repeating provider requests. Grading remains
+entirely based on the question bank. The server loads the owned attempt snapshot
+and selected answer; clients cannot supply a replacement answer key. Only the
+current question, selected answer and up to six recent conversation messages go
+to Groq. Resumes, contact details, job profiles and other questions are excluded.
+Conversations remain in the current view and are not persisted to practice history.
+
+Set `GROQ_API_KEY` in the backend environment (locally in the untracked root `.env`,
+and in Vercel's backend environment for production/preview as needed). Never use
+a `NEXT_PUBLIC_` variable for the key. Redeploy after changing deployment variables.
+`GROQ_MODEL` defaults to `llama-3.3-70b-versatile` and can be overridden. This uses
+Groq's [Chat Completions API](https://console.groq.com/docs/api-reference).
+No database migration or new dependency is required. Missing configuration or a
+provider failure leaves the saved answer and built-in explanations available.

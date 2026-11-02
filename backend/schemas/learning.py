@@ -108,3 +108,18 @@ class StartAttempt(ApiModel):
 class SubmitAnswer(ApiModel):
     question_id: str = Field(max_length=100)
     option_id: str = Field(max_length=100)
+
+
+class TutorMessage(ApiModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=6000)
+
+
+class AskTutor(ApiModel):
+    question_id: str = Field(min_length=1, max_length=100)
+    message: str = Field(
+        default="Explain why my answer is right or wrong, with an example.",
+        min_length=1,
+        max_length=1000,
+    )
+    history: list[TutorMessage] = Field(default_factory=list, max_length=6)
