@@ -2,7 +2,9 @@
 
 The onboarding page keeps all manual preferences and adds an optional PDF upload.
 A member reviews extracted facts and saves them independently of the group ranking
-profile. Job details now offer **Compare skills**. The **Learning** page recommends
+profile. Resume review appears first; saved explicit skills and exact experience
+are reused for onboarding, with manual fields shown only when those facts are
+missing. Inferred skills are not silently promoted to explicit skills. Job details now offer **Compare skills**. The **Learning** page recommends
 available question banks for missing skills and provides a general practice library.
 
 The library includes React Rendering and Keys, Python Fundamentals, FastAPI
