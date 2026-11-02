@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "topicId": "fastapi-fundamentals",
+  "topicName": "FastAPI Fundamentals",
+  "questionCount": 3,
+  "difficultyDistribution": {
+    "easy": 1,
+    "medium": 1,
+    "hard": 1
+  },
+  "questions": [
+    {
+      "id": "fastapi-fundamentals-001",
+      "difficulty": "easy",
+      "question": "What does a Pydantic model parameter normally represent in a FastAPI POST endpoint?",
+      "options": [
+        {
+          "id": "a",
+          "text": "A JSON request body to validate.",
+          "explanation": "Correct. FastAPI reads and validates the body against the model."
+        },
+        {
+          "id": "b",
+          "text": "A database table that FastAPI creates automatically.",
+          "explanation": "Incorrect. A Pydantic model does not create database tables."
+        },
+        {
+          "id": "c",
+          "text": "A browser cookie that is always required.",
+          "explanation": "Incorrect. Cookies require their own parameter declarations."
+        },
+        {
+          "id": "d",
+          "text": "An instruction to bypass input validation.",
+          "explanation": "Incorrect. Pydantic models enable validation."
+        }
+      ],
+      "answer": {
+        "correctOptionId": "a",
+        "explanation": "Declaring a Pydantic model gives FastAPI a request-body schema, validation rules, and generated API documentation."
+      }
+    },
+    {
+      "id": "fastapi-fundamentals-002",
+      "difficulty": "medium",
+      "question": "An async def endpoint must call a blocking, synchronous I/O library. What avoids blocking the event loop?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Call the blocking function directly.",
+          "explanation": "Incorrect. Blocking work called directly inside async def occupies the event-loop thread."
+        },
+        {
+          "id": "b",
+          "text": "Add await before any synchronous function call.",
+          "explanation": "Incorrect. A synchronous function is not made asynchronous by adding await."
+        },
+        {
+          "id": "c",
+          "text": "Offload the call with run_in_threadpool, or use an asynchronous library.",
+          "explanation": "Correct. Thread-pool offloading keeps blocking I/O off the event loop."
+        },
+        {
+          "id": "d",
+          "text": "Disable request validation.",
+          "explanation": "Incorrect. Validation settings do not make blocking I/O nonblocking."
+        }
+      ],
+      "answer": {
+        "correctOptionId": "c",
+        "explanation": "Use an async-compatible client when possible. Otherwise, explicitly offload synchronous I/O; a regular def endpoint is also run in a thread pool by FastAPI."
+      }
+    },
+    {
+      "id": "fastapi-fundamentals-003",
+      "difficulty": "hard",
+      "question": "Two dependencies in one request both depend on the same get_session function using Depends with default settings. How is that shared dependency normally evaluated?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Once per dependent function, with no reuse.",
+          "explanation": "Incorrect. FastAPI normally caches the shared dependency within the request."
+        },
+        {
+          "id": "b",
+          "text": "Once per request, with its result reused by the dependent functions.",
+          "explanation": "Correct. FastAPI reuses the dependency result within the same request by default."
+        },
+        {
+          "id": "c",
+          "text": "Once for the entire server lifetime.",
+          "explanation": "Incorrect. Dependency caching is request-scoped, not global."
+        },
+        {
+          "id": "d",
+          "text": "Only after the response has been sent.",
+          "explanation": "Incorrect. Dependencies needed by the endpoint are resolved before it runs."
+        }
+      ],
+      "answer": {
+        "correctOptionId": "b",
+        "explanation": "FastAPI caches dependency results for a request by default. Depends(..., use_cache=False) can request reevaluation for a particular dependency declaration."
+      }
+    }
+  ]
+}

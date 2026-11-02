@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "topicId": "python-fundamentals",
+  "topicName": "Python Fundamentals",
+  "questionCount": 3,
+  "difficultyDistribution": {
+    "easy": 1,
+    "medium": 1,
+    "hard": 1
+  },
+  "questions": [
+    {
+      "id": "python-fundamentals-001",
+      "difficulty": "easy",
+      "question": "Which Python collection stores unique, hashable elements?",
+      "options": [
+        {
+          "id": "a",
+          "text": "list",
+          "explanation": "Incorrect. Lists allow duplicate elements."
+        },
+        {
+          "id": "b",
+          "text": "set",
+          "explanation": "Correct. Sets store distinct hashable elements."
+        },
+        {
+          "id": "c",
+          "text": "tuple",
+          "explanation": "Incorrect. Tuples allow duplicate elements."
+        },
+        {
+          "id": "d",
+          "text": "str",
+          "explanation": "Incorrect. Strings represent sequences of characters."
+        }
+      ],
+      "answer": {
+        "correctOptionId": "b",
+        "explanation": "A set removes duplicates and supports membership tests; its elements must be hashable."
+      }
+    },
+    {
+      "id": "python-fundamentals-002",
+      "difficulty": "medium",
+      "question": "Why can a list used as a default function argument retain changes between calls?",
+      "options": [
+        {
+          "id": "a",
+          "text": "Defaults are evaluated each time the function is called.",
+          "explanation": "Incorrect. Defaults are not evaluated separately for every call."
+        },
+        {
+          "id": "b",
+          "text": "Python copies mutable defaults for every call.",
+          "explanation": "Incorrect. Python does not automatically copy default arguments."
+        },
+        {
+          "id": "c",
+          "text": "Default argument objects are created when the function definition executes.",
+          "explanation": "Correct. The same default object is reused when the caller omits that argument."
+        },
+        {
+          "id": "d",
+          "text": "Lists are immutable in Python.",
+          "explanation": "Incorrect. Lists are mutable."
+        }
+      ],
+      "answer": {
+        "correctOptionId": "c",
+        "explanation": "Use None as the default and create a new list inside the function when each call should have independent state."
+      }
+    },
+    {
+      "id": "python-fundamentals-003",
+      "difficulty": "hard",
+      "question": "What is the value of [f() for f in funcs] after funcs = [lambda: i for i in range(3)]?",
+      "options": [
+        {
+          "id": "a",
+          "text": "[0, 1, 2]",
+          "explanation": "Incorrect. The lambdas do not capture separate values of i at creation time."
+        },
+        {
+          "id": "b",
+          "text": "[2, 2, 2]",
+          "explanation": "Correct. Each lambda looks up the same captured variable after the loop has finished."
+        },
+        {
+          "id": "c",
+          "text": "[0, 0, 0]",
+          "explanation": "Incorrect. The captured variable ends with value 2, not 0."
+        },
+        {
+          "id": "d",
+          "text": "It always raises NameError.",
+          "explanation": "Incorrect. The comprehension variable remains available through the closures."
+        }
+      ],
+      "answer": {
+        "correctOptionId": "b",
+        "explanation": "Closures resolve the captured variable when called. Use lambda i=i: i to bind the current value as a default argument for each function."
+      }
+    }
+  ]
+}

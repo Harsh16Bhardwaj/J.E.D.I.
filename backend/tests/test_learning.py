@@ -226,3 +226,28 @@ def test_bank_rejects_whitespace_only_question_text():
     data["questions"][0]["question"] = "   "
     with pytest.raises(ValidationError):
         QuestionBank.model_validate(data)
+
+
+def test_backend_role_gaps_have_available_practice_banks():
+    banks = load_banks()
+    assert {
+        "python-fundamentals",
+        "fastapi-fundamentals",
+        "sql-fundamentals",
+    } <= banks.keys()
+    gap = compare_skills(
+        "Python, FastAPI and SQL are required.",
+        ["Python", "FastAPI", "SQL"],
+        parse_resume_text(RESUME),
+    )
+    missing = {item["skill"]: item["topicIds"] for item in gap["missing"]}
+    assert missing["Python"] == ["python-fundamentals"]
+    assert missing["FastAPI"] == ["fastapi-fundamentals"]
+    assert missing["SQL"] == ["sql-fundamentals"]
+    for topic in ("python-fundamentals", "fastapi-fundamentals", "sql-fundamentals"):
+        assert banks[topic].question_count == 3
+        assert banks[topic].difficulty_distribution == {
+            "easy": 1,
+            "medium": 1,
+            "hard": 1,
+        }

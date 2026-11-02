@@ -5,6 +5,15 @@ A member reviews extracted facts and saves them independently of the group ranki
 profile. Job details now offer **Compare skills**. The **Learning** page recommends
 available question banks for missing skills and provides a general practice library.
 
+The library includes React Rendering and Keys, Python Fundamentals, FastAPI
+Fundamentals, and SQL Fundamentals. Each bank has three questions: one easy, one
+medium, and one hard, with per-option explanations.
+
+Batch normalization and ranking use the active profile and model referenced by
+the member’s group. Global active flags belonging to another group do not select
+these contracts. After deploying this correction, normalize previously affected
+batches again before requesting ranking.
+
 ## Runtime and deployment
 
 Install the updated Python dependencies (`pip install -e 'backend[dev]'` in the

@@ -1707,3 +1707,66 @@ def test_email_settings_and_recipient_crud(product_client: TestClient) -> None:
         )
     finally:
         settings.gmail_smtp_user, settings.gmail_smtp_app_password = original_smtp
+
+
+def test_batch_normalization_and_ranking_use_group_versions(product_client):
+    """An unrelated globally active contract must not affect this group's jobs."""
+
+    async def change_global_contracts():
+        async for session in app.dependency_overrides[get_session]():
+            profile = await session.get(ProfileVersion, "profile-1")
+            model = await session.get(ModelVersion, "model-1")
+            profile.active = False
+            model.active = False
+            session.add(
+                ProfileVersion(
+                    id="unrelated-profile",
+                    content_hash="unrelated-hash",
+                    resume_text="Unrelated sales profile",
+                    preferred_titles=["Sales"],
+                    preferred_locations=[],
+                    preferred_skills=[],
+                    active=True,
+                )
+            )
+            session.add(
+                ModelVersion(
+                    id="unrelated-model",
+                    name="unrelated-model",
+                    artifact_manifest=BUNDLE_MANIFEST,
+                    feature_schema_version="prepared-job-v2",
+                    request_contract_version="score-request-v1",
+                    active=True,
+                )
+            )
+            await session.commit()
+
+    asyncio.run(change_global_contracts())
+    product_client.post(
+        "/api/auth/login",
+        json={
+            "email": "friend@example.com",
+            "password": "friend password",
+        },
+    )
+    batch_id = product_client.post("/api/batches", json=batch_payload()).json()[
+        "batchId"
+    ]
+    normalized = product_client.post(f"/api/batches/{batch_id}/normalize")
+    assert normalized.status_code == 200
+    assert normalized.json()["profileVersionId"] == "profile-1"
+    detail = product_client.get(f"/api/batches/{batch_id}").json()
+    assert detail["normalizationComplete"] is True
+    assert detail["actions"]["canProcessRanks"] is True
+    queued = product_client.post(f"/api/batches/{batch_id}/rank")
+    assert queued.status_code == 202
+    runs = product_client.get(f"/api/batches/{batch_id}/processing-runs").json()
+    ranking = next(run for run in runs if run["id"] == queued.json()["processingRunId"])
+    assert ranking["profileVersionId"] == "profile-1"
+    assert ranking["modelVersionId"] == "model-1"
+    executed = product_client.post(
+        f"/api/processing-runs/{ranking['id']}/execute"
+    )
+    assert executed.status_code == 200, executed.text
+    assert executed.json()["status"] == "SUCCEEDED"
+    assert executed.json()["rankingCount"] == 1
