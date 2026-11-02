@@ -25,6 +25,7 @@ from backend.routers import (
     embeddings,
     group_access,
     health,
+    learning,
     misc,
     models,
     normalization,
@@ -60,7 +61,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=[
         "Content-Type",
         "Authorization",
@@ -74,6 +75,7 @@ app.add_middleware(
 app.add_middleware(ServicePrefixMiddleware)
 install_error_handlers(app)
 
+app.include_router(learning.router)
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(group_access.router)

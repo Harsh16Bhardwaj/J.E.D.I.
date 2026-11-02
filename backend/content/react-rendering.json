@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "topicId": "react-rendering",
+  "topicName": "React Rendering and Keys",
+  "questionCount": 3,
+  "difficultyDistribution": {"easy": 1, "medium": 1, "hard": 1},
+  "questions": [
+    {
+      "id": "react-rendering-001", "difficulty": "easy",
+      "question": "Why do we use keys when rendering lists in React?",
+      "options": [
+        {"id": "a", "text": "To style list elements", "explanation": "Incorrect. Keys do not affect CSS styling."},
+        {"id": "b", "text": "To help React identify elements across renders", "explanation": "Correct. Keys help React match list items between renders."},
+        {"id": "c", "text": "To prevent all re-renders", "explanation": "Incorrect. Keys do not prevent re-renders."},
+        {"id": "d", "text": "To make elements globally unique", "explanation": "Incorrect. Keys only need to be unique among siblings."}
+      ],
+      "answer": {"correctOptionId": "b", "explanation": "Stable keys help React preserve component identity and state when list items change."}
+    },
+    {
+      "id": "react-rendering-002", "difficulty": "medium",
+      "question": "What happens when a component's key changes?",
+      "options": [
+        {"id": "a", "text": "React preserves the component's state", "explanation": "Incorrect. A changed key creates a new component identity."},
+        {"id": "b", "text": "React only updates its props", "explanation": "Incorrect. Changing the key is not merely a props update."},
+        {"id": "c", "text": "React remounts the component", "explanation": "Correct. The old instance is unmounted and a new one is mounted."},
+        {"id": "d", "text": "React throws an error", "explanation": "Incorrect. Changing keys is valid React behavior."}
+      ],
+      "answer": {"correctOptionId": "c", "explanation": "Changing a key resets component identity, including its local state."}
+    },
+    {
+      "id": "react-rendering-003", "difficulty": "hard",
+      "question": "A list uses array indexes as keys. An item is inserted at the beginning. What can happen?",
+      "options": [
+        {"id": "a", "text": "React always remounts every item", "explanation": "Incorrect. Existing index keys can be reused."},
+        {"id": "b", "text": "Component state may become associated with the wrong item", "explanation": "Correct. Index keys identify positions rather than logical items."},
+        {"id": "c", "text": "React automatically converts indexes into stable IDs", "explanation": "Incorrect. React uses the keys provided."},
+        {"id": "d", "text": "The insertion will be blocked", "explanation": "Incorrect. React allows insertion with index keys."}
+      ],
+      "answer": {"correctOptionId": "b", "explanation": "When list positions shift, index-based keys can cause component state to follow positions instead of the intended data items."}
+    }
+  ]
+}

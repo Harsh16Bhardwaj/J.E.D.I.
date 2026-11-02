@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 
+import { SkillGapButton } from "@/components/skill-gap";
 import { BrutalCard } from "@/components/brutal-card";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -437,6 +438,7 @@ export default function JobDetailPage() {
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
+            <SkillGapButton jobId={data.job.id} />
             <Button aria-pressed={bookmarked} variant="outline" disabled={bookmarking} className={bookmarked ? "border-purple bg-purple/15 text-purple" : ""} onClick={() => void toggleBookmark()}>
               {bookmarked ? <BookmarkCheck /> : <Bookmark />}{bookmarked ? "Bookmarked" : "Bookmark"}
             </Button>

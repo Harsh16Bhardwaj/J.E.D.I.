@@ -9,3 +9,13 @@ export function publicSessionMode(
   if (user) return "authenticated";
   return isLoading ? "loading" : "anonymous";
 }
+
+// Existing members return here to review resume facts and manual preferences.
+export function onboardingRedirect(
+  user: Pick<User, "onboardingComplete"> | undefined,
+  pathname: string,
+): "/onboarding" | null {
+  return user && !user.onboardingComplete && pathname !== "/onboarding"
+    ? "/onboarding"
+    : null;
+}

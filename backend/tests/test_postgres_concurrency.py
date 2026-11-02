@@ -238,7 +238,7 @@ def test_postgres_concurrency_invariants() -> None:
                         ranking_run_id=run_id,
                         template_version="top-ten-v1",
                         message_id=f"<{suffix}@jedi.local>",
-                        status="PENDING",
+                        status="UNTOUCHED",
                         payload_snapshot={
                             "subject": "Concurrency",
                             "textBody": "Test",
