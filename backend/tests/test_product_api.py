@@ -892,7 +892,7 @@ def test_job_workspace_and_application_history(
         product_client.get("/api/jobs", params={"applied": False}).json()["total"]
         == 1
     )
-    assert product_client.get("/api/applications").json()["total"] == 0
+    assert product_client.get("/api/applications").json()["total"] == 1
     assert (
         product_client.get(
             "/api/applications",
@@ -1770,3 +1770,42 @@ def test_batch_normalization_and_ranking_use_group_versions(product_client):
     assert executed.status_code == 200, executed.text
     assert executed.json()["status"] == "SUCCEEDED"
     assert executed.json()["rankingCount"] == 1
+
+
+def test_saved_unstarted_plan_appears_in_private_applications(product_client):
+    login(product_client)
+    _, job_id = create_test_job(product_client)
+    assert product_client.get("/api/applications").json()["total"] == 0
+    assert product_client.get(
+        "/api/applications", params={"applicationStatus": "NOT_STARTED"}
+    ).json()["total"] == 0
+    due = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    saved = product_client.patch(
+        f"/api/jobs/{job_id}/application",
+        json={
+            "nextAction": "Tailor my resume",
+            "nextActionDueAt": due,
+            "notes": "Saved before submitting externally",
+        },
+    )
+    assert saved.status_code == 200
+    assert saved.json()["status"] == "NOT_STARTED"
+    applications = product_client.get("/api/applications").json()
+    assert applications["total"] == 1
+    assert applications["items"][0]["job"]["id"] == job_id
+    assert (
+        applications["items"][0]["application"]["notes"]
+        == "Saved before submitting externally"
+    )
+    assert applications["overdueCount"] == 1
+    summary = product_client.get("/api/applications/summary").json()
+    assert summary["statusCounts"]["NOT_STARTED"] == 1
+    assert summary["nearestActions"][0]["jobId"] == job_id
+    product_client.post(
+        "/api/auth/login",
+        json={
+            "email": "friend@example.com",
+            "password": "friend password",
+        },
+    )
+    assert product_client.get("/api/applications").json()["total"] == 0
