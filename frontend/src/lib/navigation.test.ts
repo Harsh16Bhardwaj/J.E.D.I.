@@ -15,7 +15,7 @@ import {
 test("members see the shared daily workflow without owner controls", () => {
   assert.deepEqual(
     visibleNavigation(allNavigation, { isGroupOwner: false }).map(({ label }) => label),
-    ["Daily Feed", "Jobs", "Applications", "Tutorial", "Batches", "Group", "Email"],
+    ["Daily Feed", "Jobs", "Applications", "Learning", "Tutorial", "Batches", "Group", "Email"],
   );
 });
 
@@ -26,6 +26,7 @@ test("owners see shared profile, model, and training controls", () => {
       "Daily Feed",
       "Jobs",
       "Applications",
+      "Learning",
       "Tutorial",
       "Batches",
       "Group",

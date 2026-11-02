@@ -36,3 +36,17 @@ def test_unlisted_origin_is_not_allowed() -> None:
     )
 
     assert "access-control-allow-origin" not in response.headers
+
+
+def test_reviewed_resume_put_preflight_is_allowed() -> None:
+    response = client.options(
+        "/api/resume",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "PUT",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert "PUT" in response.headers["access-control-allow-methods"]

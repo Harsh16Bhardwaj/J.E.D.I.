@@ -5,6 +5,7 @@ import { ArrowRight, BrainCircuit, Check, Database, UserRound } from "lucide-rea
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 
+import { ResumeUpload } from "@/components/resume-upload";
 import { BrutalCard } from "@/components/brutal-card";
 import { TagField } from "@/components/tag-field";
 import { Button } from "@/components/ui/button";
@@ -86,6 +87,7 @@ export default function OnboardingPage() {
   const [formOverride, setFormOverride] = useState<OnboardingFormState>();
   const form = formOverride ?? serverForm;
   const [busy, setBusy] = useState(false);
+  const [resumePending, setResumePending] = useState(false);
   const [requestError, setRequestError] = useState<unknown>();
   const [fieldErrors, setFieldErrors] = useState<OnboardingFieldErrors>({});
 
@@ -102,7 +104,7 @@ export default function OnboardingPage() {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || resumePending) return;
     setRequestError(undefined);
     const validation = validateOnboardingForm(form);
     setFieldErrors(validation.errors);
@@ -187,7 +189,7 @@ export default function OnboardingPage() {
         <form noValidate onSubmit={submit} className="space-y-7 rounded-xl border border-border bg-card p-5 sm:p-7">
           <div>
             <div className="flex items-center gap-3"><UserRound className="size-5 text-acid" /><h2 className="text-2xl font-semibold">Member profile</h2></div>
-            <p className="mt-2 text-xs text-muted-foreground">All fields are required.</p>
+            <p className="mt-2 text-xs text-muted-foreground">All preference fields are required. Resume upload is optional.</p>
           </div>
 
           <TagField id="titles" label="Target titles *" values={form.preferredTitles} suggestions={onboarding.data.suggestedTitles} placeholder="Type a title and press Enter" error={fieldErrors.preferredTitles} onChange={(values) => update("preferredTitles", values)} />
@@ -220,9 +222,11 @@ export default function OnboardingPage() {
             </div>
           </div>
 
+          <ResumeUpload onPendingChange={setResumePending} />
+          {resumePending && <p role="status" className="text-xs text-purple">Save or discard your resume changes before finishing onboarding.</p>}
           <ValidationSummary errors={fieldErrors} />
           {Boolean(requestError) && <RequestError error={requestError} />}
-          <Button type="submit" disabled={busy} className="min-h-12 w-full bg-foreground font-mono font-black uppercase text-background hover:bg-acid">
+          <Button type="submit" disabled={busy || resumePending} className="min-h-12 w-full bg-foreground font-mono font-black uppercase text-background hover:bg-acid">
             {busy ? "Saving profile..." : "Finish onboarding"}{!busy && <ArrowRight className="size-4" />}
           </Button>
         </form>

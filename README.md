@@ -223,6 +223,12 @@ and the 12:00 AM IST cron retries eligible rows.
 does not invent scores. Real model results are accepted by the rankings route.
 Embedding and direct scoring routes remain explicit `501` placeholders.
 
+## Resume onboarding and learning
+
+Resume review, job skill comparison, and timed learning sprints are documented in
+[docs/resume-learning.md](docs/resume-learning.md), including database deployment
+requirements and how to add schemaVersion 1 question banks.
+
 ## Validation
 
 Targeted checks:
