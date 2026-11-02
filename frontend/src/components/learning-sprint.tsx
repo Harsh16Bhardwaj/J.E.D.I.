@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, Clock3, RotateCcw } from "lucide-react";
+import { LearningTutor } from "@/components/learning-tutor";
 import { BrutalCard } from "@/components/brutal-card";
 import { Button } from "@/components/ui/button";
 import { apiRequest, errorSummary } from "@/lib/api";
@@ -12,7 +13,7 @@ import {
   type SprintQuestion,
 } from "@/lib/learning";
 
-function Explanation({ question }: { question: SprintQuestion }) {
+function Explanation({ question, attemptId, autoStart = false }: { question: SprintQuestion; attemptId: string; autoStart?: boolean }) {
   if (!question.answer) return null;
   return (
     <div
@@ -43,6 +44,7 @@ function Explanation({ question }: { question: SprintQuestion }) {
           </li>
         ))}
       </ul>
+      <LearningTutor key={question.id} attemptId={attemptId} questionId={question.id} autoStart={autoStart} />
     </div>
   );
 }
@@ -60,6 +62,7 @@ export function LearningSprint({
   const [index, setIndex] = useState(() =>
     nextQuestionIndex(initialAttempt.questions),
   );
+  const [autoTutorQuestionId, setAutoTutorQuestionId] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -126,6 +129,7 @@ export function LearningSprint({
           }),
         }),
       );
+      setAutoTutorQuestionId(attempt.questions[index].id);
     } catch (cause) {
       setError(errorSummary(cause));
       try {
@@ -182,7 +186,7 @@ export function LearningSprint({
                 {q.options.find((o) => o.id === q.selectedOptionId)?.text ??
                   "Unanswered"}
               </p>
-              <Explanation question={q} />
+              <Explanation question={q} attemptId={attempt.id} />
             </section>
           ))}
         </div>
@@ -258,7 +262,7 @@ export function LearningSprint({
           </label>
         ))}
       </fieldset>
-      <Explanation question={question} />
+      <Explanation question={question} attemptId={attempt.id} autoStart={autoTutorQuestionId === question.id} />
       {error && (
         <p role="alert" className="text-sm text-coral">
           {error}
@@ -287,6 +291,7 @@ export function LearningSprint({
               variant="outline"
               disabled={busy || remaining === 0}
               onClick={() => {
+                setAutoTutorQuestionId(null);
                 setIndex(index + 1);
                 setSelected(null);
                 setError(undefined);
@@ -312,6 +317,7 @@ export function LearningSprint({
             aria-label={`Question ${i + 1}${q.selectedOptionId ? ", answered" : ", unanswered"}`}
             disabled={busy || remaining === 0}
             onClick={() => {
+              setAutoTutorQuestionId(null);
               setIndex(i);
               setSelected(null);
             }}

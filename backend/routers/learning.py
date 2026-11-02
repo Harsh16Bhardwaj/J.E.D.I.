@@ -12,9 +12,15 @@ from starlette.concurrency import run_in_threadpool
 from backend.auth import CurrentUser
 from backend.database import LearningAttempt, ResumeEvidenceRecord, get_session, utc_now
 from backend.routers.workspace import get_job_or_404
-from backend.schemas.learning import ResumeEvidence, StartAttempt, SubmitAnswer
+from backend.schemas.learning import (
+    AskTutor,
+    ResumeEvidence,
+    StartAttempt,
+    SubmitAnswer,
+)
 from backend.services.group_access import require_group_context
 from backend.services.learning import TOPIC_SKILLS, compare_skills, load_banks
+from backend.services.learning_tutor import explain_answer
 from backend.services.resume import (
     MAX_PDF_BYTES,
     ResumeError,
@@ -307,3 +313,27 @@ async def finish_attempt(attempt_id: str, user: CurrentUser, session: DatabaseSe
         await session.commit()
         await session.refresh(row)
     return attempt_response(row)
+
+
+@router.post("/api/learning/attempts/{attempt_id}/tutor")
+async def ask_tutor(
+    attempt_id: str, body: AskTutor, user: CurrentUser, session: DatabaseSession
+):
+    row = await attempt_for(session, await member_id(session, user.id), attempt_id)
+    question = next(
+        (q for q in row.snapshot["questions"] if q["id"] == body.question_id), None
+    )
+    if question is None:
+        fail("QUESTION_NOT_FOUND", "Question not found in this sprint.", 404)
+    if body.question_id not in row.answers and row.status == "ACTIVE":
+        fail("ANSWER_REQUIRED", "Submit your answer before asking the AI tutor.", 409)
+    selected = row.answers.get(body.question_id)
+    # Release the row lock before waiting for the external provider.
+    await session.commit()
+    reply = await explain_answer(
+        question,
+        selected,
+        body.message,
+        [message.model_dump() for message in body.history],
+    )
+    return {"reply": reply}
