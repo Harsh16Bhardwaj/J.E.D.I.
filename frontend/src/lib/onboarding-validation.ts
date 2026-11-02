@@ -1,3 +1,5 @@
+import type { ResumeEvidence } from "./learning";
+
 export type OnboardingFormState = {
   preferredTitles: string[];
   preferredLocations: string[];
@@ -91,16 +93,20 @@ function requiredNumber(
 
 export function validateOnboardingForm(
   form: OnboardingFormState,
+  resume?: Pick<ResumeEvidence, "explicitSkills" | "experienceYears"> | null,
 ): ValidationResult {
+  const skills = resume?.explicitSkills.length ? resume.explicitSkills : form.preferredSkills;
+  const years = resume?.experienceYears;
+  const hasResumeExperience = typeof years === "number" && Number.isFinite(years) && years >= 0 && years <= 80;
   const errors: OnboardingFieldErrors = {};
   validateTags("preferredTitles", form.preferredTitles, errors);
   validateTags("preferredLocations", form.preferredLocations, errors);
-  validateTags("preferredSkills", form.preferredSkills, errors);
+  validateTags("preferredSkills", skills, errors);
 
   const experience = experienceRanges[
     form.experienceRange as keyof typeof experienceRanges
   ];
-  if (!experience) {
+  if (!hasResumeExperience && !experience) {
     errors.experienceRange = "Select your experience range.";
   }
   const salaryMinLpa = requiredNumber(
@@ -118,9 +124,9 @@ export function validateOnboardingForm(
     values: {
       preferredTitles: form.preferredTitles.map((value) => value.trim()),
       preferredLocations: form.preferredLocations.map((value) => value.trim()),
-      preferredSkills: form.preferredSkills.map((value) => value.trim()),
-      experienceMinYears: experience!.minimum,
-      experienceMaxYears: experience!.maximum,
+      preferredSkills: skills.map((value) => value.trim()),
+      experienceMinYears: hasResumeExperience ? years : experience!.minimum,
+      experienceMaxYears: hasResumeExperience ? years : experience!.maximum,
       salaryMin: salaryMinLpa! * 100_000,
       salaryMax: null,
       salaryCurrency: "INR",

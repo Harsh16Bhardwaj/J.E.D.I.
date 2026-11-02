@@ -5,6 +5,7 @@ import { ArrowRight, BrainCircuit, Check, Database, UserRound } from "lucide-rea
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 
+import type { ResumeEvidence } from "@/lib/learning";
 import { ResumeUpload } from "@/components/resume-upload";
 import { BrutalCard } from "@/components/brutal-card";
 import { TagField } from "@/components/tag-field";
@@ -69,6 +70,9 @@ function FieldError({ id, message }: { id: string; message?: string }) {
 
 export default function OnboardingPage() {
   const onboarding = useSWR<OnboardingState>("/api/onboarding");
+  const resume = useSWR<ResumeEvidence | null>("/api/resume");
+  const resumeHasSkills = Boolean(resume.data?.explicitSkills.length);
+  const resumeHasExperience = resume.data?.experienceYears != null;
   const { mutate } = useSWRConfig();
   const profile = onboarding.data?.memberProfile;
   const serverForm: OnboardingFormState = profile
@@ -106,7 +110,7 @@ export default function OnboardingPage() {
     event.preventDefault();
     if (busy || resumePending) return;
     setRequestError(undefined);
-    const validation = validateOnboardingForm(form);
+    const validation = validateOnboardingForm(form, resume.data);
     setFieldErrors(validation.errors);
     if (!validation.values) {
       toast.error("Complete all required onboarding fields.");
@@ -189,15 +193,17 @@ export default function OnboardingPage() {
         <form noValidate onSubmit={submit} className="space-y-7 rounded-xl border border-border bg-card p-5 sm:p-7">
           <div>
             <div className="flex items-center gap-3"><UserRound className="size-5 text-acid" /><h2 className="text-2xl font-semibold">Member profile</h2></div>
-            <p className="mt-2 text-xs text-muted-foreground">All preference fields are required. Resume upload is optional.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Review your resume once, then set your job preferences. You can enter skills and experience manually if you skip the resume.</p>
           </div>
+
+          <ResumeUpload onPendingChange={setResumePending} />
 
           <TagField id="titles" label="Target titles *" values={form.preferredTitles} suggestions={onboarding.data.suggestedTitles} placeholder="Type a title and press Enter" error={fieldErrors.preferredTitles} onChange={(values) => update("preferredTitles", values)} />
           <TagField id="locations" label="Preferred locations *" values={form.preferredLocations} suggestions={onboarding.data.suggestedLocations} placeholder="Type a location and press Enter" error={fieldErrors.preferredLocations} onChange={(values) => update("preferredLocations", values)} />
-          <TagField id="skills" label="Skills *" values={form.preferredSkills} suggestions={onboarding.data.suggestedSkills} placeholder="Paste comma-separated skills" error={fieldErrors.preferredSkills} onChange={(values) => update("preferredSkills", values)} />
+          {!resumeHasSkills && !resumePending && <TagField id="skills" label="Skills *" values={form.preferredSkills} suggestions={onboarding.data.suggestedSkills} placeholder="Paste comma-separated skills" error={fieldErrors.preferredSkills} onChange={(values) => update("preferredSkills", values)} />}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
+            {!resumeHasExperience && !resumePending && <div>
               <label htmlFor="experienceRange" className="ops-label">Experience *</label>
               <select
                 id="experienceRange"
@@ -214,7 +220,7 @@ export default function OnboardingPage() {
                 ))}
               </select>
               <FieldError id="experienceRange-error" message={fieldErrors.experienceRange} />
-            </div>
+            </div>}
             <div>
               <label htmlFor="salaryMinLpa" className="ops-label">Minimum salary (LPA) *</label>
               <Input id="salaryMinLpa" required aria-invalid={Boolean(fieldErrors.salaryMinLpa)} aria-describedby={fieldErrors.salaryMinLpa ? "salaryMinLpa-error" : undefined} type="number" min="0" step="0.1" value={form.salaryMinLpa} onChange={(event) => update("salaryMinLpa", event.target.value)} className="mt-2 min-h-11 aria-invalid:border-coral/60" placeholder="e.g. 8" />
@@ -222,11 +228,10 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          <ResumeUpload onPendingChange={setResumePending} />
           {resumePending && <p role="status" className="text-xs text-purple">Save or discard your resume changes before finishing onboarding.</p>}
           <ValidationSummary errors={fieldErrors} />
           {Boolean(requestError) && <RequestError error={requestError} />}
-          <Button type="submit" disabled={busy || resumePending} className="min-h-12 w-full bg-foreground font-mono font-black uppercase text-background hover:bg-acid">
+          <Button type="submit" disabled={busy || resumePending || resume.isLoading || Boolean(resume.error)} className="min-h-12 w-full bg-foreground font-mono font-black uppercase text-background hover:bg-acid">
             {busy ? "Saving profile..." : "Finish onboarding"}{!busy && <ArrowRight className="size-4" />}
           </Button>
         </form>
