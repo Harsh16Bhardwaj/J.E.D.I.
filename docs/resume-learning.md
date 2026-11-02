@@ -122,7 +122,7 @@ Conversations remain in the current view and are not persisted to practice histo
 Set `GROQ_API_KEY` in the backend environment (locally in the untracked root `.env`,
 and in Vercel's backend environment for production/preview as needed). Never use
 a `NEXT_PUBLIC_` variable for the key. Redeploy after changing deployment variables.
-`GROQ_MODEL` defaults to `llama-3.3-70b-versatile` and can be overridden. This uses
+`GROQ_MODEL` defaults to `openai/gpt-oss-20b` and can be overridden. This uses
 Groq's [Chat Completions API](https://console.groq.com/docs/api-reference).
 No database migration or new dependency is required. Missing configuration or a
 provider failure leaves the saved answer and built-in explanations available.

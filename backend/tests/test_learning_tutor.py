@@ -25,7 +25,7 @@ def test_groq_receives_authoritative_question_and_selected_answer(monkeypatch):
         assert str(request.url) == "https://api.groq.com/openai/v1/chat/completions"
         assert request.headers["authorization"] == "Bearer test-only-key"
         payload = json.loads(request.content)
-        assert payload["model"] == "llama-3.3-70b-versatile"
+        assert payload["model"] == "openai/gpt-oss-20b"
         context = json.loads(payload["messages"][1]["content"])
         assert context["selectedOptionId"] == "a"
         assert context["question"]["answer"]["correctOptionId"] == "b"
@@ -70,3 +70,31 @@ def test_provider_errors_do_not_expose_provider_body_or_key(monkeypatch, status)
     assert "secret-provider-body" not in str(error.value.detail)
     assert "test-only-key" not in str(error.value.detail)
     assert error.value.status_code == (429 if status == 429 else 503)
+
+
+def test_unavailable_model_returns_actionable_configuration_error(monkeypatch):
+    monkeypatch.setattr(get_settings(), "groq_api_key", "test-only-key")
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kw: real_client(
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(
+                    404,
+                    json={
+                        "error": {
+                            "code": "model_not_found",
+                            "message": "private-provider-message",
+                        }
+                    },
+                )
+            ),
+            **kw,
+        ),
+    )
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(explain_answer(QUESTION, "a", "Why?", []))
+    assert error.value.detail["code"] == "AI_MODEL_UNAVAILABLE"
+    assert "GROQ_MODEL" in error.value.detail["message"]
+    assert "private-provider-message" not in str(error.value.detail)

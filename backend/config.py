@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     email_from_name: str = "JEDI Job Digest"
     cron_secret: str = ""
     groq_api_key: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-20b"
     model_bundle_root: str = "model_bundles"
     model_load_timeout_seconds: int = 30
     model_execution_timeout_seconds: int = 240
