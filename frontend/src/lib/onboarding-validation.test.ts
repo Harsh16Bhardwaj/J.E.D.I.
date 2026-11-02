@@ -73,3 +73,32 @@ test("maps 8+ years to an open-ended range", () => {
   assert.equal(result.values.experienceMinYears, 8);
   assert.equal(result.values.experienceMaxYears, null);
 });
+
+test("uses reviewed resume facts without requiring duplicate manual entries", () => {
+  const result = validateOnboardingForm(
+    { ...validForm, preferredSkills: [], experienceRange: "" },
+    { explicitSkills: ["React", "SQL"], experienceYears: 1.33 },
+  );
+  assert.deepEqual(result.errors, {});
+  assert.deepEqual(result.values?.preferredSkills, ["React", "SQL"]);
+  assert.equal(result.values?.experienceMinYears, 1.33);
+  assert.equal(result.values?.experienceMaxYears, 1.33);
+});
+
+test("retains manual fallback when resume facts are missing", () => {
+  const result = validateOnboardingForm(validForm, {
+    explicitSkills: [], experienceYears: null,
+  });
+  assert.deepEqual(result.values?.preferredSkills, ["Python", "FastAPI"]);
+  assert.equal(result.values?.experienceMinYears, 2);
+  assert.equal(result.values?.experienceMaxYears, 3);
+});
+
+test("accepts reviewed zero years without falling back to a range", () => {
+  const result = validateOnboardingForm(
+    { ...validForm, experienceRange: "" },
+    { explicitSkills: ["Python"], experienceYears: 0 },
+  );
+  assert.equal(result.values?.experienceMinYears, 0);
+  assert.equal(result.values?.experienceMaxYears, 0);
+});
