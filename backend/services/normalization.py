@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import Batch, Job, PreparedJob, ProcessingRun, ProfileVersion
 from backend.schemas.product import BatchNormalizationResponse
-from backend.services.fx import FX_POLICY_VERSION, normalize_job_salary_to_inr
+from backend.services.fx import FX_POLICY_VERSION, FxRate, normalize_job_salary_to_inr
 from backend.services.product import prepare_job, stable_hash
 
 
@@ -18,6 +18,7 @@ async def normalize_batch_service(
     *,
     apply_inr_policy: bool = False,
     trigger: str = "USER",
+    commit: bool = True,
 ) -> BatchNormalizationResponse:
     batch = await session.scalar(
         select(Batch).where(Batch.id == batch_id).with_for_update()
@@ -91,11 +92,13 @@ async def normalize_batch_service(
         run.started_at = datetime.now(UTC)
         run.completed_at = None
     batch.status = "NORMALIZING"
-    await session.commit()
+    if commit:
+        await session.commit()
     try:
+        batch_rates: dict[str, FxRate | None] = {}
         for job in jobs:
             if apply_inr_policy:
-                await normalize_job_salary_to_inr(job)
+                await normalize_job_salary_to_inr(job, batch_rates=batch_rates)
             payload = prepare_job(
                 job, profile, feature_reference_at=batch.generated_at
             ).model_dump(mode="json", by_alias=True)
@@ -125,8 +128,13 @@ async def normalize_batch_service(
         run.status = "SUCCEEDED"
         run.phase = "COMPLETED"
         run.completed_at = datetime.now(UTC)
-        await session.commit()
+        if commit:
+            await session.commit()
+        else:
+            await session.flush()
     except Exception as exc:
+        if not commit:
+            raise
         await session.rollback()
         failed_batch = await session.get(Batch, batch_id)
         failed_run = await session.scalar(

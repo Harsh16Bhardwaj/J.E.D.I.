@@ -49,7 +49,9 @@ async def fetch_inr_rate(currency: str) -> FxRate | None:
     return result
 
 
-async def normalize_job_salary_to_inr(job: Job) -> None:
+async def normalize_job_salary_to_inr(
+    job: Job, *, batch_rates: dict[str, FxRate | None] | None = None
+) -> None:
     """Populate derived annual INR values without changing source compensation."""
 
     job.salary_inr_min = None
@@ -62,7 +64,13 @@ async def normalize_job_salary_to_inr(job: Job) -> None:
     annual_min, annual_max = annualized_salary_range(
         job.salary_min, job.salary_max, job.salary_period
     )
-    rate = await fetch_inr_rate(job.salary_currency)
+    currency = job.salary_currency.strip().upper()
+    if batch_rates is None:
+        rate = await fetch_inr_rate(currency)
+    else:
+        if currency not in batch_rates:
+            batch_rates[currency] = await fetch_inr_rate(currency)
+        rate = batch_rates[currency]
     if rate is None:
         return
     job.salary_inr_min = (

@@ -1,9 +1,15 @@
 # ruff: noqa: F401, F811
 
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from email.utils import format_datetime
+from threading import Event
 from types import SimpleNamespace
 
+import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.routers import scraper as scraper_router
@@ -107,6 +113,15 @@ def test_scraper_owner_workflow_imports_normalizes_without_ranking(
     detail = advance_to_review(product_client, run_id)
     assert detail["status"] == "REVIEW_READY"
     assert detail["validCount"] == 1
+    stats = product_client.get(f"/api/scraper/runs/{run_id}/stats").json()
+    assert {board["name"] for board in stats["byBoard"]} == {
+        "Example Labs",
+        "Example Lever",
+    }
+    assert sum(board["jobsSeen"] for board in stats["byBoard"]) == 2
+    assert sum(board["uniqueCandidates"] for board in stats["byBoard"]) == 1
+    assert sum(board["importable"] for board in stats["byBoard"]) == 1
+    assert stats["importedJobs"] is None
     candidates = product_client.get(
         f"/api/scraper/runs/{run_id}/candidates?page=1&pageSize=100"
     ).json()["items"]
@@ -131,6 +146,8 @@ def test_scraper_owner_workflow_imports_normalizes_without_ranking(
     body = imported.json()
     assert body["run"]["status"] == "IMPORTED"
     assert body["batch"]["jobCount"] == 1
+    stats = product_client.get(f"/api/scraper/runs/{run_id}/stats").json()
+    assert stats["importedJobs"] == 1
     batch = product_client.get(f"/api/batches/{body['batch']['batchId']}").json()
     assert batch["batch"]["status"] == "NORMALIZED"
     assert batch["preparedCount"] == 1
@@ -141,6 +158,73 @@ def test_scraper_owner_workflow_imports_normalizes_without_ranking(
     assert replayed.status_code == 200
     assert replayed.json()["batch"]["replayed"] is True
     assert replayed.json()["batch"]["batchId"] == body["batch"]["batchId"]
+
+
+def test_scraper_import_resumes_at_batch_checkpoint_after_normalization_failure(
+    product_client: TestClient, monkeypatch
+) -> None:
+    login(product_client)
+    configure_test_sources(monkeypatch)
+    monkeypatch.setattr(scraper_router, "fetch_source_jobs", fake_fetch)
+    run_id = product_client.post("/api/scraper/runs").json()["id"]
+    assert advance_to_review(product_client, run_id)["status"] == "REVIEW_READY"
+    path = f"/api/scraper/runs/{run_id}"
+    queued = product_client.post(f"{path}/queue-import", json={})
+    assert queued.status_code == 202, queued.text
+    assert queued.json()["status"] == "IMPORTING"
+    assert queued.json()["importedBatchId"] is None
+    assert product_client.patch(
+        f"{path}/selection/all", json={"selected": False}
+    ).status_code == 409
+
+    ingest = scraper_router.ingest_batch
+
+    async def fail_before_linking(*args, **kwargs):
+        await ingest(*args, **kwargs)
+        raise TimeoutError
+
+    monkeypatch.setattr(scraper_router, "ingest_batch", fail_before_linking)
+    failed_ingest = product_client.post(f"{path}/advance-import")
+    assert failed_ingest.status_code == 200, failed_ingest.text
+    assert failed_ingest.json()["status"] == "REVIEW_READY"
+    assert failed_ingest.json()["importedBatchId"] is None
+    assert product_client.get("/api/batches").json()["items"] == []
+    monkeypatch.setattr(scraper_router, "ingest_batch", ingest)
+    assert product_client.post(f"{path}/queue-import", json={}).status_code == 202
+
+    step = product_client.post(f"{path}/advance-import")
+    assert step.status_code == 200, step.text
+    assert step.json()["status"] == "NORMALIZING"
+    batch_id = step.json()["importedBatchId"]
+    assert product_client.get(path).json()["importedBatchId"] == batch_id
+
+    normalize = scraper_router.normalize_batch_service
+
+    async def fail_after_writing(*args, **kwargs):
+        await normalize(*args, **kwargs)
+        raise TimeoutError
+
+    monkeypatch.setattr(scraper_router, "normalize_batch_service", fail_after_writing)
+    failed = product_client.post(f"{path}/advance-import")
+    assert failed.status_code == 200, failed.text
+    assert failed.json()["status"] == "NORMALIZATION_FAILED"
+    assert failed.json()["importedBatchId"] == batch_id
+    assert "timed out" in failed.json()["errorMessage"]
+    batch = product_client.get(f"/api/batches/{batch_id}").json()
+    assert batch["preparedCount"] == 0
+    assert batch["batch"]["status"] == "READY"
+
+    monkeypatch.setattr(scraper_router, "normalize_batch_service", normalize)
+    assert product_client.post(f"{path}/queue-import", json={}).json()["status"] == (
+        "NORMALIZING"
+    )
+    assert product_client.post(f"{path}/advance-import").json()["status"] == "IMPORTED"
+    assert product_client.post(f"{path}/advance-import").json()["importedBatchId"] == (
+        batch_id
+    )
+    batch = product_client.get(f"/api/batches/{batch_id}").json()
+    assert batch["preparedCount"] == 1
+    assert batch["batch"]["status"] == "NORMALIZED"
 
 
 def test_scraper_partial_run_requires_confirmation(
@@ -158,6 +242,17 @@ def test_scraper_partial_run_requires_confirmation(
     run_id = product_client.post("/api/scraper/runs").json()["id"]
     detail = advance_to_review(product_client, run_id)
     assert detail["failedSourceCount"] == 1
+    stats = product_client.get(f"/api/scraper/runs/{run_id}/stats").json()
+    failed = next(board for board in stats["byBoard"] if board["atsType"] == "lever")
+    assert failed["status"] == "FAILED"
+    assert failed["errorMessage"] == "provider unavailable"
+    assert failed["jobsSeen"] == 0
+    sources = product_client.get("/api/scraper/sources").json()
+    lever = next(source for source in sources if source["atsType"] == "lever")
+    assert [
+        (outcome["runId"], outcome["status"], outcome["errorMessage"])
+        for outcome in lever["recentRuns"]
+    ] == [(run_id, "FAILED", "provider unavailable")]
 
     blocked = product_client.post(
         f"/api/scraper/runs/{run_id}/import", json={"confirmPartial": False}
@@ -193,6 +288,82 @@ def test_scraper_retries_failed_sources(
     finished = advance_to_review(product_client, run_id)
     assert finished["failedSourceCount"] == 0
     assert attempts["lever"] == 1
+
+
+@pytest.mark.parametrize("recovers", [True, False])
+def test_scraper_defers_rate_limited_board_and_caps_automatic_retries(
+    product_client: TestClient, monkeypatch, recovers: bool
+) -> None:
+    login(product_client)
+    configure_test_sources(monkeypatch, concurrent_sources=1, max_retries=2)
+    now = datetime.now(UTC)
+    calls = []
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now.astimezone(tz) if tz else now.replace(tzinfo=None)
+
+    async def rate_limited_fetch(source, _config, **kwargs) -> FetchResult:
+        calls.append((source.ats_type, kwargs["allow_unlocker"]))
+        if source.ats_type == "greenhouse":
+            if recovers and len(calls) == 4:
+                return FetchResult(jobs=[scraper_job(2)])
+            request = httpx.Request("GET", "https://boards.greenhouse.io/example")
+            retry_after = (
+                format_datetime(now + timedelta(seconds=60), usegmt=True)
+                if recovers
+                else "60"
+            )
+            response = httpx.Response(
+                429, request=request, headers={"Retry-After": retry_after}
+            )
+            response.raise_for_status()
+        return FetchResult(jobs=[scraper_job()])
+
+    monkeypatch.setattr(scraper_router, "datetime", Clock)
+    monkeypatch.setattr(scraper_router, "fetch_source_jobs", rate_limited_fetch)
+    run_id = product_client.post("/api/scraper/runs").json()["id"]
+    path = f"/api/scraper/runs/{run_id}"
+
+    def advance() -> dict:
+        response = product_client.post(f"{path}/advance")
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    assert advance()["failedSourceCount"] == 0
+    assert advance()["processedSourceCount"] == 1
+    assert calls == [("greenhouse", True), ("lever", True)]
+    summary = product_client.get(path).json()
+    assert datetime.fromisoformat(summary["nextRetryAt"]) >= now + timedelta(seconds=59)
+    assert advance()["status"] == "RUNNING"
+    assert len(calls) == 2
+
+    now += timedelta(seconds=61)
+    assert advance()["failedSourceCount"] == 0
+    assert calls[-1] == ("greenhouse", False)
+    stats = product_client.get(f"{path}/stats").json()
+    board = next(row for row in stats["byBoard"] if row["atsType"] == "greenhouse")
+    assert board["status"] == "PENDING"
+    assert board["retryCount"] == 2
+    assert board["retryAt"]
+
+    now += timedelta(seconds=61)
+    finished = advance()
+    assert finished["status"] == "REVIEW_READY"
+    assert finished["failedSourceCount"] == (0 if recovers else 1)
+    if recovers:
+        stats = product_client.get(f"{path}/stats").json()
+        board = next(row for row in stats["byBoard"] if row["atsType"] == "greenhouse")
+        assert board["status"] == "SUCCEEDED"
+        assert board["retryAt"] is None
+        assert board["retryCount"] == 0
+    assert calls == [
+        ("greenhouse", True),
+        ("lever", True),
+        ("greenhouse", False),
+        ("greenhouse", False),
+    ]
 
 
 def test_scraper_can_stop_review_select_soft_mismatch_and_resume(
@@ -244,6 +415,63 @@ def test_scraper_can_stop_review_select_soft_mismatch_and_resume(
     assert finished["processedSourceCount"] == finished["sourceCount"]
     assert finished["stoppedEarly"] is False
     assert finished["selectedCount"] == 1
+
+
+def test_stopped_fetch_cannot_complete_reclaimed_attempt(
+    product_client: TestClient, monkeypatch
+) -> None:
+    login(product_client)
+    configure_test_sources(monkeypatch, concurrent_sources=1)
+    started = [Event(), Event()]
+    release = [Event(), Event()]
+    source_keys = []
+
+    async def blocked_fetch(source, _config, **_kwargs) -> FetchResult:
+        call = len(source_keys)
+        source_keys.append(source.source_key)
+        started[call].set()
+        if not await asyncio.to_thread(release[call].wait, 10):
+            raise TimeoutError("Test did not release fetch")
+        return FetchResult(jobs=[scraper_job(call + 1)])
+
+    monkeypatch.setattr(scraper_router, "fetch_source_jobs", blocked_fetch)
+    run_id = product_client.post("/api/scraper/runs").json()["id"]
+    run_path = f"/api/scraper/runs/{run_id}"
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        try:
+            original = executor.submit(product_client.post, f"{run_path}/advance")
+            assert started[0].wait(5)
+            stopped = product_client.post(f"{run_path}/stop-and-review")
+            assert stopped.status_code == 200, stopped.text
+            assert stopped.json()["status"] == "REVIEW_READY"
+            assert not original.done()
+
+            resumed = product_client.post(f"{run_path}/resume")
+            assert resumed.status_code == 200, resumed.text
+            replacement = executor.submit(product_client.post, f"{run_path}/advance")
+            assert started[1].wait(5)
+            assert source_keys[0] == source_keys[1]
+
+            release[0].set()
+            stale = original.result(timeout=5)
+            assert stale.status_code == 200, stale.text
+            assert stale.json()["processedSourceCount"] == 0
+            assert stale.json()["validCount"] == 0
+            assert not replacement.done()
+
+            release[1].set()
+            current = replacement.result(timeout=5)
+            assert current.status_code == 200, current.text
+            assert current.json()["processedSourceCount"] == 1
+            assert current.json()["validCount"] == 1
+        finally:
+            for gate in release:
+                gate.set()
+
+    candidates = product_client.get(f"{run_path}/candidates").json()["items"]
+    assert [item["sourceUrl"] for item in candidates] == [
+        "https://jobs.example.test/backend-2"
+    ]
 
 
 def test_scraper_target_controls_auto_selection_and_cancel_is_terminal(
@@ -380,6 +608,8 @@ def test_scraper_rejects_non_owner(product_client: TestClient) -> None:
     assert response.status_code == 200
     assert product_client.get("/api/scraper/config").status_code == 403
     assert product_client.post("/api/scraper/runs").status_code == 403
+    assert product_client.get("/api/scraper/sources").status_code == 403
+    assert product_client.get("/api/scraper/runs/example/stats").status_code == 403
 
 
 def test_owner_can_refresh_and_manage_discovered_sources(

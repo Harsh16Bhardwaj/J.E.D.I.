@@ -30,6 +30,15 @@ class ScrapeSourceCreateRequest(ApiModel):
     name: str | None = Field(default=None, max_length=200)
 
 
+class ScrapeSourceRunOutcome(ApiModel):
+    run_id: str
+    status: Literal["SUCCEEDED", "FAILED"]
+    finished_at: datetime
+    jobs_seen: int
+    importable_staged: int
+    error_message: str | None
+
+
 class ScrapeSourceResponse(ApiModel):
     id: str
     source_key: str
@@ -50,6 +59,7 @@ class ScrapeSourceResponse(ApiModel):
     eligible_yield: int
     duplicate_yield: int
     cooldown_until: datetime | None
+    recent_runs: list[ScrapeSourceRunOutcome] = Field(default_factory=list)
 
 
 class ScrapeSourceUpdateRequest(ApiModel):
@@ -119,6 +129,7 @@ class ScrapeCandidatePage(ApiModel):
 
 
 class ScrapeRunSummary(ApiModel):
+    next_retry_at: datetime | None = None
     id: str
     status: str
     config_version: str
@@ -148,9 +159,27 @@ class ScrapeRunDetail(ScrapeRunSummary):
     candidates: list[ScrapeCandidateResponse]
 
 
+class ScrapeBoardStats(ApiModel):
+    source_key: str
+    name: str
+    ats_type: str
+    status: str
+    jobs_seen: int
+    direct_requests: int
+    bright_data_used: int
+    unique_candidates: int = 0
+    importable: int = 0
+    selected: int = 0
+    error_message: str | None
+    retry_at: datetime | None
+    retry_count: int
+
+
 class ScrapeRunStats(ApiModel):
     by_ats: dict[str, dict[str, int]]
     by_rejection_reason: dict[str, int]
+    by_board: list[ScrapeBoardStats]
+    imported_jobs: int | None
 
 
 class SourceDiscoveryAttemptResponse(ApiModel):

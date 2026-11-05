@@ -102,6 +102,19 @@ test("converts non-JSON and network failures into safe messages", async () => {
   });
 });
 
+test("distinguishes a request deadline from a connection failure", async () => {
+  const controller = new AbortController();
+  controller.abort(new DOMException("Deadline reached", "TimeoutError"));
+  globalThis.fetch = async () => {
+    throw controller.signal.reason;
+  };
+
+  await assert.rejects(
+    apiRequest("/api/scraper/runs", { signal: controller.signal }),
+    (error: unknown) => error instanceof ApiError && error.code === "REQUEST_TIMEOUT",
+  );
+});
+
 test("safeNext accepts only local absolute paths", () => {
   assert.equal(safeNext("/batches/batch-1"), "/batches/batch-1");
   assert.equal(safeNext("//malicious.example"), "/dashboard");

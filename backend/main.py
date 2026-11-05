@@ -25,6 +25,7 @@ from backend.routers import (
     embeddings,
     group_access,
     health,
+    job_intake,
     learning,
     misc,
     models,
@@ -91,3 +92,4 @@ app.include_router(normalization.router)
 app.include_router(embeddings.router)
 app.include_router(scoring.router)
 app.include_router(scraper.router)
+app.include_router(job_intake.router)

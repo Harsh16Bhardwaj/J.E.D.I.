@@ -166,6 +166,7 @@ model GroupMember {
   emailDeliveries       EmailDelivery[] /// Personalized mail events owned by this member.
   emailDeliveryAttempts EmailDeliveryAttempt[] @relation("EmailDeliveryAttemptActor") /// Manual delivery actions requested by this member.
   jobStates             JobState[] /// Private review state for shared jobs.
+  jobDrafts             JobDraft[] /// Private, member-supplied job descriptions.
   applications          Application[] /// Private application records for shared jobs.
   annotations           JobAnnotation[] /// Private labels saved by this member.
   trainingExamples      TrainingExample[] /// Training rows whose labels came from this member.
@@ -290,6 +291,8 @@ model ScrapeAttempt {
   brightDataUsed  Int                 @default(0)
   errorMessage    String?
   leaseExpiresAt  DateTime?
+  retryAt         DateTime?
+  retryCount      Int                 @default(0)
   checkpoint      Json?
   responseTimeMs  Int?
   freeRequestCount Int                 @default(0)
@@ -1008,6 +1011,19 @@ model EmailDeliveryAttempt {
 
 
 /// Reviewed personal resume facts; never the shared model profile.
+model JobDraft {
+  groupMemberId String
+  groupMember   GroupMember @relation(fields: [groupMemberId], references: [id], onDelete: Cascade)
+  id            String
+  description   String
+  preview       Json
+  revision      Int         @default(1)
+  updatedAt     DateTime    @updatedAt @db.Timestamptz(3)
+
+  @@id([groupMemberId, id])
+  @@index([groupMemberId, updatedAt])
+}
+
 model ResumeEvidence {
   id String @id @default(cuid())
   groupMemberId String @unique

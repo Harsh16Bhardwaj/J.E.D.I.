@@ -72,12 +72,24 @@ def test_scraper_normalization_preserves_source_and_prepares_annual_inr(
 
 
 def test_unavailable_rate_leaves_derived_salary_unknown(monkeypatch) -> None:
-    async def no_rate(_currency: str):
+    calls = []
+
+    async def no_rate(currency: str):
+        calls.append(currency)
         return None
 
     monkeypatch.setattr(fx, "fetch_inr_rate", no_rate)
     job = job_with_usd_salary()
-    asyncio.run(normalize_job_salary_to_inr(job))
+    other_job = job_with_usd_salary()
+
+    async def normalize_jobs():
+        batch_rates = {}
+        await normalize_job_salary_to_inr(job, batch_rates=batch_rates)
+        await normalize_job_salary_to_inr(other_job, batch_rates=batch_rates)
+
+    asyncio.run(normalize_jobs())
+    assert calls == ["USD"]
     assert job.salary_inr_min is None
     assert job.salary_inr_max is None
     assert job.salary_fx_provider is None
+    assert other_job.salary_inr_min is None

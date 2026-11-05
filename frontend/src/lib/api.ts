@@ -232,6 +232,14 @@ export type ScrapeSource = {
   eligibleYield: number;
   duplicateYield: number;
   cooldownUntil: string | null;
+  recentRuns: {
+    runId: string;
+    status: "SUCCEEDED" | "FAILED";
+    finishedAt: string;
+    jobsSeen: number;
+    importableStaged: number;
+    errorMessage: string | null;
+  }[];
 };
 
 export type ScrapeAttempt = {
@@ -290,6 +298,7 @@ export type ScrapeCandidateDetail = ScrapeCandidate & {
 };
 
 export type ScrapeRunSummary = {
+  nextRetryAt: string | null;
   id: string;
   status: string;
   configVersion: string;
@@ -343,6 +352,22 @@ export type ScrapeCandidatePage = {
 export type ScrapeRunStats = {
   byAts: Record<string, { recommended: number; needsReview: number; rejected: number }>;
   byRejectionReason: Record<string, number>;
+  byBoard: {
+    sourceKey: string;
+    name: string;
+    atsType: string;
+    status: string;
+    jobsSeen: number;
+    directRequests: number;
+    brightDataUsed: number;
+    uniqueCandidates: number;
+    importable: number;
+    selected: number;
+    errorMessage: string | null;
+    retryAt: string | null;
+    retryCount: number;
+  }[];
+  importedJobs: number | null;
 };
 
 export type SourceDiscoveryRun = {
@@ -790,6 +815,13 @@ export async function apiRequest<T>(
       },
     });
   } catch {
+    if (init.signal?.aborted && init.signal.reason?.name === "TimeoutError") {
+      throw new ApiError(
+        "The request timed out. Check the current status before retrying.",
+        0,
+        "REQUEST_TIMEOUT",
+      );
+    }
     throw new ApiError(
       `Could not connect to the JEDI API at ${apiBase()}. Check the API process and local site address.`,
       0,

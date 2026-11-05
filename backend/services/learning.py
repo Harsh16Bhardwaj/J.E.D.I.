@@ -5,7 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from backend.schemas.learning import QuestionBank, ResumeEvidence
-from backend.services.resume import canonical_skill, skill_names
+from backend.services.skill_vocabulary import canonical_skill, skill_names
 
 TOPIC_SKILLS = {"react-rendering": ["React"]}
 

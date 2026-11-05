@@ -113,8 +113,10 @@ def batch_response(batch: Batch, *, replayed: bool) -> BatchCreateResponse:
 async def ingest_batch(
     session: AsyncSession,
     raw_body: dict[str, Any],
+    *,
+    commit: bool = True,
 ) -> BatchCreateResponse:
-    """Validate, deduplicate and commit exactly one import envelope."""
+    """Validate and deduplicate one envelope, optionally in a caller's transaction."""
     try:
         envelope = ImportEnvelope.model_validate(raw_body)
     except ValidationError as exc:
@@ -205,6 +207,9 @@ async def ingest_batch(
     )
     session.add(batch)
     session.add_all(Job(batch_id=batch.id, **item) for item in accepted)
+    if not commit:
+        await session.flush()
+        return batch_response(batch, replayed=False)
     try:
         await session.commit()
     except IntegrityError as exc:

@@ -9,6 +9,7 @@ import tomllib
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -672,7 +673,11 @@ async def _get_json(
     except json.JSONDecodeError:
         response = None
     except httpx.RequestError:
+        if not allow_unlocker:
+            raise
         response = None
+    if response is not None and response.status_code == 429:
+        response.raise_for_status()
     if not allow_unlocker:
         if response is not None:
             response.raise_for_status()
@@ -728,6 +733,10 @@ async def _get_text(
                 response.raise_for_status()
                 return response.text, 0
         except httpx.HTTPError as exc:
+            if isinstance(exc, httpx.HTTPStatusError) and (
+                exc.response.status_code == 429 or "Retry-After" in exc.response.headers
+            ):
+                raise
             last_error = exc
             if retry < config.max_retries:
                 await asyncio.sleep(0.15 * (retry + 1))
@@ -752,10 +761,51 @@ async def _post_json(url: str, payload: dict[str, Any], config: ScraperConfig) -
                 response.raise_for_status()
                 return response.json()
         except (httpx.HTTPError, json.JSONDecodeError) as exc:
+            if isinstance(exc, httpx.HTTPStatusError) and (
+                exc.response.status_code == 429 or "Retry-After" in exc.response.headers
+            ):
+                raise
             last_error = exc
             if retry < config.max_retries:
                 await asyncio.sleep(0.15 * (retry + 1))
     raise last_error or RuntimeError("Public ATS request failed.")
+
+
+def provider_retry_at(
+    error: Exception | None, now: datetime, retries: int
+) -> datetime | None:
+    if not isinstance(
+        error,
+        (
+            httpx.HTTPStatusError,
+            httpx.TimeoutException,
+            httpx.NetworkError,
+            httpx.RemoteProtocolError,
+        ),
+    ):
+        return None
+    try:
+        if error.request.url.host == "api.brightdata.com":
+            return None
+    except RuntimeError:
+        # A transport error raised before a request was attached can still retry.
+        pass
+    delay = timedelta(seconds=3 * 2**min(retries, 4))
+    if isinstance(error, httpx.HTTPStatusError):
+        if error.response.status_code not in {408, 429, 500, 502, 503, 504}:
+            return None
+        value = error.response.headers.get("Retry-After", "").strip()
+        if value.isascii() and value.isdecimal() and len(value) <= 9:
+            return now + max(delay, timedelta(seconds=int(value)))
+        if value:
+            try:
+                date = parsedate_to_datetime(value)
+                if date.tzinfo is None:
+                    date = date.replace(tzinfo=UTC)
+                return max(now + delay, date)
+            except (ValueError, TypeError, OverflowError):
+                pass
+    return now + delay
 
 
 def _job_posting_json_lds(document: str) -> list[dict[str, Any]]:

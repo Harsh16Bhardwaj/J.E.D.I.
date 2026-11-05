@@ -1,11 +1,14 @@
 """Owner-only manual scraper orchestration and staged import endpoints."""
 
+import asyncio
+import logging
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from time import perf_counter
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import case, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +29,7 @@ from backend.database import (
 from backend.schemas.scraper import (
     ScrapeAttemptPage,
     ScrapeAttemptResponse,
+    ScrapeBoardStats,
     ScrapeBulkSelectionRequest,
     ScrapeCandidateDetail,
     ScrapeCandidatePage,
@@ -40,6 +44,7 @@ from backend.schemas.scraper import (
     ScrapeSelectionRequest,
     ScrapeSourceCreateRequest,
     ScrapeSourceResponse,
+    ScrapeSourceRunOutcome,
     ScrapeSourceUpdateRequest,
     SourceDiscoveryAttemptResponse,
     SourceDiscoveryRunDetail,
@@ -59,11 +64,13 @@ from backend.services.scraper import (
     infer_source_from_url,
     load_scraper_config,
     parse_datetime,
+    provider_retry_at,
     seeded_source_specs,
     source_identity_consistent,
     validate_candidate,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/scraper", tags=["scraper"])
 DatabaseSession = Annotated[AsyncSession, Depends(get_session)]
 ACTIVE_STATUSES = {
@@ -140,13 +147,16 @@ async def sync_seed_sources(session: AsyncSession, group_id: str) -> list[Scrape
     return list(existing.values())
 
 
-def run_summary(item: ScrapeRun) -> ScrapeRunSummary:
+def run_summary(
+    item: ScrapeRun, *, next_retry_at: datetime | None = None
+) -> ScrapeRunSummary:
     provider_reason = item.provider_usage_reason or (
         "Direct ATS requests succeeded; no blocked detail page required Web Unlocker."
         if item.bright_data_used == 0
         else "Web Unlocker handled blocked or incomplete ATS detail pages."
     )
     return ScrapeRunSummary(
+        next_retry_at=next_retry_at.replace(tzinfo=UTC) if next_retry_at else None,
         id=item.id,
         status=item.status,
         config_version=item.config_version,
@@ -445,8 +455,6 @@ async def list_sources(
     user: CurrentUser, session: DatabaseSession
 ) -> list[ScrapeSourceResponse]:
     context = await require_group_owner(session, user.id)
-    await sync_seed_sources(session, context.group.id)
-    await session.commit()
     items = (
         await session.scalars(
             select(ScrapeSource)
@@ -454,7 +462,57 @@ async def list_sources(
             .order_by(ScrapeSource.ats_type, ScrapeSource.name)
         )
     ).all()
-    return [source_response(item) for item in items]
+    existing_keys = {item.source_key for item in items}
+    if any(
+        source.source_key not in existing_keys
+        for source in seeded_source_specs(load_scraper_config())
+    ):
+        # Serialize seed creation with run creation and source edits.
+        await require_group_owner(session, user.id, lock=True)
+        items = await sync_seed_sources(session, context.group.id)
+        await session.commit()
+        items.sort(key=lambda item: (item.ats_type, item.name))
+    ranked = (
+        select(
+            ScrapeAttempt.source_key,
+            ScrapeAttempt.run_id,
+            ScrapeAttempt.status,
+            ScrapeAttempt.updated_at,
+            ScrapeAttempt.discovered_count,
+            ScrapeAttempt.valid_count,
+            ScrapeAttempt.error_message,
+            func.row_number()
+            .over(
+                partition_by=ScrapeAttempt.source_key,
+                order_by=(ScrapeAttempt.updated_at.desc(), ScrapeAttempt.id.desc()),
+            )
+            .label("position"),
+        )
+        .join(ScrapeRun, ScrapeRun.id == ScrapeAttempt.run_id)
+        .where(
+            ScrapeRun.group_id == context.group.id,
+            ScrapeAttempt.status.in_(["SUCCEEDED", "FAILED"]),
+        )
+        .subquery()
+    )
+    history: dict[str, list[ScrapeSourceRunOutcome]] = {}
+    for row in await session.execute(
+        select(ranked).where(ranked.c.position <= 10).order_by(ranked.c.position)
+    ):
+        history.setdefault(row.source_key, []).append(
+            ScrapeSourceRunOutcome(
+                run_id=row.run_id,
+                status=row.status,
+                finished_at=row.updated_at,
+                jobs_seen=row.discovered_count,
+                importable_staged=row.valid_count,
+                error_message=row.error_message,
+            )
+        )
+    responses = [source_response(item) for item in items]
+    for response in responses:
+        response.recent_runs = history.get(response.source_key, [])
+    return responses
 
 
 @router.post("/sources", response_model=ScrapeSourceResponse, status_code=201)
@@ -730,6 +788,7 @@ async def advance_source_refresh(
     item.status = "RUNNING"
     attempt.status = "RUNNING"
     attempt.attempt_count += 1
+    claim_number = attempt.attempt_count
     attempt.lease_expires_at = now + timedelta(seconds=config.lease_seconds)
     await session.commit()
     started = perf_counter()
@@ -771,9 +830,11 @@ async def advance_source_refresh(
         raise HTTPException(
             status_code=409, detail="Source refresh attempt disappeared."
         )
-    if item.status == "CANCELLED" or attempt.status != "RUNNING":
-        attempt.lease_expires_at = None
-        await session.commit()
+    if (
+        item.status != "RUNNING"
+        or attempt.status != "RUNNING"
+        or attempt.attempt_count != claim_number
+    ):
         return discovery_summary(item)
 
     attempt.detected_count = len(detected.jobs) if discovery_error is None else 0
@@ -981,7 +1042,21 @@ async def create_run(user: CurrentUser, session: DatabaseSession) -> ScrapeRunSu
 async def get_run(
     run_id: str, user: CurrentUser, session: DatabaseSession
 ) -> ScrapeRunSummary:
-    return run_summary(await owned_run(session, user.id, run_id))
+    run = await owned_run(session, user.id, run_id)
+    next_retry_at = None
+    if run.status in {"CREATED", "RUNNING"}:
+        next_retry_at = await session.scalar(
+            select(ScrapeAttempt.retry_at)
+            .where(
+                ScrapeAttempt.run_id == run.id,
+                ScrapeAttempt.status == "PENDING",
+            )
+            .order_by(ScrapeAttempt.retry_at.asc().nulls_first())
+            .limit(1)
+        )
+        if next_retry_at and next_retry_at.replace(tzinfo=UTC) <= datetime.now(UTC):
+            next_retry_at = None
+    return run_summary(run, next_retry_at=next_retry_at)
 
 
 @router.get("/runs/{run_id}/attempts", response_model=ScrapeAttemptPage)
@@ -1087,11 +1162,40 @@ async def get_run_stats(
     run_id: str, user: CurrentUser, session: DatabaseSession
 ) -> ScrapeRunStats:
     run = await owned_run(session, user.id, run_id)
-    candidates = (
-        await session.scalars(
-            select(ScrapeCandidate).where(ScrapeCandidate.run_id == run.id)
+    boards = {
+        attempt.source_key: ScrapeBoardStats(
+            source_key=attempt.source_key,
+            name=name or attempt.source_key,
+            ats_type=attempt.provider,
+            status=attempt.status,
+            jobs_seen=attempt.discovered_count,
+            direct_requests=attempt.free_request_count,
+            bright_data_used=attempt.bright_data_used,
+            error_message=attempt.error_message,
+            retry_at=attempt.retry_at.replace(tzinfo=UTC) if attempt.retry_at else None,
+            retry_count=attempt.retry_count,
         )
-    ).all()
+        for attempt, name in await session.execute(
+            select(ScrapeAttempt, ScrapeSource.name)
+            .outerjoin(
+                ScrapeSource,
+                (ScrapeSource.group_id == run.group_id)
+                & (ScrapeSource.source_key == ScrapeAttempt.source_key),
+            )
+            .where(ScrapeAttempt.run_id == run.id)
+        )
+    }
+    candidates = await session.execute(
+        select(
+            ScrapeCandidate.source_key,
+            ScrapeCandidate.ats_type,
+            ScrapeCandidate.review_group,
+            ScrapeCandidate.schema_valid,
+            ScrapeCandidate.source_quality_valid,
+            ScrapeCandidate.selected,
+            ScrapeCandidate.quality_failures,
+        ).where(ScrapeCandidate.run_id == run.id)
+    )
     by_ats: dict[str, dict[str, int]] = {}
     reasons: dict[str, int] = {}
     for candidate in candidates:
@@ -1102,9 +1206,36 @@ async def get_run_stats(
             candidate.review_group, "rejected"
         )
         bucket[key] += 1
+        board = boards.get(candidate.source_key)
+        if board is not None:
+            board.unique_candidates += 1
+            if (
+                key != "rejected"
+                and candidate.schema_valid
+                and candidate.source_quality_valid
+            ):
+                board.importable += 1
+                board.selected += int(candidate.selected)
         for reason in candidate.quality_failures or []:
             reasons[str(reason)] = reasons.get(str(reason), 0) + 1
-    return ScrapeRunStats(by_ats=by_ats, by_rejection_reason=reasons)
+    imported_jobs = None
+    if run.imported_batch_id:
+        imported_jobs = await session.scalar(
+            select(Batch.job_count).where(Batch.id == run.imported_batch_id)
+        )
+    return ScrapeRunStats(
+        by_ats=by_ats,
+        by_rejection_reason=reasons,
+        by_board=sorted(
+            boards.values(),
+            key=lambda board: (
+                -board.importable,
+                board.name.casefold(),
+                board.source_key,
+            ),
+        ),
+        imported_jobs=imported_jobs,
+    )
 
 
 async def stage_jobs(
@@ -1373,6 +1504,10 @@ async def advance_run(
                 .where(
                     ScrapeAttempt.run_id == run.id,
                     ScrapeAttempt.status == "PENDING",
+                    or_(
+                        ScrapeAttempt.retry_at.is_(None),
+                        ScrapeAttempt.retry_at <= now,
+                    ),
                 )
                 .order_by(ScrapeAttempt.created_at, ScrapeAttempt.step_key)
                 .with_for_update(skip_locked=True)
@@ -1432,6 +1567,9 @@ async def advance_run(
     run.status = "RUNNING"
     attempt.status = "RUNNING"
     attempt.attempt_count += 1
+    claim_number = attempt.attempt_count
+    attempt.retry_at = None
+    attempt.error_message = None
     attempt.lease_expires_at = now + timedelta(seconds=config.lease_seconds)
     await session.commit()
 
@@ -1462,6 +1600,7 @@ async def advance_run(
             etag=stored.etag,
             last_modified=stored.last_modified,
             cached_jobs=stored.response_cache,
+            allow_unlocker=attempt.retry_count == 0,
         )
     except Exception as exc:
         fetch_error = exc
@@ -1478,9 +1617,11 @@ async def advance_run(
     )
     if attempt is None:
         raise HTTPException(status_code=409, detail="Scraper attempt disappeared.")
-    if run.status not in {"CREATED", "RUNNING"} or attempt.status != "RUNNING":
-        attempt.lease_expires_at = None
-        await session.commit()
+    if (
+        run.status != "RUNNING"
+        or attempt.status != "RUNNING"
+        or attempt.attempt_count != claim_number
+    ):
         return run_summary(run)
 
     stored = await session.scalar(
@@ -1542,15 +1683,37 @@ async def advance_run(
             )
         attempt.status = "PENDING" if result.next_checkpoint else "SUCCEEDED"
         attempt.error_message = None
+        attempt.retry_count = 0
     else:
-        attempt.status = "FAILED"
+        failed_at = datetime.now(UTC)
+        retry_at = provider_retry_at(fetch_error, failed_at, attempt.retry_count)
+        retrying = retry_at is not None and attempt.retry_count < config.max_retries
+        provider_cooldown = (
+            retry_at is not None
+            and isinstance(fetch_error, httpx.HTTPStatusError)
+            and (
+                fetch_error.response.status_code == 429
+                or "Retry-After" in fetch_error.response.headers
+            )
+        )
+        attempt.status = "PENDING" if retrying else "FAILED"
         attempt.error_message = str(fetch_error or "Source returned no result.")[:500]
+        attempt.retry_at = retry_at if retrying or provider_cooldown else None
+        if retrying:
+            attempt.retry_count += 1
         if stored is not None:
-            stored.health_status = "FAILING"
-            stored.last_failure_at = now
-            stored.consecutive_failures += 1
-            if stored.consecutive_failures >= 3:
-                stored.cooldown_until = now + timedelta(hours=24)
+            stored.last_failure_at = failed_at
+            if not retrying:
+                stored.health_status = "FAILING"
+                stored.consecutive_failures += 1
+                if stored.consecutive_failures >= 3:
+                    stored.cooldown_until = failed_at + timedelta(hours=24)
+                    stored.health_status = "COOLDOWN"
+            if provider_cooldown and retry_at is not None:
+                if stored.cooldown_until is None or retry_at > (
+                    stored.cooldown_until.replace(tzinfo=UTC)
+                ):
+                    stored.cooldown_until = retry_at
                 stored.health_status = "COOLDOWN"
     attempt.lease_expires_at = None
     attempt.response_time_ms = int((perf_counter() - started) * 1000)
@@ -1577,7 +1740,12 @@ async def retry_failed(
             ScrapeAttempt.run_id == run.id,
             ScrapeAttempt.status == "FAILED",
         )
-        .values(status="PENDING", error_message=None, lease_expires_at=None)
+        .values(
+            status="PENDING",
+            error_message=None,
+            lease_expires_at=None,
+            retry_count=0,
+        )
     )
     run.status = "RUNNING"
     run.stopped_early = False
@@ -1740,167 +1908,207 @@ async def cancel_run(
     return run_summary(run)
 
 
-@router.post("/runs/{run_id}/import", response_model=ScrapeImportResponse)
-async def import_run(
-    run_id: str,
-    body: ScrapeImportRequest,
-    user: CurrentUser,
-    session: DatabaseSession,
-) -> ScrapeImportResponse:
-    run = await owned_run(session, user.id, run_id, lock=True)
-    if run.status == "IMPORTED" and run.imported_batch_id:
-        imported = await session.get(Batch, run.imported_batch_id)
-        if imported is None:
-            raise HTTPException(
-                status_code=409, detail="The imported batch is missing."
-            )
-        return ScrapeImportResponse(
-            run=run_summary(run),
-            batch=batch_response(imported, replayed=True),
-            normalization={"status": "NORMALIZED", "replayed": True},
-        )
-    if run.status == "NORMALIZATION_FAILED" and run.imported_batch_id:
-        return await _resume_scraper_normalization(session, run)
-    if run.status not in {"REVIEW_READY", "IMPORTING"}:
-        raise HTTPException(status_code=409, detail="This run is not ready to import.")
-    if (
-        run.status == "REVIEW_READY"
-        and (
-            run.failed_source_count
-            or run.processed_source_count < run.source_count
-        )
-        and not body.confirm_partial
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "code": "PARTIAL_CONFIRMATION_REQUIRED",
-                "message": (
-                    "Confirm the unfinished or failed sources before importing "
-                    "partial results."
-                ),
-            },
-        )
-    selected = (
-        await session.scalars(
-            select(ScrapeCandidate).where(
-                ScrapeCandidate.run_id == run.id,
-                ScrapeCandidate.schema_valid.is_(True),
-                ScrapeCandidate.source_quality_valid.is_(True),
-                ScrapeCandidate.review_group.in_(["RECOMMENDED", "NEEDS_REVIEW"]),
-                ScrapeCandidate.selected.is_(True),
-            )
-        )
-    ).all()
-    if not selected:
-        raise HTTPException(status_code=422, detail="Select at least one valid job.")
-    envelope = {
-        "externalBatchId": f"scraper-{run.id}",
-        "schemaVersion": "jedi-import-v1",
-        "promptVersion": "jedi-site-scraper-v2",
-        "generatedAt": run.created_at.isoformat(),
-        "jobs": [candidate.payload for candidate in selected],
-    }
+async def _lock_import_run(
+    session: AsyncSession, run: ScrapeRun
+) -> ScrapeRun | None:
+    return await session.scalar(
+        select(ScrapeRun)
+        .where(ScrapeRun.id == run.id)
+        .with_for_update(skip_locked=True)
+        .execution_options(populate_existing=True)
+    )
+
+
+def _importable_selection(run_id: str):
+    return select(ScrapeCandidate.payload).where(
+        ScrapeCandidate.run_id == run_id,
+        ScrapeCandidate.schema_valid.is_(True),
+        ScrapeCandidate.source_quality_valid.is_(True),
+        ScrapeCandidate.review_group.in_(["RECOMMENDED", "NEEDS_REVIEW"]),
+        ScrapeCandidate.selected.is_(True),
+    )
+
+
+async def _queue_import(
+    session: AsyncSession, run: ScrapeRun, *, confirm_partial: bool
+) -> ScrapeRun:
+    locked = await _lock_import_run(session, run)
+    if locked is None:
+        if run.status in {"REVIEW_READY", "NORMALIZATION_FAILED"}:
+            raise HTTPException(409, "The run is being updated. Try again shortly.")
+        return run
+    run = locked
     if run.status == "REVIEW_READY":
+        if (
+            run.failed_source_count or run.processed_source_count < run.source_count
+        ) and not confirm_partial:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "PARTIAL_CONFIRMATION_REQUIRED",
+                    "message": "Confirm unfinished or failed sources before importing.",
+                },
+            )
+        if await session.scalar(_importable_selection(run.id).limit(1)) is None:
+            raise HTTPException(422, "Select at least one valid job.")
         run.status = "IMPORTING"
-        run.error_message = None
-        await session.commit()
-    try:
-        batch = await ingest_batch(session, envelope)
-    except Exception as exc:
-        await session.rollback()
-        run = await session.get(ScrapeRun, run_id)
-        if run:
-            run.status = "REVIEW_READY"
-            run.error_message = "Import did not complete. It is safe to retry."
-            await session.commit()
-        if isinstance(exc, HTTPException):
-            raise
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "code": "SCRAPER_IMPORT_RETRYABLE",
-                "message": "Import did not complete. It is safe to retry.",
-            },
-        ) from exc
-    run = await session.get(ScrapeRun, run_id)
-    if run is None:
-        raise HTTPException(
-            status_code=500, detail="Scraper run disappeared after import."
-        )
-    run.imported_batch_id = batch.batch_id
-    run.status = "NORMALIZING"
-    await session.commit()
-    return await _resume_scraper_normalization(session, run, batch_response_value=batch)
-
-
-async def _resume_scraper_normalization(
-    session: AsyncSession,
-    run: ScrapeRun,
-    *,
-    batch_response_value=None,
-) -> ScrapeImportResponse:
-    if not run.imported_batch_id:
-        raise HTTPException(status_code=409, detail="The imported batch is missing.")
-    imported = await session.get(Batch, run.imported_batch_id)
-    if imported is None:
-        raise HTTPException(status_code=409, detail="The imported batch is missing.")
-    run.status = "NORMALIZING"
+    elif run.status == "NORMALIZATION_FAILED":
+        run.status = "NORMALIZING"
+    elif run.status not in {"IMPORTING", "NORMALIZING", "IMPORTED"}:
+        raise HTTPException(status_code=409, detail="This run is not ready to import.")
     run.error_message = None
     await session.commit()
-    try:
-        normalized = await normalize_batch_service(
+    return run
+
+
+async def _ingest_scraper_selection(session: AsyncSession, run: ScrapeRun) -> None:
+    external_id = f"scraper-{run.id}"
+    batch_id = await session.scalar(
+        select(Batch.id).where(Batch.external_batch_id == external_id)
+    )
+    # Older deployments could commit the batch before linking it to the run.
+    if batch_id is None:
+        selected = (
+            await session.scalars(
+                _importable_selection(run.id).order_by(ScrapeCandidate.id)
+            )
+        ).all()
+        if not selected:
+            raise HTTPException(422, "Select at least one valid job.")
+        batch = await ingest_batch(
             session,
-            imported.id,
-            apply_inr_policy=True,
-            trigger="SCRAPER",
-        )
-    except Exception as exc:
-        await session.rollback()
-        run = await session.get(ScrapeRun, run.id)
-        if run:
-            run.status = "NORMALIZATION_FAILED"
-            detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
-            run.error_message = str(detail)[:500]
-            await session.commit()
-        if isinstance(exc, HTTPException):
-            raise
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "code": "SCRAPER_NORMALIZATION_RETRYABLE",
-                "message": "Normalization was interrupted. Retry normalization.",
+            {
+                "externalBatchId": external_id,
+                "schemaVersion": "jedi-import-v1",
+                "promptVersion": "jedi-site-scraper-v2",
+                "generatedAt": run.created_at.isoformat(),
+                "jobs": list(selected),
             },
-        ) from exc
-    run = await session.get(ScrapeRun, run.id)
-    if run is None:
-        raise HTTPException(
-            status_code=500, detail="Scraper run disappeared after normalization."
+            commit=False,
         )
-    run.status = "IMPORTED"
-    run.completed_at = datetime.now(UTC)
+        batch_id = batch.batch_id
+    run.imported_batch_id = batch_id
+    run.status = "NORMALIZING"
+
+
+async def _advance_import(
+    session: AsyncSession, run: ScrapeRun
+) -> tuple[ScrapeRun, dict | None, Exception | None]:
+    locked = await _lock_import_run(session, run)
+    if locked is None or locked.status not in {"IMPORTING", "NORMALIZING"}:
+        return locked or run, None, None
+    run = locked
+    ingesting = run.status == "IMPORTING"
+    normalization = None
+    error = None
+    # The outer transaction holds only this run's lock. Each stage and its
+    # checkpoint commit together, and a disconnected worker loses its lock.
+    try:
+        async with session.begin_nested():
+            async with asyncio.timeout(45):
+                if ingesting:
+                    await _ingest_scraper_selection(session, run)
+                else:
+                    if not run.imported_batch_id:
+                        raise HTTPException(409, "The imported batch is missing.")
+                    normalized = await normalize_batch_service(
+                        session,
+                        run.imported_batch_id,
+                        apply_inr_policy=True,
+                        trigger="SCRAPER",
+                        commit=False,
+                    )
+                    normalization = normalized.model_dump(mode="json", by_alias=True)
+                    run.status = "IMPORTED"
+                    run.completed_at = datetime.now(UTC)
+                await session.flush()
+    except Exception as exc:
+        error = exc
+        await session.refresh(run)
+        run.status = "REVIEW_READY" if ingesting else "NORMALIZATION_FAILED"
+        if isinstance(exc, HTTPException):
+            detail = exc.detail
+            run.error_message = (
+                detail.get("message", "Import could not complete.")
+                if isinstance(detail, dict)
+                else str(detail)
+            )[:500]
+        elif isinstance(exc, TimeoutError):
+            run.error_message = "This step timed out. You can safely retry."
+        else:
+            logger.exception("Scraper import step failed for run %s", run.id)
+            run.error_message = "This step could not complete. You can safely retry."
     await session.commit()
+    return run, normalization, error
+
+
+@router.post(
+    "/runs/{run_id}/queue-import",
+    response_model=ScrapeRunSummary,
+    status_code=202,
+)
+async def queue_scraper_import(
+    run_id: str, body: ScrapeImportRequest, user: CurrentUser, session: DatabaseSession
+) -> ScrapeRunSummary:
+    run = await owned_run(session, user.id, run_id)
+    run = await _queue_import(session, run, confirm_partial=body.confirm_partial)
+    return run_summary(run)
+
+
+@router.post("/runs/{run_id}/advance-import", response_model=ScrapeRunSummary)
+async def advance_scraper_import(
+    run_id: str, user: CurrentUser, session: DatabaseSession
+) -> ScrapeRunSummary:
+    run = await owned_run(session, user.id, run_id)
+    run, _, _ = await _advance_import(session, run)
+    return run_summary(run)
+
+
+async def _complete_legacy_import(
+    session: AsyncSession, run: ScrapeRun
+) -> ScrapeImportResponse:
+    replayed = run.imported_batch_id is not None or await session.scalar(
+        select(Batch.id).where(Batch.external_batch_id == f"scraper-{run.id}")
+    ) is not None
+    normalization = None
+    for _ in range(2):
+        if run.status not in {"IMPORTING", "NORMALIZING"}:
+            break
+        previous_status = run.status
+        run, normalization, error = await _advance_import(session, run)
+        if error:
+            if isinstance(error, HTTPException):
+                raise error
+            raise HTTPException(503, run.error_message) from error
+        if run.status == previous_status:
+            break
+    if run.status != "IMPORTED" or not run.imported_batch_id:
+        raise HTTPException(409, "Import is still in progress. Check the run status.")
+    imported = await session.get(Batch, run.imported_batch_id)
+    if imported is None:
+        raise HTTPException(409, "The imported batch is missing.")
     return ScrapeImportResponse(
         run=run_summary(run),
-        batch=batch_response(
-            imported,
-            replayed=(
-                batch_response_value.replayed
-                if batch_response_value is not None
-                else True
-            ),
-        ),
-        normalization=normalized.model_dump(mode="json", by_alias=True),
+        batch=batch_response(imported, replayed=replayed),
+        normalization=normalization or {"status": "NORMALIZED", "replayed": True},
     )
+
+
+@router.post("/runs/{run_id}/import", response_model=ScrapeImportResponse)
+async def import_run(
+    run_id: str, body: ScrapeImportRequest, user: CurrentUser, session: DatabaseSession
+) -> ScrapeImportResponse:
+    run = await owned_run(session, user.id, run_id)
+    run = await _queue_import(session, run, confirm_partial=body.confirm_partial)
+    return await _complete_legacy_import(session, run)
 
 
 @router.post("/runs/{run_id}/retry-normalization", response_model=ScrapeImportResponse)
 async def retry_normalization(
     run_id: str, user: CurrentUser, session: DatabaseSession
 ) -> ScrapeImportResponse:
-    run = await owned_run(session, user.id, run_id, lock=True)
-    if run.status not in {"NORMALIZATION_FAILED", "NORMALIZING"}:
-        raise HTTPException(
-            status_code=409, detail="This run has no failed normalization to retry."
-        )
-    return await _resume_scraper_normalization(session, run)
+    run = await owned_run(session, user.id, run_id)
+    if run.status not in {"NORMALIZATION_FAILED", "NORMALIZING", "IMPORTED"}:
+        raise HTTPException(409, "This run has no normalization to retry.")
+    run = await _queue_import(session, run, confirm_partial=False)
+    return await _complete_legacy_import(session, run)

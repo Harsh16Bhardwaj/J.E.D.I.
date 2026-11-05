@@ -126,6 +126,33 @@ def test_distinct_skills_do_not_match_language_suffixes():
     assert skill_names("React.js Next.js Node.js") == ["React", "Next.js", "Node.js"]
 
 
+def test_job_and_resume_share_skill_identity_without_merging_tools_and_disciplines():
+    from backend.services.skill_vocabulary import canonical_skill
+
+    assert canonical_skill(" ReactJS ") == "React"
+    assert canonical_skill("React-Native") == "React Native"
+    evidence = parse_resume_text(
+        RESUME.replace(
+            "React, TypeScript, CSS",
+            "React Native, supervised learning, PyTorch, sklearn, C++, C#",
+        )
+    )
+    assert {
+        "React Native",
+        "Supervised Learning",
+        "PyTorch",
+        "scikit-learn",
+        "C++",
+        "C#",
+    }.issubset(evidence.explicit_skills)
+    assert "Machine Learning" not in evidence.explicit_skills
+    assert any(item.skill == "Machine Learning" for item in evidence.inferred_skills)
+    only_tool = parse_resume_text(RESUME.replace("React, TypeScript, CSS", "PyTorch"))
+    assert not any(
+        item.skill == "Machine Learning" for item in only_tool.inferred_skills
+    )
+
+
 def make_resume_pdf(text=RESUME):
     from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 

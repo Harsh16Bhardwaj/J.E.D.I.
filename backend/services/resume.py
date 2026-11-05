@@ -7,45 +7,9 @@ from io import BytesIO
 from pypdf import PdfReader
 
 from backend.schemas.learning import InferredSkill, ResumeEvidence
+from backend.services.skill_vocabulary import BROADER_SKILLS, skill_names, vocabulary
 
 MAX_PDF_BYTES = 5 * 1024 * 1024
-SKILLS = {
-    "React": ["react", "react.js", "reactjs"],
-    "Next.js": ["next.js", "nextjs"],
-    "JavaScript": ["javascript", "ecmascript"],
-    "TypeScript": ["typescript"],
-    "Python": ["python"],
-    "Docker": ["docker"],
-    "Kubernetes": ["kubernetes", "k8s"],
-    "SQL": ["sql"],
-    "PostgreSQL": ["postgresql", "postgres"],
-    "Node.js": ["node.js", "nodejs"],
-    "FastAPI": ["fastapi"],
-    "Django": ["django"],
-    "Flask": ["flask"],
-    "Git": ["git"],
-    "AWS": ["aws", "amazon web services"],
-    "Azure": ["azure"],
-    "GCP": ["gcp", "google cloud"],
-    "HTML": ["html", "html5"],
-    "CSS": ["css", "css3"],
-    "Java": ["java"],
-    "C++": ["c++"],
-    "C#": ["c#", "csharp"],
-    "Go": ["golang"],
-    "Rust": ["rust"],
-    "Redis": ["redis"],
-    "MongoDB": ["mongodb"],
-    "Linux": ["linux"],
-    "GraphQL": ["graphql"],
-    "REST": ["rest", "restful"],
-    "Terraform": ["terraform"],
-    "CI/CD": ["ci/cd", "continuous integration"],
-    "Testing": ["unit testing", "jest", "pytest", "vitest"],
-    "Machine Learning": ["machine learning", "scikit-learn", "pytorch"],
-    "System Design": ["system design"],
-    "Data Structures": ["data structures"],
-}
 SECTIONS = {
     "summary": ["summary", "profile", "professional summary", "objective", "about me"],
     "skills": [
@@ -86,24 +50,6 @@ class ResumeError(ValueError):
     def __init__(self, code: str, message: str):
         self.code = code
         super().__init__(message)
-
-
-def skill_names(text: str) -> list[str]:
-    return [
-        name
-        for name, aliases in SKILLS.items()
-        if any(
-            re.search(r"(?<![\w])" + re.escape(alias) + r"(?![\w])", text, re.I)
-            for alias in aliases
-        )
-    ]
-
-
-def canonical_skill(value: str) -> str:
-    for name, aliases in SKILLS.items():
-        if value.strip().casefold() in [name.casefold(), *aliases]:
-            return name
-    return value.strip()
 
 
 def sections_of(text: str) -> dict[str, list[str]]:
@@ -228,7 +174,11 @@ def parse_resume_text(text: str) -> ResumeEvidence:
             negative.update(names)
         else:
             positive.update(names)
-    explicit = [name for name in SKILLS if name in positive and name not in negative]
+    explicit = [
+        name
+        for name in dict.fromkeys(vocabulary().values())
+        if name in positive and name not in negative
+    ]
     inferred = []
     for source, target in [
         ("React", "JavaScript"),
@@ -236,6 +186,7 @@ def parse_resume_text(text: str) -> ResumeEvidence:
         ("Django", "Python"),
         ("FastAPI", "Python"),
         ("PostgreSQL", "SQL"),
+        *BROADER_SKILLS.items(),
     ]:
         if (
             source in explicit

@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 
 import { BrutalCard } from "@/components/brutal-card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -381,6 +381,8 @@ function JobsWorkspace() {
           </div>
         </div>
       </header>
+
+      <Link href="/jobs/intake" className={buttonVariants({ variant: "outline" })}>Bring a job</Link>
 
       <div className="inline-flex w-fit gap-1 rounded-xl border border-border bg-card p-1.5 shadow-sm">
         <button

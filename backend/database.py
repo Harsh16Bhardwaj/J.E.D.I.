@@ -505,6 +505,10 @@ class ScrapeAttempt(Base):
     lease_expires_at: Mapped[datetime | None] = mapped_column(
         "leaseExpiresAt", DateTime(timezone=True), nullable=True
     )
+    retry_at: Mapped[datetime | None] = mapped_column(
+        "retryAt", DateTime(timezone=True), nullable=True
+    )
+    retry_count: Mapped[int] = mapped_column("retryCount", Integer, default=0)
     checkpoint: Mapped[dict | None] = mapped_column(json_type, nullable=True)
     response_time_ms: Mapped[int | None] = mapped_column(
         "responseTimeMs", Integer, nullable=True
@@ -1694,6 +1698,28 @@ class EmailDeliveryAttempt(Base):
     error_code: Mapped[str | None] = mapped_column("errorCode", String, nullable=True)
     safe_error_message: Mapped[str | None] = mapped_column(
         "safeErrorMessage", Text, nullable=True
+    )
+
+
+class JobDraft(Base):
+    """A job brought to JEDI by one member, outside the shared job catalog."""
+
+    __tablename__ = "JobDraft"
+    __table_args__ = (
+        Index("JobDraft_groupMemberId_updatedAt_idx", "groupMemberId", "updatedAt"),
+    )
+
+    group_member_id: Mapped[str] = mapped_column(
+        "groupMemberId",
+        ForeignKey("GroupMember.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    description: Mapped[str] = mapped_column(Text)
+    preview: Mapped[dict] = mapped_column(json_type)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    updated_at: Mapped[datetime] = mapped_column(
+        "updatedAt", DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
 
 

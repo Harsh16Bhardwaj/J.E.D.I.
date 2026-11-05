@@ -17,8 +17,10 @@ import useSWR, { useSWRConfig } from "swr";
 
 import { BrutalCard } from "@/components/brutal-card";
 import { RouteHeader } from "@/components/route-header";
+import { ScraperBoardResults } from "@/components/scraper-board-results";
+import { ScraperSourceHealth } from "@/components/scraper-source-health";
 import { StatusBadge } from "@/components/status-badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -35,7 +37,6 @@ import {
   type ScrapeAttemptPage,
   type ScrapeCandidateDetail,
   type ScrapeCandidatePage,
-  type ScrapeImportResult,
   type ScrapeRunPage,
   type ScrapeRunStats,
   type ScrapeRunSummary,
@@ -84,31 +85,41 @@ function reasonLabel(reason: string): string {
 
 export default function ScraperPage() {
   const { mutate: mutateGlobal } = useSWRConfig();
-  const session = useSWR<User>("/api/auth/me");
-  const config = useSWR<ScraperConfigSummary>("/api/scraper/config");
-  const sources = useSWR<ScrapeSource[]>("/api/scraper/sources");
-  const runs = useSWR<ScrapeRunPage>("/api/scraper/runs?page=1&pageSize=20");
-  const sourceRefresh = useSWR<SourceDiscoveryRun | null>("/api/scraper/source-refresh");
+  const session = useSWR<User>("/api/auth/session");
+  const owner = session.data?.isGroupOwner;
+  const config = useSWR<ScraperConfigSummary>(owner ? "/api/scraper/config" : null);
+  const sources = useSWR<ScrapeSource[]>(owner ? "/api/scraper/sources" : null, {
+    fetcher: (path: string) => apiRequest<ScrapeSource[]>(path, { signal: AbortSignal.timeout(20_000) }),
+  });
+  const runs = useSWR<ScrapeRunPage>(owner ? "/api/scraper/runs?page=1&pageSize=20" : null);
+  const sourceRefresh = useSWR<SourceDiscoveryRun | null>(owner ? "/api/scraper/source-refresh" : null);
   const [runId, setRunId] = useState<string>();
   const [working, setWorking] = useState(false);
+  const [collectingRunId, setCollectingRunId] = useState<string | null>();
+  const [importing, setImporting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [stoppingForReview, setStoppingForReview] = useState(false);
   const [cancellingSourceRefresh, setCancellingSourceRefresh] = useState(false);
-  const cancelRequested = useRef(false);
+  const collection = useRef<AbortController | null>(null);
   const sourceCancelRequested = useRef(false);
   const selectionQueue = useRef(new Map<string, boolean>());
   const selectionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectionSync = useRef<Promise<void>>(Promise.resolve());
   const [partialConfirmed, setPartialConfirmed] = useState(false);
-  const [importResult, setImportResult] = useState<ScrapeImportResult>();
   const [sourceUrl, setSourceUrl] = useState("");
   const [candidatePage, setCandidatePage] = useState(1);
   const [expandedCandidateId, setExpandedCandidateId] = useState<string>();
   const [selectionSaving, setSelectionSaving] = useState(false);
   const [bulkSelection, setBulkSelection] = useState(false);
   const selectedRunId = runId ?? runs.data?.items[0]?.id;
+  const collecting = collectingRunId !== undefined;
   const detail = useSWR<ScrapeRunSummary>(
-    selectedRunId ? `/api/scraper/runs/${selectedRunId}` : null,
+    owner && selectedRunId ? `/api/scraper/runs/${selectedRunId}` : null,
+    {
+      keepPreviousData: false,
+      refreshInterval: (summary) =>
+        summary && ["IMPORTING", "NORMALIZING"].includes(summary.status) ? 5_000 : 0,
+    },
   );
   const loadReviewData = Boolean(
     detail.data && !["CREATED", "RUNNING"].includes(detail.data.status),
@@ -124,46 +135,69 @@ export default function ScraperPage() {
       : null,
   );
   const runStats = useSWR<ScrapeRunStats>(
-    selectedRunId && loadReviewData
-      ? `/api/scraper/runs/${selectedRunId}/stats`
-      : null,
+    owner && selectedRunId ? `/api/scraper/runs/${selectedRunId}/stats` : null,
+    {
+      fetcher: (path: string) => apiRequest<ScrapeRunStats>(path, { signal: AbortSignal.timeout(15_000) }),
+      keepPreviousData: false,
+      dedupingInterval: 2_000,
+      refreshInterval: collecting || (detail.data && canAdvanceScrape(detail.data)) ? 5_000 : 0,
+    },
   );
   const expandedCandidate = useSWR<ScrapeCandidateDetail>(
-    selectedRunId && expandedCandidateId
+    owner && selectedRunId && expandedCandidateId
       ? `/api/scraper/runs/${selectedRunId}/candidates/${expandedCandidateId}`
       : null,
   );
 
-  async function refresh(next?: ScrapeRunSummary) {
-    if (next) {
-      await mutateGlobal(`/api/scraper/runs/${next.id}`, next, {
-        revalidate: false,
-      });
+  async function publishRun(next: ScrapeRunSummary) {
+    await mutateGlobal(`/api/scraper/runs/${next.id}`, next, {
+      revalidate: false,
+    });
+    if (!canAdvanceScrape(next)) {
+      void mutateGlobal(`/api/scraper/runs/${next.id}/stats`);
+      void sources.mutate();
     }
-    // Keep control requests responsive on the small local/hosted DB pool.
-    // These payloads are review-only and do not need to fan out concurrently.
-    await runs.mutate();
-    await attempts.mutate();
-    await candidates.mutate();
-    await runStats.mutate();
+  }
+
+  function selectRun(id: string) {
+    setRunId(id);
+    setPartialConfirmed(false);
+    setCandidatePage(1);
+    setExpandedCandidateId(undefined);
+  }
+
+  function startCollection(id: string | null) {
+    const controller = new AbortController();
+    collection.current = controller;
+    setCollectingRunId(id);
+    return controller;
+  }
+
+  function endCollection(controller: AbortController | null) {
+    if (controller !== collection.current) return;
+    collection.current = null;
+    controller?.abort();
+    setCollectingRunId(undefined);
   }
 
   async function createRun() {
-    if (working) return;
-    setWorking(true);
-    cancelRequested.current = false;
-    setImportResult(undefined);
+    if (collection.current || stoppingForReview || cancelling || importing) return;
+    const controller = startCollection(null);
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]);
+    setPartialConfirmed(false);
     try {
       const created = await apiRequest<ScrapeRunSummary>("/api/scraper/runs", {
         method: "POST",
+        signal,
       });
-      setRunId(created.id);
-      await mutateGlobal(`/api/scraper/runs/${created.id}`, created, {
-        revalidate: false,
-      });
+      if (controller.signal.aborted) return;
+      selectRun(created.id);
+      setCollectingRunId(created.id);
+      await publishRun(created);
       toast.success("Collection started.");
-      await collectRun(created);
+      await collectRun(created, controller.signal);
     } catch (error) {
+      if (controller.signal.aborted) return;
       if (
         isApiError(error) &&
         error.code === "SCRAPER_RUN_ACTIVE" &&
@@ -172,20 +206,28 @@ export default function ScraperPage() {
         "runId" in error.details &&
         typeof error.details.runId === "string"
       ) {
-        setRunId(error.details.runId);
-        const existing = await apiRequest<ScrapeRunSummary>(
-          `/api/scraper/runs/${error.details.runId}`,
-        );
-        await mutateGlobal(`/api/scraper/runs/${existing.id}`, existing, {
-          revalidate: false,
-        });
-        toast.info("Resuming the existing scraper run.");
-        if (canAdvanceScrape(existing)) await collectRun(existing);
+        try {
+          const existing = await apiRequest<ScrapeRunSummary>(
+            `/api/scraper/runs/${error.details.runId}`,
+            { signal },
+          );
+          if (controller.signal.aborted) return;
+          selectRun(existing.id);
+          setCollectingRunId(existing.id);
+          await publishRun(existing);
+          if (canAdvanceScrape(existing)) {
+            toast.info("Resuming the existing scraper run.");
+            await collectRun(existing, controller.signal);
+          }
+        } catch (resumeError) {
+          if (!controller.signal.aborted) toast.error(errorSummary(resumeError));
+        }
         return;
       }
       toast.error(errorSummary(error));
     } finally {
-      setWorking(false);
+      endCollection(controller);
+      void runs.mutate();
     }
   }
 
@@ -206,30 +248,6 @@ export default function ScraperPage() {
       toast.error(errorSummary(error));
     } finally {
       setWorking(false);
-    }
-  }
-
-  async function setSourceActive(source: ScrapeSource, active: boolean) {
-    try {
-      await apiRequest<ScrapeSource>(`/api/scraper/sources/${source.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ active }),
-      });
-      await sources.mutate();
-    } catch (error) {
-      toast.error(errorSummary(error));
-    }
-  }
-
-  async function sourceAction(source: ScrapeSource, action: "revalidate" | "clear-cooldown") {
-    try {
-      await apiRequest<ScrapeSource>(`/api/scraper/sources/${source.id}/${action}`, {
-        method: "POST",
-      });
-      await sources.mutate();
-      toast.success(action === "revalidate" ? "Source revalidated." : "Cooldown cleared.");
-    } catch (error) {
-      toast.error(errorSummary(error));
     }
   }
 
@@ -290,47 +308,54 @@ export default function ScraperPage() {
 
   async function collectRun(
     selectedRun: ScrapeRunSummary,
+    signal: AbortSignal,
     options: { retryFailed?: boolean; resume?: boolean } = {},
   ) {
-    cancelRequested.current = false;
     let next = selectedRun;
-    if (options.retryFailed) {
+    const action = options.retryFailed ? "retry-failed" : options.resume ? "resume" : null;
+    if (action) {
       next = await apiRequest<ScrapeRunSummary>(
-        `/api/scraper/runs/${next.id}/retry-failed`,
-        { method: "POST" },
+        `/api/scraper/runs/${next.id}/${action}`,
+        { method: "POST", signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]) },
       );
-    } else if (options.resume) {
-      next = await apiRequest<ScrapeRunSummary>(
-        `/api/scraper/runs/${next.id}/resume`,
-        { method: "POST" },
-      );
+      if (signal.aborted) return;
+      await publishRun(next);
     }
     let chunks = 0;
     while (
       canAdvanceScrape(next) &&
-      !cancelRequested.current &&
+      !signal.aborted &&
       chunks < 250
     ) {
       const concurrent = Math.max(1, config.data?.concurrentSources ?? 3);
-      const summaries = await Promise.all(
+      const previous = next;
+      const stepSignal = AbortSignal.any([signal, AbortSignal.timeout(120_000)]);
+      await Promise.all(
         Array.from({ length: concurrent }, () =>
           apiRequest<ScrapeRunSummary>(`/api/scraper/runs/${next.id}/advance`, {
             method: "POST",
+            signal: stepSignal,
           }),
         ),
       );
-      next = summaries.reduce((latest, candidate) =>
-        new Date(candidate.updatedAt) > new Date(latest.updatedAt)
-          ? candidate
-          : latest,
+      if (signal.aborted) return;
+      next = await apiRequest<ScrapeRunSummary>(
+        `/api/scraper/runs/${next.id}`,
+        { signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]) },
       );
-      await mutateGlobal(`/api/scraper/runs/${next.id}`, next, {
-        revalidate: false,
-      });
-      chunks += concurrent;
+      if (signal.aborted) return;
+      await publishRun(next);
+      const retryDelay = next.nextRetryAt ? Date.parse(next.nextRetryAt) - Date.now() : 0;
+      if (canAdvanceScrape(next) && retryDelay > 0) {
+        await new Promise((resolve) => setTimeout(resolve, Math.min(retryDelay, 10_000)));
+      } else {
+        chunks += concurrent;
+      }
+      if (retryDelay <= 0 && canAdvanceScrape(next) && next.updatedAt === previous.updatedAt) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
     }
-    next = await apiRequest<ScrapeRunSummary>(`/api/scraper/runs/${next.id}`);
-    await refresh(next);
+    if (signal.aborted) return;
     if (next.status === "REVIEW_READY") {
       toast.success("Collection stopped. Candidates are ready to review.");
     }
@@ -341,34 +366,39 @@ export default function ScraperPage() {
 
   async function advance(retryFailed = false, resume = false) {
     const selectedRun = detail.data;
-    if (!selectedRun || working) return;
-    setWorking(true);
+    if (!selectedRun || collection.current || stoppingForReview || cancelling || importing || selectionSaving) return;
+    const controller = startCollection(selectedRun.id);
+    setPartialConfirmed(false);
     try {
-      await collectRun(selectedRun, { retryFailed, resume });
+      await collectRun(selectedRun, controller.signal, { retryFailed, resume });
     } catch (error) {
-      toast.error(errorSummary(error));
-      await detail.mutate();
+      if (!controller.signal.aborted) {
+        toast.error(errorSummary(error));
+        void detail.mutate();
+      }
     } finally {
-      setWorking(false);
+      endCollection(controller);
+      void runs.mutate();
     }
   }
 
   async function stopAndReview() {
-    if (!detail.data || stoppingForReview) return;
-    cancelRequested.current = true;
+    if (!detail.data || stoppingForReview || cancelling) return;
     setStoppingForReview(true);
+    endCollection(collection.current);
     try {
       const next = await apiRequest<ScrapeRunSummary>(
         `/api/scraper/runs/${detail.data.id}/stop-and-review`,
-        { method: "POST" },
+        { method: "POST", signal: AbortSignal.timeout(15_000) },
       );
-      await refresh(next);
+      await publishRun(next);
       toast.success("Collection stopped. Review and select any importable job.");
     } catch (error) {
       toast.error(errorSummary(error));
-      await detail.mutate();
+      void detail.mutate();
     } finally {
       setStoppingForReview(false);
+      void runs.mutate();
     }
   }
 
@@ -396,6 +426,7 @@ export default function ScraperPage() {
         }
         if (next && selectionQueue.current.size === 0) {
           await detail.mutate(next, { revalidate: false });
+          void runStats.mutate();
         }
       })
       .catch(async (error) => {
@@ -492,6 +523,7 @@ export default function ScraperPage() {
           ? `${next.selectedCount} importable jobs selected.`
           : "All selections cleared.",
       );
+      void runStats.mutate();
     } catch (error) {
       toast.error(errorSummary(error));
       await Promise.all([detail.mutate(), candidates.mutate()]);
@@ -502,69 +534,76 @@ export default function ScraperPage() {
   }
 
   async function cancelRun() {
-    if (!detail.data || cancelling) return;
-    cancelRequested.current = true;
+    if (!detail.data || cancelling || stoppingForReview || importing) return;
     setCancelling(true);
+    endCollection(collection.current);
     try {
       const next = await apiRequest<ScrapeRunSummary>(
         `/api/scraper/runs/${detail.data.id}/cancel`,
-        { method: "POST" },
+        { method: "POST", signal: AbortSignal.timeout(15_000) },
       );
-      await refresh(next);
+      await publishRun(next);
       toast.success("Scraper run cancelled.");
     } catch (error) {
       toast.error(errorSummary(error));
+      void detail.mutate();
     } finally {
       setCancelling(false);
+      void runs.mutate();
     }
   }
 
-  async function importSelected() {
-    if (!detail.data || working) return;
-    setWorking(true);
+  async function processImport() {
+    if (!detail.data || importing || stoppingForReview || cancelling || collecting || selectionSaving) return;
+    let next = detail.data;
+    setImporting(true);
     try {
-      if (selectionTimer.current) clearTimeout(selectionTimer.current);
-      flushSelectionQueue();
-      await selectionSync.current;
-      const result = await apiRequest<ScrapeImportResult>(
-        `/api/scraper/runs/${detail.data.id}/import`,
-        {
-          method: "POST",
-          body: JSON.stringify({ confirmPartial: partialConfirmed }),
-        },
-      );
-      setImportResult(result);
-      await detail.mutate();
-      await runs.mutate();
-      toast.success("Selected jobs imported and normalized to INR.");
+      if (next.status === "REVIEW_READY" || next.status === "NORMALIZATION_FAILED") {
+        next = await apiRequest<ScrapeRunSummary>(
+          `/api/scraper/runs/${next.id}/queue-import`,
+          {
+            method: "POST",
+            body: JSON.stringify({ confirmPartial: partialConfirmed }),
+            signal: AbortSignal.timeout(15_000),
+          },
+        );
+        await publishRun(next);
+      }
+      for (let stage = 0; stage < 2 && ["IMPORTING", "NORMALIZING"].includes(next.status); stage++) {
+        const previousStatus = next.status;
+        next = await apiRequest<ScrapeRunSummary>(
+          `/api/scraper/runs/${next.id}/advance-import`,
+          { method: "POST", signal: AbortSignal.timeout(55_000) },
+        );
+        await publishRun(next);
+        if (next.status === previousStatus) break;
+      }
+      if (next.status === "IMPORTED") {
+        toast.success("Batch imported and normalized to INR.");
+      } else if (next.errorMessage) {
+        toast.error(next.errorMessage);
+      }
     } catch (error) {
       toast.error(errorSummary(error));
-      await Promise.all([detail.mutate(), runs.mutate()]);
+      void detail.mutate();
     } finally {
-      setWorking(false);
+      setImporting(false);
+      void runs.mutate();
     }
   }
 
-  async function retryNormalization() {
-    if (!detail.data || working) return;
-    setWorking(true);
-    try {
-      const result = await apiRequest<ScrapeImportResult>(
-        `/api/scraper/runs/${detail.data.id}/retry-normalization`,
-        { method: "POST" },
-      );
-      setImportResult(result);
-      await Promise.all([detail.mutate(), runs.mutate()]);
-      toast.success("Normalization completed.");
-    } catch (error) {
-      toast.error(errorSummary(error));
-      await detail.mutate();
-    } finally {
-      setWorking(false);
-    }
+  if (session.error) {
+    return (
+      <BrutalCard>
+        <p role="alert" className="text-sm text-coral">{errorSummary(session.error)}</p>
+        <Button className="mt-3" onClick={() => void session.mutate()}>Retry access check</Button>
+      </BrutalCard>
+    );
   }
-
-  if (session.data && !session.data.isGroupOwner) {
+  if (!session.data) {
+    return <BrutalCard><p role="status">Checking scraper access…</p></BrutalCard>;
+  }
+  if (!owner) {
     return (
       <BrutalCard className="border-coral">
         <p className="ops-label text-coral">Owner access required</p>
@@ -576,10 +615,12 @@ export default function ScraperPage() {
   }
 
   const run = detail.data;
+  const changingRun = stoppingForReview || cancelling || importing;
+  const collectionUnavailable = collecting || changingRun || selectionSaving;
   const progress = run ? scrapeProgress(run) : 0;
   const runAttempts = loadReviewData ? (attempts.data?.items ?? []) : [];
   const runCandidates = loadReviewData ? (candidates.data?.items ?? []) : [];
-  const visibleRunStats = loadReviewData ? runStats.data : undefined;
+  const visibleRunStats = runStats.data;
   const partialRun = run ? shouldWarnAboutPartialRun(run) : false;
   const stageIndex = run
     ? ["CREATED", "RUNNING"].includes(run.status)
@@ -599,13 +640,15 @@ export default function ScraperPage() {
     <div className="space-y-9">
       <RouteHeader
         eyebrow="Owner collection workspace"
-        title="Collect, inspect, then import."
+        title="Scraper operations"
         path="/scraper"
         description="Manual, resumable employer-direct collection with evidence-backed enrichment and INR normalization."
       />
-      <div className="-mt-5 inline-flex rounded border border-purple bg-purple/10 px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-wider text-purple">
-        BETA
-      </div>
+      <nav aria-label="Scraper sections" className="-mt-5 flex flex-wrap gap-4 text-sm font-bold">
+        <a className="underline" href="#run-history">Runs</a>
+        <a className="underline" href="#source-health">Sources</a>
+        <a className="underline" href="#source-discovery">Discovery</a>
+      </nav>
 
       <div className="grid gap-4 lg:grid-cols-[1.35fr_.65fr]">
         <BrutalCard>
@@ -619,14 +662,14 @@ export default function ScraperPage() {
                 {config.data?.lookbackDays ?? 14}-day verified selection · up to {config.data?.reviewLookbackDays ?? 30} days for review · India and worldwide remote
               </p>
             </div>
-            <Button onClick={createRun} disabled={working || !config.data}>
+            <Button onClick={createRun} disabled={collectionUnavailable || !config.data}>
               <Play className="size-4" /> Run scraper
             </Button>
           </div>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-border p-4">
               <p className="text-2xl font-black">
-                {sources.data?.length ?? config.data?.seededSourceCount ?? "—"}
+                {sources.data?.length ?? "—"}
               </p>
               <p className="ops-label mt-1 text-muted-foreground">Direct ATS sources</p>
             </div>
@@ -643,7 +686,7 @@ export default function ScraperPage() {
               </p>
             </div>
           </div>
-          <div className="mt-6 border-t border-border pt-5">
+          <div id="source-discovery" className="mt-6 scroll-mt-6 border-t border-border pt-5">
             <p className="ops-label text-purple">Add another ATS board</p>
             <p className="mt-2 text-sm text-muted-foreground">
               Paste a supported ATS or employer JobPosting JSON-LD page. Aggregator links are rejected.
@@ -667,12 +710,13 @@ export default function ScraperPage() {
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
             <div>
-              <p className="ops-label text-acid">Refresh known companies</p>
+              <p className="ops-label text-acid">Discover boards from known companies</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {sourceRefresh.data
-                  ? `${sourceRefresh.data.processedHints}/${sourceRefresh.data.totalHints} checked · ${sourceRefresh.data.activatedSources} activated`
-                  : `${config.data?.companyHintCount ?? 135} employer domains ready`}
+                  ? `${reasonLabel(sourceRefresh.data.status)} · ${sourceRefresh.data.processedHints}/${sourceRefresh.data.totalHints} checked · ${sourceRefresh.data.activatedSources} activated · ${sourceRefresh.data.failedHints} failed`
+                  : config.data ? `${config.data.companyHintCount} employer domains ready` : "Loading employer domains…"}
               </p>
+              {sourceRefresh.error && <p role="alert" className="mt-1 text-xs text-coral">{errorSummary(sourceRefresh.error)}</p>}
             </div>
             <div className="flex gap-2">
               {sourceRefresh.data && ["CREATED", "RUNNING"].includes(sourceRefresh.data.status) && (
@@ -686,25 +730,21 @@ export default function ScraperPage() {
                 </Button>
               )}
               <Button variant="outline" disabled={working} onClick={refreshSources}>
-                <RefreshCw className={`size-4 ${working ? "animate-spin" : ""}`} /> Refresh sources
+                <RefreshCw className={`size-4 ${working ? "animate-spin" : ""}`} /> Discover boards
               </Button>
             </div>
           </div>
         </BrutalCard>
 
-        <BrutalCard>
+        <BrutalCard id="run-history" className="scroll-mt-6">
           <p className="ops-label text-purple">Run history</p>
           <div className="mt-4 max-h-56 space-y-2 overflow-auto">
             {runs.data?.items.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => {
-                   setRunId(item.id);
-                   setPartialConfirmed(false);
-                   setImportResult(undefined);
-                   setCandidatePage(1);
-                }}
+                disabled={collectionUnavailable}
+                onClick={() => selectRun(item.id)}
                 className={`w-full rounded-lg border p-3 text-left transition-colors ${selectedRunId === item.id ? "border-purple bg-purple/10" : "border-border hover:bg-raised"}`}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -716,51 +756,33 @@ export default function ScraperPage() {
                 </p>
               </button>
             ))}
-            {!runs.data?.items.length && (
+            {runs.error && <p role="alert" className="text-sm text-coral">{errorSummary(runs.error)}</p>}
+            {!runs.data && !runs.error && <p role="status" className="text-sm text-muted-foreground">Loading runs…</p>}
+            {runs.data?.items.length === 0 && (
               <p className="text-sm text-muted-foreground">No scraper runs yet.</p>
             )}
           </div>
         </BrutalCard>
       </div>
 
-      <BrutalCard>
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="ops-label text-purple">Source health</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Yield-aware ordering, failures, and temporary cooldowns for every board.
-            </p>
-          </div>
-          <span className="font-mono text-xs">{sources.data?.filter((source) => source.active).length ?? 0} active</span>
-        </div>
-        <div className="mt-4 max-h-72 divide-y divide-border overflow-auto rounded-lg border border-border">
-          {sources.data?.map((source) => (
-            <div key={source.id} className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm">
-              <div>
-                <p className="font-bold">{source.name} <span className="font-normal text-muted-foreground">· {source.atsType}</span></p>
-                <p className="text-xs text-muted-foreground">
-                  {source.healthStatus} · {source.eligibleYield} eligible / {source.jobsScanned} scanned
-                  {source.cooldownUntil ? ` · cooldown until ${new Date(source.cooldownUntil).toLocaleString()}` : ""}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                {source.cooldownUntil && (
-                  <Button size="sm" variant="outline" onClick={() => void sourceAction(source, "clear-cooldown")}>
-                    Clear cooldown
-                  </Button>
-                )}
-                <Button size="sm" variant="outline" onClick={() => void sourceAction(source, "revalidate")}>
-                  Revalidate
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => void setSourceActive(source, !source.active)}>
-                  {source.active ? "Disable" : "Enable"}
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
+      <BrutalCard id="source-health" className="scroll-mt-6">
+        <ScraperSourceHealth
+          sources={sources.data}
+          error={sources.error ? errorSummary(sources.error) : undefined}
+          refreshing={sources.isValidating}
+          onRefresh={() => void sources.mutate()}
+          onOpenRun={collectionUnavailable ? undefined : selectRun}
+        />
       </BrutalCard>
 
+      <div id="run-detail" className="space-y-9 scroll-mt-6">
+      {detail.error && (
+        <BrutalCard>
+          <p role="alert" className="text-sm text-coral">{errorSummary(detail.error)}</p>
+          <Button className="mt-3" onClick={() => void detail.mutate()}>Retry run details</Button>
+        </BrutalCard>
+      )}
+      {selectedRunId && !run && !detail.error && <p role="status">Loading run details…</p>}
       {run && (
         <>
           <BrutalCard>
@@ -771,19 +793,19 @@ export default function ScraperPage() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {canAdvanceScrape(run) && (
-                  <Button disabled={working} onClick={() => void advance()}>
-                    <RefreshCw className={`size-4 ${working ? "animate-spin" : ""}`} />
-                    {working
+                  <Button disabled={collectionUnavailable} onClick={() => void advance()}>
+                    <RefreshCw className={`size-4 ${collecting ? "animate-spin" : ""}`} />
+                    {collecting
                       ? "Collecting sources…"
                       : run.status === "CREATED"
                         ? "Start collection"
                         : "Resume collection"}
                   </Button>
                 )}
-                {run.status === "RUNNING" && (
+                {canAdvanceScrape(run) && (
                   <Button
                     variant="outline"
-                    disabled={stoppingForReview}
+                    disabled={changingRun || (collecting && collectingRunId !== run.id)}
                     onClick={stopAndReview}
                   >
                     <CheckCircle2 className="size-4" />
@@ -794,39 +816,39 @@ export default function ScraperPage() {
                   run.processedSourceCount < run.sourceCount && (
                     <Button
                       variant="outline"
-                      disabled={working}
+                      disabled={collectionUnavailable}
                       onClick={() => void advance(false, true)}
                     >
-                      <RefreshCw className={`size-4 ${working ? "animate-spin" : ""}`} />
+                      <RefreshCw className={`size-4 ${collecting ? "animate-spin" : ""}`} />
                       Continue collection
                     </Button>
                   )}
                 {run.status === "NORMALIZATION_FAILED" && (
-                  <Button disabled={working} onClick={retryNormalization}>
+                  <Button disabled={changingRun || collecting} onClick={processImport}>
                     <RotateCcw className="size-4" /> Retry normalization
                   </Button>
                 )}
-                {run.status === "NORMALIZING" && !working && (
-                  <Button onClick={retryNormalization}>
+                {run.status === "NORMALIZING" && !changingRun && (
+                  <Button onClick={processImport}>
                     <RotateCcw className="size-4" /> Resume normalization
                   </Button>
                 )}
-                {run.status === "IMPORTING" && !working && (
-                  <Button onClick={importSelected}>
+                {run.status === "IMPORTING" && !changingRun && (
+                  <Button onClick={processImport}>
                     <RotateCcw className="size-4" /> Resume import
                   </Button>
                 )}
                 {run.failedSourceCount > 0 &&
                   run.processedSourceCount >= run.sourceCount &&
                   ["REVIEW_READY", "FAILED"].includes(run.status) && (
-                  <Button variant="outline" disabled={working} onClick={() => void advance(true)}>
+                  <Button variant="outline" disabled={collectionUnavailable} onClick={() => void advance(true)}>
                     <RotateCcw className="size-4" /> Retry failed sources
                   </Button>
                 )}
                 {canCancelScrape(run) && (
                   <Button
                     variant="outline"
-                    disabled={cancelling}
+                    disabled={changingRun || (collecting && collectingRunId !== run.id)}
                     onClick={cancelRun}
                   >
                     <Ban className="size-4" />
@@ -859,7 +881,9 @@ export default function ScraperPage() {
             <p className="mt-2 text-xs text-muted-foreground">
               {run.processedSourceCount}/{run.sourceCount} sources processed · {progress}%
               {run.status === "RUNNING"
-                ? " · Review unlocks when collection finishes, or choose Stop & review results now."
+                ? run.nextRetryAt
+                  ? ` · Next queued retry eligible at ${new Date(run.nextRetryAt).toLocaleTimeString()}. You can stop and review now.`
+                  : " · Review unlocks when collection finishes, or choose Stop & review results now."
                 : run.stoppedEarly
                   ? " · Collection was stopped early; review now or continue later."
                   : ""}
@@ -880,6 +904,20 @@ export default function ScraperPage() {
               ))}
             </div>
             <p className="mt-4 text-xs text-muted-foreground">{run.providerUsageReason}</p>
+            {["IMPORTING", "NORMALIZING"].includes(run.status) && (
+              <p role="status" className="mt-3 text-sm text-muted-foreground">
+                {run.status === "IMPORTING" ? "Selection saved. Creating the batch." : "Batch saved. Normalizing its jobs."}
+                {" "}You can return to this run and resume from this step.
+              </p>
+            )}
+            {runStats.error && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <p role="alert" className="text-xs text-coral">{visibleRunStats ? "Showing the last loaded board results. " : ""}{errorSummary(runStats.error)}</p>
+                <Button size="sm" variant="outline" disabled={runStats.isValidating} onClick={() => void runStats.mutate()}>Retry results</Button>
+              </div>
+            )}
+            {!visibleRunStats && !runStats.error && <p role="status" className="mt-4 text-xs text-muted-foreground">Loading board results…</p>}
+            {visibleRunStats && <ScraperBoardResults stats={visibleRunStats} />}
             {visibleRunStats && (
               <div className="mt-4 grid gap-3 border-t border-border pt-4 md:grid-cols-2">
                 <div>
@@ -920,14 +958,14 @@ export default function ScraperPage() {
               </div>
               <div className="mt-5 flex flex-wrap items-center gap-3">
                 <Button
-                  disabled={bulkSelection || run.selectedCount >= run.validCount}
+                  disabled={changingRun || collecting || bulkSelection || run.selectedCount >= run.validCount}
                   onClick={() => void updateAllSelection(true)}
                 >
                   <ListChecks className="size-4" /> Select all {run.validCount} importable
                 </Button>
                 <Button
                   variant="outline"
-                  disabled={bulkSelection || run.selectedCount === 0}
+                  disabled={changingRun || collecting || bulkSelection || run.selectedCount === 0}
                   onClick={() => void updateAllSelection(false)}
                 >
                   <Square className="size-4" /> Clear all
@@ -942,6 +980,7 @@ export default function ScraperPage() {
                     <input
                       type="checkbox"
                       checked={partialConfirmed}
+                      disabled={changingRun || collecting}
                       onChange={(event) => setPartialConfirmed(event.target.checked)}
                       className="mt-0.5 size-4 accent-[#b7ff2a]"
                     />
@@ -955,15 +994,15 @@ export default function ScraperPage() {
                 )}
                 <Button
                   disabled={
-                    working ||
-                    selectionSaving ||
+                    collectionUnavailable ||
                     !canImportScrape(run) ||
                     (partialRun && !partialConfirmed)
                   }
-                  onClick={importSelected}
+                  onClick={processImport}
                 >
-                  <CheckCircle2 className="size-4" /> Import {run.selectedCount} selected
+                  <CheckCircle2 className="size-4" /> {importing ? "Importing…" : `Import ${run.selectedCount} selected`}
                 </Button>
+                {run.selectedCount === 0 && <p className="text-xs text-muted-foreground">Select at least one importable job.</p>}
               </div>
             </BrutalCard>
           )}
@@ -1028,6 +1067,7 @@ export default function ScraperPage() {
                           type="checkbox"
                           checked={candidate.selected}
                           disabled={
+                            changingRun || collecting || bulkSelection ||
                             !canSelectScrapeCandidate(candidate, run.status)
                           }
                           onChange={(event) =>
@@ -1127,25 +1167,24 @@ export default function ScraperPage() {
             </BrutalCard>
           )}
 
-          {(importResult || (run.importedBatchId && run.status === "IMPORTED")) && (
+          {run.importedBatchId && run.status === "IMPORTED" && (
             <BrutalCard className="border-acid bg-acid/5">
               <p className="ops-label text-acid">Import complete</p>
               <p className="mt-3 text-sm text-muted-foreground">
                 The scraper created and INR-normalized a normal batch. It has not been ranked or
                 emailed.
               </p>
-              <Button
-                className="mt-5"
-                render={
-                  <Link href={`/batches/${importResult?.batch.batchId ?? run.importedBatchId}`} />
-                }
+              <Link
+                className={buttonVariants({ className: "mt-5" })}
+                href={`/batches/${run.importedBatchId}`}
               >
                 Open imported batch <ExternalLink className="size-4" />
-              </Button>
+              </Link>
             </BrutalCard>
           )}
         </>
       )}
+      </div>
     </div>
   );
 }
