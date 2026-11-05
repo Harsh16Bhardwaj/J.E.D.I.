@@ -103,3 +103,17 @@ class JobDraftDetail(JobPreview):
     description: str
     revision: int
     updated_at: datetime
+
+
+class SkillFitFinding(ApiModel):
+    requirement: JobRequirement
+    status: Literal["evidenced", "needs_review", "not_evidenced"]
+    evidence: list[str]
+    note: str | None = None
+
+
+class DraftFitReport(ApiModel):
+    has_resume: bool
+    findings: list[SkillFitFinding] = Field(default_factory=list)
+    job_minimum_years: float | None = None
+    resume_years: float | None = None

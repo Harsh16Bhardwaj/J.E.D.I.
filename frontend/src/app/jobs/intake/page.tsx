@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { BrutalCard } from "@/components/brutal-card";
+import { DraftSkillFit } from "@/components/draft-skill-fit";
 import { RouteHeader } from "@/components/route-header";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -395,6 +396,13 @@ function JobIntakeWorkspace() {
                     ))}
                   </ul>
                 </details>
+              )}
+              {identity && identity.revision > 0 && !dirty && (
+                <DraftSkillFit
+                  key={`${identity.id}:${identity.revision}`}
+                  draftId={identity.id}
+                  revision={identity.revision}
+                />
               )}
             </BrutalCard>
           )}

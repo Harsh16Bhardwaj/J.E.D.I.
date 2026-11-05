@@ -16,6 +16,8 @@ Implemented the private paste and URL preview paths. URL intake accepts individu
 
 ## 3. Extend Compare Skills into a resume fit report
 
+The private draft now has a first resume evidence view. It shows explicit, inferred, and missing evidence for reviewed skills, including clear alternatives and skill-specific experience that still needs confirmation.
+
 - Build on [the current comparison](../frontend/src/components/skill-gap.tsx) and [resume evidence parser](../backend/services/resume.py). Reuse the bounded PDF flow, then add plain-text input and validated DOCX if needed. Show extracted evidence for review. Document ownership, retention, and deletion for resume files, evidence, and comparisons. Test cross-member access.
 - Introduce a versioned skill vocabulary with separate alias and relationship tables. Map React, React.js, and ReactJS to one stable ID. Keep React Native separate. Treat supervised and unsupervised learning as narrower concepts under machine learning. Supported child evidence can contribute to a broad requirement with an explanation. A broad mention alone leaves a specific child requirement unverified. Replace rules that conflate a tool with a discipline, such as mapping PyTorch directly to Machine Learning as an alias.
 - Normalize Unicode, whitespace, casing, and known variants while preserving meaningful punctuation in skills like C++, C#, and .NET. Track explicit, inferred, and ambiguous evidence separately. Test aliases, negation, alternatives, mandatory and optional language, role-specific years, mixed resume layouts, and ambiguous abbreviations. If semantic retrieval is added, use it to suggest candidates for verification against source text.

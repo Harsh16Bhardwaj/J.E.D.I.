@@ -9,8 +9,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth import CurrentUser
-from backend.database import JobDraft, get_session
+from backend.database import JobDraft, ResumeEvidenceRecord, get_session
 from backend.schemas.job_intake import (
+    DraftFitReport,
     JobDraftDetail,
     JobDraftSummary,
     JobPreview,
@@ -19,7 +20,9 @@ from backend.schemas.job_intake import (
     PasteJobRequest,
     SaveJobDraft,
 )
+from backend.schemas.learning import ResumeEvidence
 from backend.services.group_access import require_group_context
+from backend.services.job_fit import compare_draft
 from backend.services.job_intake import preview_job
 from backend.services.job_links import JobLinkError, parse_job_link, preview_link
 from backend.services.skill_vocabulary import canonical_skill, skill_key
@@ -52,7 +55,7 @@ def draft_changed() -> HTTPException:
         status_code=409,
         detail={
             "code": "JOB_DRAFT_CHANGED",
-            "message": "This draft changed elsewhere. Reopen it before editing.",
+            "message": "This draft changed elsewhere. Reopen it to continue.",
         },
     )
 
@@ -114,6 +117,29 @@ async def get_draft(
     if row is None:
         raise HTTPException(404, "Job draft not found.")
     return draft_detail(row)
+
+
+@router.get("/{draft_id}/skill-fit", response_model=DraftFitReport)
+async def draft_skill_fit(
+    draft_id: UUID,
+    user: CurrentUser,
+    session: DatabaseSession,
+    revision: Annotated[int, Query(ge=1)],
+) -> DraftFitReport:
+    context = await require_group_context(session, user.id)
+    owner = context.membership.id
+    draft = await session.get(JobDraft, (owner, str(draft_id)))
+    if draft is None:
+        raise HTTPException(404, "Job draft not found.")
+    if draft.revision != revision:
+        raise draft_changed()
+    evidence = await session.scalar(
+        select(ResumeEvidenceRecord.evidence).where(
+            ResumeEvidenceRecord.group_member_id == owner
+        )
+    )
+    resume = ResumeEvidence.model_validate(evidence) if evidence is not None else None
+    return compare_draft(draft_detail(draft), resume)
 
 
 @router.put("/{draft_id}", response_model=JobDraftDetail)
