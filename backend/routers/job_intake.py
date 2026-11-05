@@ -14,11 +14,14 @@ from backend.schemas.job_intake import (
     JobDraftDetail,
     JobDraftSummary,
     JobPreview,
+    LinkedJobPreview,
+    LinkJobRequest,
     PasteJobRequest,
     SaveJobDraft,
 )
 from backend.services.group_access import require_group_context
 from backend.services.job_intake import preview_job
+from backend.services.job_links import JobLinkError, parse_job_link, preview_link
 from backend.services.skill_vocabulary import canonical_skill, skill_key
 
 DatabaseSession = Annotated[AsyncSession, Depends(get_session)]
@@ -62,6 +65,24 @@ async def preview_paste(
     return preview_job(body.description)
 
 
+def job_link_http_error(error: JobLinkError) -> HTTPException:
+    return HTTPException(
+        error.status, detail={"code": error.code, "message": str(error)}
+    )
+
+
+@router.post("/preview-url", response_model=LinkedJobPreview)
+async def preview_url(
+    body: LinkJobRequest, user: CurrentUser, session: DatabaseSession
+) -> LinkedJobPreview:
+    await require_group_context(session, user.id)
+    await session.rollback()
+    try:
+        return await preview_link(body.url)
+    except JobLinkError as exc:
+        raise job_link_http_error(exc) from exc
+
+
 @router.get("", response_model=list[JobDraftSummary])
 async def list_drafts(
     user: CurrentUser, session: DatabaseSession
@@ -102,12 +123,28 @@ async def save_draft(
     context = await require_group_context(session, user.id, lock=True)
     owner = context.membership.id
     row = await session.get(JobDraft, (owner, str(draft_id)))
+    source_url = body.source_url or None
+    if source_url:
+        try:
+            source_url = parse_job_link(source_url).url
+        except JobLinkError as exc:
+            raise job_link_http_error(exc) from exc
+    elif (
+        row
+        and row.description == body.description
+        and "source_url" not in body.model_fields_set
+    ):
+        source_url = row.preview.get("source_url")
     fields = body.fields.model_dump(mode="json")
     for field in ("required_skills", "preferred_skills", "mentioned_skills"):
         canonical = (canonical_skill(name) for name in fields[field])
         fields[field] = list({skill_key(name): name for name in canonical}.values())
     if row is not None:
-        if row.description == body.description and row.preview["fields"] == fields:
+        if (
+            row.description == body.description
+            and row.preview["fields"] == fields
+            and row.preview.get("source_url") == source_url
+        ):
             return draft_detail(row)
         if row.revision != body.revision:
             raise draft_changed()
@@ -128,7 +165,7 @@ async def save_draft(
     else:
         extracted = row.preview
     row.description = body.description
-    row.preview = {**extracted, "fields": fields}
+    row.preview = {**extracted, "fields": fields, "source_url": source_url}
     row.revision += 1
     await session.commit()
     await session.refresh(row)

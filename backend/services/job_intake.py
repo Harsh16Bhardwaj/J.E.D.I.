@@ -20,6 +20,7 @@ LABELS = {
     "location": "location",
     "work mode": "work_mode",
     "work arrangement": "work_mode",
+    "employment type": "employment_type",
 }
 WORK_MODES = {
     "remote": "REMOTE",
@@ -110,8 +111,10 @@ def experience_attaches(
                 re.I,
             )
         )
-    return not alternative and skill.end <= years.start() and bool(
-        re.fullmatch(r"[\s:(–-]*", text[skill.end : years.start()])
+    return (
+        not alternative
+        and skill.end <= years.start()
+        and bool(re.fullmatch(r"[\s:(–-]*", text[skill.end : years.start()]))
     )
 
 
@@ -263,7 +266,11 @@ def preview_job(description: str) -> JobPreview:
     extracted = extract_facts(re.sub(r"\d{32,}", " ", description))
     for item in extracted.evidence:
         field, snippet = item["field"], item["text"]
-        if field == "employmentType" and extracted.facts[field]:
+        if (
+            field == "employmentType"
+            and extracted.facts[field]
+            and not fields.employment_type
+        ):
             fields.employment_type = snippet[:300]
             evidence.append(JobEvidence(field="employment type", text=snippet))
         if field == "education" and extracted.facts[field]:

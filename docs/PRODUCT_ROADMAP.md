@@ -8,6 +8,8 @@
 
 ## 2. Let a member bring a single job
 
+Implemented the private paste and URL preview paths. URL intake accepts individual Greenhouse, Lever, and Ashby posting links and sends requests only to their fixed public API endpoints. Other sources can use the paste path.
+
 - Start with pasted descriptions. Add URL intake for the existing ATS adapters where they support individual postings, then structured `JobPosting` data and a bounded HTML fallback. Keep drafts private by default. Use the same extractor for URL and paste and show an editable preview before saving.
 - Extract title, employer, location and work mode, minimum and preferred experience, responsibilities, education and credentials, work authorization, compensation when stated, and required versus preferred skills. Retain source spans and distinguish absent, ambiguous, and conflicting information. Surface expired, blocked, unsupported, and incomplete pages with a paste fallback. Prioritize popular hosts from observed demand and publish a tested support matrix.
 - Gate URL fetching on public HTTP(S) destinations, including every redirect and resolved address. Bound response size, redirects, fetch time, and retries. Treat fetched text as untrusted data. Maintain fixtures for supported ATS pages, stale listings, generic templates, and snippets that contradict the structured metadata.

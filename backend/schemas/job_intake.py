@@ -24,6 +24,12 @@ class PasteJobRequest(ApiModel):
     description: Description
 
 
+class LinkJobRequest(ApiModel):
+    url: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2_000)
+    ]
+
+
 class JobDraftFields(ApiModel):
     title: ShortText = ""
     employer: ShortText = ""
@@ -71,11 +77,18 @@ class JobPreview(ApiModel):
     evidence: list[JobEvidence]
     warnings: list[str]
     requirements: list[JobRequirement] = Field(default_factory=list)
+    source_url: str | None = None
+
+
+class LinkedJobPreview(JobPreview):
+    source_url: str
+    description: Description
 
 
 class SaveJobDraft(PasteJobRequest):
     fields: JobDraftFields
     revision: int = Field(ge=0)
+    source_url: str | None = Field(default=None, max_length=2_000)
 
 
 class JobDraftSummary(ApiModel):

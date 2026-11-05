@@ -42,6 +42,7 @@ type Editor = Record<TextKey | ListKey, string> & {
 };
 type Preview = {
   fields: Fields;
+  sourceUrl?: string | null;
   evidence: { field: string; text: string; inferred?: boolean }[];
   warnings: string[];
   requirements?: {
@@ -55,6 +56,7 @@ type Preview = {
 };
 type DraftSummary = { id: string; title: string; employer: string; updatedAt: string };
 type Draft = Preview & { id: string; description: string; revision: number; updatedAt: string };
+type LinkedPreview = Preview & { description: string; sourceUrl: string };
 
 function editFields(fields: Fields): Editor {
   return {
@@ -101,10 +103,11 @@ function JobIntakeWorkspace() {
   const [drafts, setDrafts] = useState<DraftSummary[]>();
   const [listError, setListError] = useState<string>();
   const [description, setDescription] = useState("");
+  const [jobUrl, setJobUrl] = useState("");
   const [reviewed, setReviewed] = useState<{ description: string; preview: Preview }>();
   const [editor, setEditor] = useState<Editor>();
   const [identity, setIdentity] = useState<{ id: string; revision: number }>();
-  const [busy, setBusy] = useState<"preview" | "save" | "open" | "delete">();
+  const [busy, setBusy] = useState<"preview" | "url" | "save" | "open" | "delete">();
   const [message, setMessage] = useState<{ text: string; error?: boolean }>();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -130,6 +133,7 @@ function JobIntakeWorkspace() {
   function showDraft(draft: Draft) {
     setIdentity({ id: draft.id, revision: draft.revision });
     setDescription(draft.description);
+    setJobUrl(draft.sourceUrl ?? "");
     setReviewed({ description: draft.description, preview: draft });
     setEditor(editFields(draft.fields));
     setDirty(false);
@@ -153,6 +157,7 @@ function JobIntakeWorkspace() {
     if (dirty && !window.confirm("Discard unsaved changes and start a new draft?")) return;
     setIdentity(undefined);
     setDescription("");
+    setJobUrl("");
     setReviewed(undefined);
     setEditor(undefined);
     setDirty(false);
@@ -170,7 +175,32 @@ function JobIntakeWorkspace() {
         method: "POST",
         body: JSON.stringify({ description: text }),
       });
-      setReviewed({ description: text, preview });
+      setReviewed({
+        description: text,
+        preview: { ...preview, sourceUrl: reviewed?.description === text ? reviewed.preview.sourceUrl : null },
+      });
+      setEditor(editFields(preview.fields));
+      setDirty(true);
+    } catch (error) {
+      setMessage({ text: errorSummary(error), error: true });
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  async function extractUrl() {
+    if (busy || !jobUrl.trim()) return;
+    if (dirty && description.trim() && !window.confirm("Replace the current text and preview with this posting?")) return;
+    setBusy("url");
+    setMessage(undefined);
+    try {
+      const preview = await draftRequest<LinkedPreview>("/preview-url", {
+        method: "POST",
+        body: JSON.stringify({ url: jobUrl.trim() }),
+      });
+      setJobUrl(preview.sourceUrl);
+      setDescription(preview.description);
+      setReviewed({ description: preview.description, preview });
       setEditor(editFields(preview.fields));
       setDirty(true);
     } catch (error) {
@@ -205,7 +235,12 @@ function JobIntakeWorkspace() {
     try {
       const saved = await draftRequest<Draft>(`/${draft.id}`, {
         method: "PUT",
-        body: JSON.stringify({ description: reviewed.description, fields, revision: draft.revision }),
+        body: JSON.stringify({
+          description: reviewed.description,
+          fields,
+          revision: draft.revision,
+          sourceUrl: reviewed.preview.sourceUrl ?? null,
+        }),
       });
       showDraft(saved);
       setDrafts((current) => [
@@ -228,6 +263,7 @@ function JobIntakeWorkspace() {
       setDrafts((current) => current?.filter((item) => item.id !== identity.id));
       setIdentity(undefined);
       setDescription("");
+      setJobUrl("");
       setReviewed(undefined);
       setEditor(undefined);
       setConfirmDelete(false);
@@ -247,11 +283,21 @@ function JobIntakeWorkspace() {
 
   return (
     <div className="space-y-6">
-      <RouteHeader path="/jobs/intake" eyebrow="Private job workspace" title="Bring a job" description="Paste a job description, review what JEDI found, and save a private draft." />
+      <RouteHeader path="/jobs/intake" eyebrow="Private job workspace" title="Bring a job" description="Bring a public job link or paste a description. Review the details and save a private draft." />
       <Link href="/jobs" className={buttonVariants({ variant: "outline" })}>Back to jobs</Link>
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-4">
           <BrutalCard>
+            <form className="mb-5 border-b border-border pb-5" onSubmit={(event) => { event.preventDefault(); void extractUrl(); }}>
+              <label htmlFor="job-link" className="text-lg font-bold">Job link</label>
+              <p id="job-link-help" className="mt-1 text-sm text-muted-foreground">Use an individual Greenhouse, Lever, or Ashby posting. For other sites, paste the description below.</p>
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Input id="job-link" type="url" inputMode="url" aria-describedby="job-link-help" placeholder="https://…" className="min-h-10 flex-1" value={jobUrl} maxLength={2_000} disabled={Boolean(busy)} onChange={(event) => setJobUrl(event.target.value)} />
+                <Button type="submit" variant="outline" disabled={Boolean(busy) || !jobUrl.trim()}>
+                  {busy === "url" ? "Fetching posting…" : "Preview from link"}
+                </Button>
+              </div>
+            </form>
             <label htmlFor="job-paste" className="text-lg font-bold">Job description</label>
             <p id="job-paste-help" className="mt-1 text-sm text-muted-foreground">Include the title, employer, and any requirements listed in the posting.</p>
             <Textarea id="job-paste" aria-describedby="job-paste-help" className="mt-3 min-h-52 w-full" value={description} maxLength={20_000} disabled={Boolean(busy)} onChange={(event) => { setDescription(event.target.value); setDirty(true); }} />
@@ -263,6 +309,11 @@ function JobIntakeWorkspace() {
           {reviewed && editor && (
             <BrutalCard className="space-y-4">
               <h2 className="text-lg font-bold">Review job details</h2>
+              {reviewed.preview.sourceUrl && (
+                <a href={reviewed.preview.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-block text-sm text-purple underline">
+                  Open original posting
+                </a>
+              )}
               <p className="text-sm text-muted-foreground">Blank fields need your review. Check requirements and years of experience against the original posting.</p>
               {!previewCurrent && <p role="status" className="text-sm text-coral">The description changed. Extract it again before saving.</p>}
               {reviewed.preview.warnings.length > 0 && (
