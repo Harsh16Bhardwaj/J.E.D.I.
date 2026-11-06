@@ -321,7 +321,7 @@ function JobIntakeWorkspace({ linkedDraft }: { linkedDraft: string | null }) {
           <BrutalCard>
             <form className="mb-5 border-b border-border pb-5" onSubmit={(event) => { event.preventDefault(); void extractUrl(); }}>
               <label htmlFor="job-link" className="text-lg font-bold">Job link</label>
-              <p id="job-link-help" className="mt-1 text-sm text-muted-foreground">Use an individual Greenhouse, Lever, or Ashby posting. For other sites, paste the description below.</p>
+              <p id="job-link-help" className="mt-1 text-sm text-muted-foreground">Use an individual Greenhouse, Lever, Ashby, or SmartRecruiters posting. For other sites, paste the description below.</p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                 <Input id="job-link" type="url" inputMode="url" aria-describedby="job-link-help" placeholder="https://…" className="min-h-10 flex-1" value={jobUrl} maxLength={2_000} disabled={Boolean(busy)} onChange={(event) => setJobUrl(event.target.value)} />
                 <Button type="submit" variant="outline" disabled={Boolean(busy) || !jobUrl.trim()}>

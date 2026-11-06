@@ -138,6 +138,47 @@ def test_lever_and_ashby_use_exact_posting(monkeypatch, link, endpoint, payload)
     assert preview.fields.required_skills == ["React"]
 
 
+@pytest.mark.parametrize("visibility", ["PUBLIC", "INTERNAL"])
+def test_smartrecruiters_reads_only_the_exact_public_posting(monkeypatch, visibility):
+    url = "https://jobs.smartrecruiters.com/Example/744000160138669-backend-engineer"
+
+    def handle(request):
+        assert str(request.url) == (
+            "https://api.smartrecruiters.com/v1/companies/Example/postings/744000160138669"
+        )
+        return streamed_json(
+            {
+                "id": "744000160138669",
+                "active": True,
+                "visibility": visibility,
+                "company": {"identifier": "example", "name": "Example Labs"},
+                "name": "Backend Engineer",
+                "location": {"fullLocation": "Hyderabad, , India", "hybrid": True},
+                "jobAd": {
+                    "sections": {
+                        "jobDescription": {"text": "<p>Build accessible APIs.</p>"},
+                        "qualifications": {
+                            "text": "<ul><li>React.js</li><li>Python</li></ul>"
+                        },
+                    }
+                },
+            }
+        )
+
+    provider_client(monkeypatch, handle)
+    if visibility == "INTERNAL":
+        with pytest.raises(job_links.JobLinkError) as error:
+            asyncio.run(job_links.preview_link(url))
+        assert error.value.code == "JOB_POSTING_UNAVAILABLE"
+    else:
+        preview = asyncio.run(job_links.preview_link(url + "?oga=true"))
+        assert preview.source_url == url
+        assert preview.fields.employer == "Example Labs"
+        assert preview.fields.location == "Hyderabad, India"
+        assert preview.fields.work_mode == "HYBRID"
+        assert preview.fields.required_skills == ["React", "Python"]
+
+
 @pytest.mark.parametrize(
     ("response", "code"),
     [

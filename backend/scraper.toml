@@ -92,6 +92,8 @@ seed_sources = [
   { name = "Fi Money", ats_type = "lever", domain_hint = "jobs.lever.co", board_token = "fi" },
   { name = "Starling Bank", ats_type = "workable", domain_hint = "apply.workable.com", board_token = "starling-bank" },
   { name = "Bosch", ats_type = "smartrecruiters", domain_hint = "jobs.smartrecruiters.com", board_token = "BoschGroup" },
+  { name = "Coface", ats_type = "smartrecruiters", domain_hint = "jobs.smartrecruiters.com", board_token = "Coface" },
+  { name = "Experian", ats_type = "smartrecruiters", domain_hint = "jobs.smartrecruiters.com", board_token = "Experian" },
   { name = "NielsenIQ", ats_type = "smartrecruiters", domain_hint = "jobs.smartrecruiters.com", board_token = "NielsenIQ" },
   { name = "ServiceNow", ats_type = "smartrecruiters", domain_hint = "jobs.smartrecruiters.com", board_token = "ServiceNow" },
   { name = "Ubisoft", ats_type = "smartrecruiters", domain_hint = "jobs.smartrecruiters.com", board_token = "Ubisoft2" },

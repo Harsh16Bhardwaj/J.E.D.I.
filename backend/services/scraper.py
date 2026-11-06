@@ -21,6 +21,7 @@ from pydantic import ValidationError
 from backend.config import get_settings
 from backend.schemas.product import IncomingJob
 from backend.services.batch_ingestion import clean_current_job
+from backend.services.job_links import smartrecruiters_public, smartrecruiters_text
 from backend.services.product import canonical_url
 from backend.services.scraper_enrichment import extract_facts
 
@@ -1191,7 +1192,7 @@ async def fetch_source_jobs(
         listings: list[dict[str, Any]] = []
         offset = int((checkpoint or {}).get("offset", 0))
         data, units = await _get_json(
-            f"https://api.smartrecruiters.com/v1/companies/{quote_plus(source.board_token)}/postings?limit=100&offset={offset}",
+            f"https://api.smartrecruiters.com/v1/companies/{quote_plus(source.board_token)}/postings?limit=100&offset={offset}&destination=PUBLIC",
             config,
             allow_unlocker=False,
         )
@@ -1211,9 +1212,7 @@ async def fetch_source_jobs(
             candidate = _job(
                 item_source,
                 title=item.get("name"),
-                description=item.get("jobAd")
-                or item.get("description")
-                or item.get("name"),
+                description=smartrecruiters_text(item) or item.get("name"),
                 url=item.get("ref") or item.get("applyUrl"),
                 location=location.get("fullLocation"),
                 posted_at=item.get("releasedDate"),
@@ -1245,15 +1244,10 @@ async def fetch_source_jobs(
                                 "reason": "ATS detail API was blocked or incomplete",
                             }
                         )
-                    sections = detail.get("jobAd") or {}
-                    pieces = [
-                        sections.get("companyDescription"),
-                        sections.get("jobDescription"),
-                        sections.get("qualifications"),
-                        sections.get("additionalInformation"),
-                    ]
+                    if not smartrecruiters_public(detail):
+                        continue
                     candidate["description"] = (
-                        clean_html(" ".join(str(piece or "") for piece in pieces))
+                        smartrecruiters_text(detail)
                         or candidate["description"]
                     )
                     candidate["applyUrl"] = (

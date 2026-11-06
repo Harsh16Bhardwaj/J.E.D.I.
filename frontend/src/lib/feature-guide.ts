@@ -6,7 +6,7 @@ export const featureGuide = [
     audience: "member",
     prerequisite: "A posting link or job description",
     steps: [
-      "Preview a Greenhouse, Lever, or Ashby posting, or paste the description.",
+      "Preview a Greenhouse, Lever, Ashby, or SmartRecruiters posting, or paste the description.",
       "Review the extracted requirements and save a private draft.",
     ],
     sample: "Backend Engineer\nRequirements:\n3+ years of Python or Java.\nAWS is a plus.",

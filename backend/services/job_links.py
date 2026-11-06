@@ -22,6 +22,7 @@ LEVER = {
     "jobs.lever.co": "api.lever.co",
     "jobs.eu.lever.co": "api.eu.lever.co",
 }
+SMARTRECRUITERS = "jobs.smartrecruiters.com"
 
 
 class JobLinkError(Exception):
@@ -41,7 +42,8 @@ class JobLink(NamedTuple):
 def parse_job_link(value: str) -> JobLink:
     unsupported = JobLinkError(
         "UNSUPPORTED_JOB_URL",
-        "Use a Greenhouse, Lever, or Ashby posting link, or paste the description.",
+        "Use a Greenhouse, Lever, Ashby, or SmartRecruiters posting, "
+        "or paste the description.",
     )
     try:
         parts = urlsplit(value.strip())
@@ -89,6 +91,18 @@ def parse_job_link(value: str) -> JobLink:
                 f"https://api.ashbyhq.com/posting-api/job-board/{board}",
                 posting,
             )
+    elif host == SMARTRECRUITERS:
+        match = re.fullmatch(
+            rf"/({BOARD})/([0-9]{{1,20}})(-[A-Za-z0-9_-]{{1,250}})?/?", parts.path
+        )
+        if match:
+            board, posting, slug = match.groups()
+            return JobLink(
+                "smartrecruiters",
+                f"https://{host}/{board}/{posting}{slug or ''}",
+                f"https://api.smartrecruiters.com/v1/companies/{board}/postings/{posting}",
+                posting,
+            )
     raise unsupported
 
 
@@ -127,6 +141,36 @@ def html_text(value: Any) -> str:
         for raw in "".join(parser.chunks).splitlines()
         if (line := " ".join(raw.split()))
     )
+
+
+def smartrecruiters_public(posting: dict) -> bool:
+    return (
+        posting.get("active") is not False
+        and posting.get("visibility", "PUBLIC") == "PUBLIC"
+    )
+
+
+def smartrecruiters_text(posting: dict) -> str:
+    ad = posting.get("jobAd")
+    if isinstance(ad, str):
+        return html_text(ad)
+    if not isinstance(ad, dict):
+        return html_text(posting.get("description"))
+    sections = ad.get("sections", ad)
+    if not isinstance(sections, dict):
+        return ""
+    pieces = []
+    for key, heading in (
+        ("companyDescription", "Company overview"),
+        ("jobDescription", "Job description"),
+        ("qualifications", "Requirements"),
+        ("additionalInformation", "Additional information"),
+    ):
+        section = sections.get(key)
+        body = html_text(section.get("text") if isinstance(section, dict) else section)
+        if body:
+            pieces.append(f"{heading}:\n{body}")
+    return "\n\n".join(pieces) or html_text(posting.get("description"))
 
 
 def missing_posting() -> JobLinkError:
@@ -243,6 +287,35 @@ def posting_text(link: JobLink, payload: dict) -> tuple[dict, str]:
             "Employment type": categories.get("commitment"),
             "Work mode": payload.get("workplaceType"),
         }, "\n\n".join(sections)
+    if link.provider == "smartrecruiters":
+        company = payload.get("company")
+        company = company if isinstance(company, dict) else {}
+        board = urlsplit(link.url).path.split("/")[1]
+        if (
+            str(payload.get("id")) != link.posting_id
+            or not smartrecruiters_public(payload)
+            or str(company.get("identifier", board)).casefold() != board.casefold()
+        ):
+            raise missing_posting()
+        location = payload.get("location")
+        location = location if isinstance(location, dict) else {}
+        location_name = location.get("fullLocation")
+        if isinstance(location_name, str):
+            location_name = ", ".join(
+                part.strip() for part in location_name.split(",") if part.strip()
+            )
+        employment = payload.get("typeOfEmployment")
+        return {
+            "Job title": payload.get("name"),
+            "Employer": company.get("name"),
+            "Location": location_name,
+            "Employment type": employment.get("label")
+            if isinstance(employment, dict)
+            else None,
+            "Work mode": "Remote"
+            if location.get("remote") is True
+            else ("Hybrid" if location.get("hybrid") is True else None),
+        }, smartrecruiters_text(payload)
     jobs = payload.get("jobs")
     if not isinstance(jobs, list):
         raise invalid_payload()

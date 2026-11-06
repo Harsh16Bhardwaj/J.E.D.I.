@@ -153,3 +153,21 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 **Open**
 
 - Apply the fit snapshot migration before deploying. Per-draft comparison history, seniority and domain alignment, and score calibration remain open.
+
+## Read current SmartRecruiters postings and expand employer coverage
+
+**Working**
+
+- Private intake accepts public SmartRecruiters posting links and resolves the numeric ID through the fixed provider API. Closed or internal postings have the same paste fallback as other unavailable links.
+- Single-job intake and batch collection both read the provider's nested job description and qualifications. The batch adapter requests public listings explicitly. [SmartRecruiters Posting API](https://developers.smartrecruiters.com/docs/endpoints)
+- Experian and Coface are available as seeded boards. The roadmap lists the supported single-job URL shapes.
+
+**Verified**
+
+- 35 job-link and scraper service tests, including public and internal posting handling, qualification extraction, and the batch adapter's experience range. TypeScript and lint passed.
+- Live public API previews returned readable descriptions and extracted requirements from one ServiceNow, Experian, and Coface posting.
+
+**Open**
+
+- Employer coverage beyond the four supported single-job URL providers, scheduler deployment for approved imports, and unattended source discovery and collection remain open.
+- Fit calibration and seniority/domain alignment, synchronized guide progress, and shared filters across catalog and private applications remain open.

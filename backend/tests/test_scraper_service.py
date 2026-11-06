@@ -189,8 +189,10 @@ def test_all_five_ats_adapters_map_to_jedi_jobs(
         if ats_type == "smartrecruiters" and "/postings/" in url:
             return {
                 "jobAd": {
-                    "jobDescription": "Build reliable AI systems. " * 15,
-                    "qualifications": "One to three years of experience.",
+                    "sections": {
+                        "jobDescription": {"text": "<p>Build reliable AI systems.</p>"},
+                        "qualifications": {"text": "<li>2-4 years of experience.</li>"},
+                    },
                 },
                 "releasedDate": "2026-08-10T10:00:00Z",
                 "applyUrl": "https://jobs.smartrecruiters.com/acme/1",
@@ -223,6 +225,10 @@ def test_all_five_ats_adapters_map_to_jedi_jobs(
         assert job["postedAt"] is None
     else:
         assert job["postedAt"]
+    if ats_type == "smartrecruiters":
+        assert "Build reliable AI systems." in job["description"]
+        assert "2-4 years of experience." in job["description"]
+        assert (job["experienceMinYears"], job["experienceMaxYears"]) == (2, 4)
     assert canonical_candidate_url(job).startswith("https://")
 
 
