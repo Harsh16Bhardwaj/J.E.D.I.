@@ -167,6 +167,7 @@ model GroupMember {
   group                 Group                  @relation(fields: [groupId], references: [id], onDelete: Cascade) /// Loads shared profile, model, and members.
   userId                String                 @unique /// Enforces one group membership per user in v1.
   user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade) /// Loads login credentials and email from the unchanged User record.
+  displayName           String?
   onboardingCompletedAt DateTime? /// A null value forces the member through profile onboarding.
   joinedAt              DateTime               @default(now()) /// Records when registration joined the group.
   resumeEvidence        ResumeEvidence?

@@ -51,6 +51,13 @@ from backend.services.mail_events import run_mail_event_worker
 
 router = APIRouter(tags=["email"])
 DatabaseSession = Annotated[AsyncSession, Depends(get_session)]
+
+
+async def email_owner(user: CurrentUser, session: DatabaseSession) -> None:
+    await require_group_owner(session, user.id)
+
+
+EmailOwner = Annotated[None, Depends(email_owner)]
 RECIPIENT_LIMIT = 50
 CONFIGURATION_ID = "default"
 
@@ -234,7 +241,7 @@ async def enforce_recipient_capacity(session: AsyncSession) -> None:
 
 @router.get("/api/email/settings", response_model=EmailSettingsResponse)
 async def get_email_settings(
-    _user: CurrentUser,
+    _owner: EmailOwner,
     session: DatabaseSession,
 ) -> EmailSettingsResponse:
     return await settings_response(session, await configuration(session))
@@ -243,7 +250,7 @@ async def get_email_settings(
 @router.patch("/api/email/settings", response_model=EmailSettingsResponse)
 async def update_email_settings(
     body: EmailSettingsUpdate,
-    _user: CurrentUser,
+    _owner: EmailOwner,
     session: DatabaseSession,
 ) -> EmailSettingsResponse:
     item = await configuration(session, lock=True)
@@ -598,7 +605,7 @@ async def requeue_email_event(
     response_model=list[EmailRecipientResponse],
 )
 async def list_email_recipients(
-    _user: CurrentUser,
+    _owner: EmailOwner,
     session: DatabaseSession,
     active: bool | None = None,
     include_deleted: Annotated[bool, Query(alias="includeDeleted")] = False,
@@ -623,7 +630,7 @@ async def list_email_recipients(
 async def create_email_recipient(
     body: EmailRecipientCreate,
     response: Response,
-    _user: CurrentUser,
+    _owner: EmailOwner,
     session: DatabaseSession,
 ) -> EmailRecipientWriteResponse:
     await configuration(session, lock=True)
@@ -684,7 +691,7 @@ async def create_email_recipient(
 )
 async def get_email_recipient(
     recipient_id: str,
-    _user: CurrentUser,
+    _owner: EmailOwner,
     session: DatabaseSession,
 ) -> EmailRecipientResponse:
     return recipient_response(await recipient_or_404(session, recipient_id))
@@ -697,7 +704,7 @@ async def get_email_recipient(
 async def update_email_recipient(
     recipient_id: str,
     body: EmailRecipientUpdate,
-    _user: CurrentUser,
+    _owner: EmailOwner,
     session: DatabaseSession,
 ) -> EmailRecipientResponse:
     await configuration(session, lock=True)
@@ -745,7 +752,7 @@ async def update_email_recipient(
 )
 async def delete_email_recipient(
     recipient_id: str,
-    _user: CurrentUser,
+    _owner: EmailOwner,
     session: DatabaseSession,
 ) -> Response:
     await configuration(session, lock=True)
@@ -762,7 +769,7 @@ async def delete_email_recipient(
 )
 async def send_batch_digest(
     batch_id: str,
-    _user: CurrentUser,
+    _owner: EmailOwner,
     session: DatabaseSession,
     transport: EmailTransportDependency,
 ) -> EmailDigestResponse:
@@ -805,7 +812,7 @@ async def send_batch_digest(
 )
 async def list_email_deliveries(
     batch_id: str,
-    _user: CurrentUser,
+    _owner: EmailOwner,
     session: DatabaseSession,
 ) -> list[EmailDeliverySummary]:
     await get_batch_or_404(session, batch_id)

@@ -145,7 +145,7 @@ class OnboardingResult(OnboardingState):
 
 class GroupMemberSummary(ApiModel):
     id: str
-    email: str
+    display_name: str | None
     onboarding_complete: bool
     joined_at: datetime
     is_owner: bool
@@ -155,6 +155,19 @@ class GroupSettingsResponse(ApiModel):
     group: GroupSummary
     is_group_owner: bool
     member_count: int
+    my_display_name: str | None
     members: list[GroupMemberSummary]
     shared_profile: SharedProfileSummary | None
     shared_model: SharedModelSummary | None
+
+
+class GroupDisplayName(ApiModel):
+    display_name: str | None = Field(max_length=80)
+
+    @field_validator("display_name")
+    @classmethod
+    def clean_display_name(cls, value: str | None) -> str | None:
+        name = value.strip() if value else ""
+        if name and ("@" in name or not name.isprintable()):
+            raise ValueError("Enter a display name without an email address.")
+        return name or None

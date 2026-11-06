@@ -226,6 +226,7 @@ class GroupMember(Base):
     user_id: Mapped[str] = mapped_column(
         "userId", ForeignKey("User.id", ondelete="CASCADE"), unique=True
     )
+    display_name: Mapped[str | None] = mapped_column("displayName", String)
     onboarding_completed_at: Mapped[datetime | None] = mapped_column(
         "onboardingCompletedAt", DateTime(timezone=True), nullable=True
     )

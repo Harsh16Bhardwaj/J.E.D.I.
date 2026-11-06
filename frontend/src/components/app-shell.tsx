@@ -17,7 +17,7 @@ import { apiGet, ApiError, type User } from "@/lib/api";
 import { onboardingRedirect } from "@/lib/public-session";
 
 const publicRoutes = new Set(["/", "/login", "/register", "/forgot-password", "/reset-password"]);
-const refreshCacheKey = "jedi:swr-refresh-cache:v1";
+const refreshCacheKey = "jedi:swr-refresh-cache:v2";
 const refreshCacheTtlMs = 5 * 60 * 1_000;
 
 type StoredRefreshCache = {
@@ -32,6 +32,7 @@ class RefreshPersistentCache implements Cache<unknown> {
   constructor() {
     if (typeof window === "undefined") return;
     try {
+      window.sessionStorage.removeItem("jedi:swr-refresh-cache:v1");
       const raw = window.sessionStorage.getItem(refreshCacheKey);
       if (!raw) return;
       const stored = JSON.parse(raw) as StoredRefreshCache;
@@ -71,7 +72,12 @@ class RefreshPersistentCache implements Cache<unknown> {
 
   private persist() {
     const entries = Array.from(this.values.entries())
-      .filter(([, value]) => value.data !== undefined && value.error === undefined)
+      .filter(([key, value]) =>
+        !key.startsWith("/api/email/") &&
+        !key.endsWith("/email-deliveries") &&
+        value.data !== undefined &&
+        value.error === undefined
+      )
       .map(([key, value]) => [key, { data: value.data }] as [string, State<unknown>]);
     try {
       window.sessionStorage.setItem(

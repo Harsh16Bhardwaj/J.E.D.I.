@@ -89,7 +89,7 @@ export type OnboardingResult = OnboardingState & {
 
 export type GroupMember = {
   id: string;
-  email: string;
+  displayName: string | null;
   onboardingComplete: boolean;
   joinedAt: string;
   isOwner: boolean;
@@ -99,6 +99,7 @@ export type GroupSettings = {
   group: GroupSummary;
   isGroupOwner: boolean;
   memberCount: number;
+  myDisplayName: string | null;
   members: GroupMember[];
   sharedProfile: SharedProfile | null;
   sharedModel: SharedModel | null;

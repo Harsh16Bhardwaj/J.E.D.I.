@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Check, Copy, KeyRound, RefreshCw, Shield, UserRound, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
@@ -8,6 +8,7 @@ import useSWR, { useSWRConfig } from "swr";
 import { BrutalCard } from "@/components/brutal-card";
 import { RouteHeader } from "@/components/route-header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -42,8 +43,27 @@ export default function GroupSettingsPage() {
   const [created, setCreated] = useState<CreatedInvitation>();
   const [revoking, setRevoking] = useState<Invitation>();
   const [busy, setBusy] = useState(false);
+  const [savingName, setSavingName] = useState(false);
   const [requestError, setRequestError] = useState<unknown>();
   const [renderedAt] = useState(() => Date.now());
+
+  async function saveDisplayName(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const displayName = String(new FormData(event.currentTarget).get("displayName") ?? "");
+    setSavingName(true);
+    try {
+      await apiRequest("/api/group/display-name", {
+        method: "PATCH",
+        body: JSON.stringify({ displayName }),
+      });
+      await group.mutate();
+      toast.success("Display name saved.");
+    } catch (error) {
+      toast.error(errorSummary(error));
+    } finally {
+      setSavingName(false);
+    }
+  }
 
   async function createInvitation() {
     if (busy) return;
@@ -133,10 +153,17 @@ export default function GroupSettingsPage() {
 
       <section>
         <div className="mb-4 flex items-end justify-between"><div><p className="ops-label text-muted-foreground">Group directory</p><h2 className="mt-2 text-2xl font-semibold">Members</h2></div><Button variant="ghost" className="min-h-10" onClick={() => void group.mutate()}><RefreshCw className="size-4" /> Refresh</Button></div>
+        <form method="post" className="mb-4 flex flex-wrap items-end gap-2" onSubmit={saveDisplayName}>
+          <label className="text-sm">
+            Your display name
+            <Input key={group.data.myDisplayName ?? ""} name="displayName" className="mt-1 min-h-10" maxLength={80} defaultValue={group.data.myDisplayName ?? ""} />
+          </label>
+          <Button type="submit" disabled={savingName}>{savingName ? "Saving…" : "Save display name"}</Button>
+        </form>
         <div className="overflow-hidden rounded-xl border border-border">
           {group.data.members.map((member) => (
             <div key={member.id} className="grid gap-2 border-b border-border bg-card px-5 py-4 last:border-b-0 sm:grid-cols-[1fr_auto_auto] sm:items-center">
-              <div><p className="font-medium">{member.email}</p><p className="mt-1 text-xs text-muted-foreground">Joined {new Date(member.joinedAt).toLocaleDateString()}</p></div>
+              <div><p className="font-medium">{member.displayName || "Group member"}</p><p className="mt-1 text-xs text-muted-foreground">Joined {new Date(member.joinedAt).toLocaleDateString()}</p></div>
               <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{member.onboardingComplete ? "Onboarded" : "Setup pending"}</span>
               {member.isOwner && <span className="w-fit rounded-full border border-purple/30 px-3 py-1 font-mono text-[10px] uppercase text-purple">Owner</span>}
             </div>

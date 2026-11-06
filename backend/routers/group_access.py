@@ -24,6 +24,7 @@ from backend.database import (
 )
 from backend.schemas.email_management import normalize_email
 from backend.schemas.group_access import (
+    GroupDisplayName,
     GroupMemberSummary,
     GroupSettingsResponse,
     InvitationCreated,
@@ -517,11 +518,10 @@ async def get_group_settings(
 ) -> GroupSettingsResponse:
     context = await require_group_context(session, user.id)
     rows = (
-        await session.execute(
-            select(GroupMember, User)
-            .join(User, User.id == GroupMember.user_id)
+        await session.scalars(
+            select(GroupMember)
             .where(GroupMember.group_id == context.group.id)
-            .order_by(GroupMember.joined_at.asc(), User.email.asc())
+            .order_by(GroupMember.joined_at.asc(), GroupMember.id.asc())
         )
     ).all()
     state = await onboarding_state(session, context)
@@ -529,16 +529,27 @@ async def get_group_settings(
         group=state.group,
         is_group_owner=context.group.owner_id == user.id,
         member_count=len(rows),
+        my_display_name=context.membership.display_name,
         members=[
             GroupMemberSummary(
                 id=membership.id,
-                email=member.email,
+                display_name=membership.display_name,
                 onboarding_complete=membership.onboarding_completed_at is not None,
                 joined_at=membership.joined_at,
-                is_owner=member.id == context.group.owner_id,
+                is_owner=membership.user_id == context.group.owner_id,
             )
-            for membership, member in rows
+            for membership in rows
         ],
         shared_profile=state.shared_profile,
         shared_model=state.shared_model,
     )
+
+
+@router.patch("/api/group/display-name", response_model=GroupDisplayName)
+async def update_display_name(
+    body: GroupDisplayName, user: CurrentUser, session: DatabaseSession
+) -> GroupDisplayName:
+    context = await require_group_context(session, user.id, lock=True)
+    context.membership.display_name = body.display_name
+    await session.commit()
+    return body

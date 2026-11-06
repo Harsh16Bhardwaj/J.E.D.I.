@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiRequest, errorSummary, isApiError, type EmailRecipient, type EmailRecipientWriteResult, type EmailSettings } from "@/lib/api";
+import { apiRequest, errorSummary, isApiError, type EmailRecipient, type EmailRecipientWriteResult, type EmailSettings, type User } from "@/lib/api";
 
 type EmailEventStatus =
   | "UNTOUCHED" | "SENDING" | "SENT" | "FAILED" | "BLOCKED" | "CANCELLED";
@@ -93,6 +93,16 @@ function ConfirmDialog({ open, busy, title, description, action, onClose, onConf
 }
 
 export default function EmailSettingsPage() {
+  const session = useSWR<User>("/api/auth/session");
+  if (session.error) return <ErrorBox error={session.error} />;
+  if (!session.data) return <Skeleton className="h-36 rounded-xl bg-raised" />;
+  if (!session.data.isGroupOwner) {
+    return <BrutalCard><p role="status">Email dispatch is available to the group owner.</p></BrutalCard>;
+  }
+  return <EmailOwnerWorkspace key={session.data.id} />;
+}
+
+function EmailOwnerWorkspace() {
   const settings = useSWR<EmailSettings>("/api/email/settings");
   const recipients = useSWR<EmailRecipient[]>("/api/email/recipients");
   const { mutate } = useSWRConfig();
