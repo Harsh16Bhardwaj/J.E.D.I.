@@ -102,3 +102,20 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 
 - DOCX reads body text, including table paragraphs. Header and footer text, images, and complex Word layouts can still require pasted text or manual review.
 - Fit report snapshots, seniority and domain alignment, and calibration against labeled examples remain open.
+
+## Advance applications from confirmed milestones
+
+**Working**
+
+- From Preparing, members can confirm that they submitted a shared-catalog application and record the Applied stage and submission timestamp.
+- Confirming a screening, assessment, or interview can move the application to the corresponding forward stage. Saving a round alone leaves the stage as it was.
+- The stage and milestone commit together. Replaying the request returns the saved milestone, and a stale or backward move leaves both records unchanged.
+
+**Verified**
+
+- Eight targeted application tests, including milestone-only saves, a confirmed move, retries, stale state, backward moves, and member isolation. Backend Ruff, targeted frontend ESLint, and TypeScript passed.
+- The 23-migration chain and six PostgreSQL integration and concurrency checks passed on an isolated local database.
+
+**Open**
+
+- Confirmed milestones are available for applications from the shared catalog. Private draft milestones, provider-inferred suggestions, and resume version filters remain open.

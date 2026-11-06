@@ -3,6 +3,7 @@ import json
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -1046,6 +1047,67 @@ def test_application_planning_status_and_milestone_lifecycle(
     )
     detail = product_client.get(f"/api/jobs/{job_id}").json()
     assert detail["milestones"][0]["title"] == "Technical Round 2"
+
+
+def test_confirmed_milestone_advances_once_and_checks_snapshot(
+    product_client: TestClient,
+) -> None:
+    login(product_client)
+    _, job_id = create_test_job(product_client)
+    base = f"/api/jobs/{job_id}"
+    assert (
+        product_client.post(
+            f"{base}/application-events", json={"applicationStatus": "APPLIED"}
+        ).status_code
+        == 201
+    )
+    initial = product_client.get(f"{base}/application").json()
+    payload = {
+        "type": "INTERVIEW",
+        "title": "Technical interview",
+        "scheduledAt": "2026-08-07T10:00:00Z",
+        "requestId": str(uuid4()),
+        "advanceStage": True,
+        "expectedStatus": "APPLIED",
+        "expectedUpdatedAt": initial["updatedAt"],
+    }
+    endpoint = f"{base}/application-milestones"
+    unconfirmed = product_client.post(
+        endpoint, json={"type": "SCREENING", "title": "Possible screening"}
+    )
+    assert unconfirmed.status_code == 201
+    assert product_client.get(f"{base}/application").json()["status"] == "APPLIED"
+    confirmed = product_client.post(endpoint, json=payload)
+    assert confirmed.status_code == 201, confirmed.text
+    assert product_client.post(endpoint, json=payload).json() == confirmed.json()
+    assert (
+        product_client.post(
+            endpoint, json={**payload, "requestId": str(uuid4())}
+        ).status_code
+        == 409
+    )
+    detail = product_client.get(base).json()
+    assert detail["application"]["status"] == "INTERVIEW"
+    assert len(detail["milestones"]) == 2
+    events = [
+        item for item in detail["events"] if item["eventType"] == "CONFIRMED_MILESTONE"
+    ]
+    assert len(events) == 1
+    assert events[0]["previousStatus"] == "APPLIED"
+    assert events[0]["newStatus"] == "INTERVIEW"
+    assert (
+        product_client.post(
+            endpoint,
+            json={
+                **payload,
+                "type": "SCREENING",
+                "expectedStatus": "INTERVIEW",
+                "expectedUpdatedAt": detail["application"]["updatedAt"],
+                "requestId": str(uuid4()),
+            },
+        ).status_code
+        == 409
+    )
 
 
 def test_member_job_activity_and_applications_are_private(

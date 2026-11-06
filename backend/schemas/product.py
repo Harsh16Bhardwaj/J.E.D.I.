@@ -806,6 +806,20 @@ class ApplicationMilestoneCreate(ApiModel):
     title: str = Field(min_length=1, max_length=300)
     scheduled_at: datetime | None = None
     notes: str | None = Field(default=None, max_length=10_000)
+    request_id: UUID | None = None
+    advance_stage: bool = False
+    expected_status: ApplicationStatus | None = None
+    expected_updated_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def stage_advance_requires_snapshot(self) -> "ApplicationMilestoneCreate":
+        if self.advance_stage and (
+            self.request_id is None or self.expected_status is None
+        ):
+            raise ValueError(
+                "Stage confirmation requires the current status and a request ID."
+            )
+        return self
 
     @field_validator("title")
     @classmethod

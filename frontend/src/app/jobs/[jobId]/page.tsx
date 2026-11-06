@@ -49,20 +49,7 @@ import {
   type PredictionSummary,
 } from "@/lib/api";
 import { formatCompensationLpa, postedDaysAgo } from "@/lib/job-display";
-import { needsApplicationCorrection, prepareApplicationMove, type ApplicationMoveAttempt } from "@/lib/application-move";
-
-const statuses = [
-  "NOT_STARTED",
-  "PREPARING",
-  "APPLIED",
-  "SCREENING",
-  "ASSESSMENT",
-  "INTERVIEW",
-  "OFFER",
-  "ACCEPTED",
-  "REJECTED",
-  "WITHDRAWN",
-];
+import { applicationMoveRequest, applicationStages, needsApplicationCorrection, prepareApplicationMove, type ApplicationMoveAttempt } from "@/lib/application-move";
 
 const cleanLabel = (value: string) => value.toLowerCase().replaceAll("_", " ");
 const localValue = (value: string | null) => (value ? value.slice(0, 16) : "");
@@ -167,6 +154,7 @@ function ApplicationPanel({ jobId, application, refresh }: { jobId: string; appl
   const [referenceCode, setReferenceCode] = useState(application.referenceCode ?? "");
   const [notes, setNotes] = useState(application.notes ?? "");
   const [statusOpen, setStatusOpen] = useState(false);
+  const [confirmingSubmission, setConfirmingSubmission] = useState(false);
   const [nextStatus, setNextStatus] = useState(application.status);
   const [moveSnapshot, setMoveSnapshot] = useState(application);
   const moveAttempt = useRef<ApplicationMoveAttempt>(undefined);
@@ -175,6 +163,16 @@ function ApplicationPanel({ jobId, application, refresh }: { jobId: string; appl
   const [error, setError] = useState<unknown>();
   const correcting = needsApplicationCorrection(moveSnapshot.status, nextStatus);
   const canMove = moveSnapshot.status !== nextStatus && (!correcting || eventNotes.trim());
+
+  function openMove(submission = false) {
+    setMoveSnapshot(application);
+    moveAttempt.current = undefined;
+    setNextStatus(submission ? "APPLIED" : application.status);
+    setConfirmingSubmission(submission);
+    setEventNotes("");
+    setError(undefined);
+    setStatusOpen(true);
+  }
 
   async function savePlan() {
     if (busy) return;
@@ -247,24 +245,18 @@ function ApplicationPanel({ jobId, application, refresh }: { jobId: string; appl
       {error ? <RequestError error={error} /> : null}
       <div className="flex flex-wrap gap-2">
         <Button disabled={busy} onClick={() => void savePlan()}><Save />Save plan</Button>
-        <Button variant="outline" disabled={busy} onClick={() => {
-          setMoveSnapshot(application);
-          moveAttempt.current = undefined;
-          setNextStatus(application.status);
-          setEventNotes("");
-          setError(undefined);
-          setStatusOpen(true);
-        }}><BriefcaseBusiness />Change stage</Button>
+        <Button variant="outline" disabled={busy} onClick={() => openMove()}><BriefcaseBusiness />Change stage</Button>
+        {application.status === "PREPARING" && <Button variant="outline" disabled={busy} onClick={() => openMove(true)}><CheckCircle2 />Record submission</Button>}
       </div>
       <Dialog open={statusOpen} onOpenChange={(open) => { if (!busy) setStatusOpen(open); }}>
         <DialogContent showCloseButton={!busy}>
           <DialogHeader>
-            <DialogTitle className="font-black uppercase">Record status change</DialogTitle>
-            <DialogDescription>This changes only your private application and adds a permanent history event.</DialogDescription>
+            <DialogTitle className="font-black uppercase">{confirmingSubmission ? "Confirm submission" : "Record status change"}</DialogTitle>
+            <DialogDescription>{confirmingSubmission ? "Confirm you submitted this application. JEDI will record it as Applied." : "This changes only your private application and adds a permanent history event."}</DialogDescription>
           </DialogHeader>
-          <select className="min-h-11 rounded-lg border bg-background px-3" value={nextStatus} onChange={(event) => setNextStatus(event.target.value)}>
-            {statuses.map((value) => <option key={value}>{value}</option>)}
-          </select>
+          {!confirmingSubmission && <select className="min-h-11 rounded-lg border bg-background px-3" value={nextStatus} onChange={(event) => setNextStatus(event.target.value)}>
+            {applicationStages.map((value) => <option key={value}>{value}</option>)}
+          </select>}
           <Textarea placeholder={correcting ? "Reason for the correction" : "Optional context"} value={eventNotes} onChange={(event) => setEventNotes(event.target.value)} />
           {error ? <RequestError error={error} /> : null}
           <DialogFooter>
@@ -277,27 +269,45 @@ function ApplicationPanel({ jobId, application, refresh }: { jobId: string; appl
   );
 }
 
-function Milestones({ jobId, items, refresh }: { jobId: string; items: ApplicationMilestone[]; refresh: () => Promise<void> }) {
+function Milestones({ jobId, items, application, refresh }: {
+  jobId: string; items: ApplicationMilestone[]; application: ApplicationRecord; refresh: () => Promise<void>;
+}) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [type, setType] = useState("INTERVIEW");
   const [scheduledAt, setScheduledAt] = useState("");
   const [busy, setBusy] = useState(false);
+  const [snapshot, setSnapshot] = useState(application);
+  const [advance, setAdvance] = useState(false);
+  const [createError, setCreateError] = useState<unknown>();
+  const attempt = useRef<ApplicationMoveAttempt>(undefined);
+  const canAdvance = ["SCREENING", "ASSESSMENT", "INTERVIEW"].includes(type) &&
+    applicationStages.indexOf(snapshot.status) < applicationStages.indexOf(type);
 
   async function create() {
     if (!title.trim() || busy) return;
     setBusy(true);
+    setCreateError(undefined);
     try {
+      const request = applicationMoveRequest({
+        type, title: title.trim(), scheduledAt: isoValue(scheduledAt),
+        ...(advance && canAdvance && {
+          advanceStage: true, expectedStatus: snapshot.status, expectedUpdatedAt: snapshot.updatedAt,
+        }),
+      }, attempt.current);
+      attempt.current = request.attempt;
       await apiRequest(`/api/jobs/${jobId}/application-milestones`, {
         method: "POST",
-        body: JSON.stringify({ type, title, scheduledAt: isoValue(scheduledAt) }),
+        body: request.body,
+        signal: AbortSignal.timeout(15_000),
       });
-      toast.success("Private milestone added.");
+      toast.success(advance && canAdvance ? `Milestone added and stage moved to ${cleanLabel(type)}.` : "Private milestone added.");
       setOpen(false);
       setTitle("");
       await refresh();
     } catch (error) {
-      toast.error(errorSummary(error));
+      setCreateError(error);
+      void refresh().catch(() => undefined);
     } finally {
       setBusy(false);
     }
@@ -324,7 +334,13 @@ function Milestones({ jobId, items, refresh }: { jobId: string; items: Applicati
     <BrutalCard>
       <div className="flex items-start justify-between gap-4">
         <div><p className="ops-label text-muted-foreground">Application rounds</p><h2 className="mt-2 text-xl font-black uppercase">Milestones</h2></div>
-        <Button variant="outline" onClick={() => setOpen(true)}><Plus />Add</Button>
+        <Button variant="outline" disabled={busy} onClick={() => {
+          setSnapshot(application);
+          setAdvance(false);
+          setCreateError(undefined);
+          attempt.current = undefined;
+          setOpen(true);
+        }}><Plus />Add</Button>
       </div>
       <div className="mt-5 space-y-2">
         {items.length ? items.map((item) => (
@@ -339,12 +355,17 @@ function Milestones({ jobId, items, refresh }: { jobId: string; items: Applicati
       </div>
       <Dialog open={open} onOpenChange={(value) => { if (!busy) setOpen(value); }}>
         <DialogContent showCloseButton={!busy}>
-          <DialogHeader><DialogTitle className="font-black uppercase">Add milestone</DialogTitle><DialogDescription>Record a company-specific round without changing the main application stage.</DialogDescription></DialogHeader>
-          <Input placeholder="Technical Round 2" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <select className="min-h-11 rounded-lg border bg-background px-3" value={type} onChange={(event) => setType(event.target.value)}>
+          <DialogHeader><DialogTitle className="font-black uppercase">Add milestone</DialogTitle><DialogDescription>Record a company-specific round. You can also confirm a forward move when the round matches a later stage.</DialogDescription></DialogHeader>
+          <Input aria-label="Milestone title" disabled={busy} placeholder="Technical Round 2" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <select aria-label="Milestone type" disabled={busy} className="min-h-11 rounded-lg border bg-background px-3" value={type} onChange={(event) => { setType(event.target.value); setAdvance(false); }}>
             {["SCREENING", "ASSESSMENT", "INTERVIEW", "FOLLOW_UP", "OTHER"].map((value) => <option key={value}>{value}</option>)}
           </select>
-          <Input type="datetime-local" className="min-h-11" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} />
+          <Input aria-label="Scheduled date and time" disabled={busy} type="datetime-local" className="min-h-11" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} />
+          {canAdvance && <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" disabled={busy} checked={advance} onChange={(event) => setAdvance(event.target.checked)} />
+            Confirm this round and move to {cleanLabel(type)}
+          </label>}
+          {createError ? <RequestError error={createError} /> : null}
           <DialogFooter><Button variant="outline" disabled={busy} onClick={() => setOpen(false)}>Cancel</Button><Button disabled={busy || !title.trim()} onClick={() => void create()}>{busy ? "Adding..." : "Add milestone"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
@@ -505,7 +526,7 @@ export default function JobDetailPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Milestones jobId={jobId} items={data.milestones} refresh={refresh} />
+        <Milestones jobId={jobId} items={data.milestones} application={data.application} refresh={refresh} />
         <BrutalCard>
           <div className="flex items-center gap-2"><CalendarClock className="size-4 text-purple" /><div><p className="ops-label text-muted-foreground">Private history</p><h2 className="mt-2 text-xl font-black uppercase">Application timeline</h2></div></div>
           <div className="mt-5 space-y-4">

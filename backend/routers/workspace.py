@@ -40,6 +40,7 @@ from backend.schemas.product import (
     ApplicationMilestonePatch,
     ApplicationMilestoneResponse,
     ApplicationMilestoneStatus,
+    ApplicationMilestoneType,
     ApplicationPage,
     ApplicationPatch,
     ApplicationResponse,
@@ -64,6 +65,7 @@ from backend.schemas.product import (
     ReviewStatus,
 )
 from backend.services.application_moves import (
+    APPLICATION_STAGE_ORDER,
     TERMINAL_APPLICATION_STATES,
     validate_application_move,
 )
@@ -225,11 +227,15 @@ def milestone_response(
         type=milestone.type,
         title=milestone.title,
         status=milestone.status,
-        scheduled_at=milestone.scheduled_at,
-        completed_at=milestone.completed_at,
+        scheduled_at=(
+            _utc_datetime(milestone.scheduled_at) if milestone.scheduled_at else None
+        ),
+        completed_at=(
+            _utc_datetime(milestone.completed_at) if milestone.completed_at else None
+        ),
         notes=milestone.notes,
-        created_at=milestone.created_at,
-        updated_at=milestone.updated_at,
+        created_at=_utc_datetime(milestone.created_at),
+        updated_at=_utc_datetime(milestone.updated_at),
     )
 
 
@@ -765,13 +771,12 @@ async def get_application(
     return application_response(application, job_id)
 
 
-def _same_instant(left: datetime, right: datetime) -> bool:
-    def aware(value: datetime) -> datetime:
-        if value.tzinfo is None:
-            return value.replace(tzinfo=UTC)
-        return value.astimezone(UTC)
+def _utc_datetime(value: datetime) -> datetime:
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
-    return aware(left) == aware(right)
+
+def _same_instant(left: datetime, right: datetime) -> bool:
+    return _utc_datetime(left) == _utc_datetime(right)
 
 
 @router.patch("/api/jobs/{job_id}/application", response_model=ApplicationResponse)
@@ -1182,25 +1187,71 @@ async def create_application_milestone(
     context = await require_group_context(session, user.id)
     member_id = context.membership.id
     await get_job_or_404(session, job_id)
+    await session.get(GroupMember, member_id, with_for_update=True)
     application = await session.scalar(
-        select(Application).where(
+        select(Application)
+        .where(
             Application.group_member_id == member_id,
             Application.job_id == job_id,
         )
+        .with_for_update()
     )
     if application is None:
         application = Application(group_member_id=member_id, job_id=job_id)
         session.add(application)
         await session.flush()
+    milestone_id = (
+        stable_hash({"application": application.id, "milestone": str(body.request_id)})
+        if body.request_id
+        else None
+    )
+    if milestone_id:
+        existing = await session.get(ApplicationMilestone, milestone_id)
+        if existing:
+            return milestone_response(existing, job_id)
+    title = body.title.strip()
+    if body.advance_stage:
+        target = {
+            ApplicationMilestoneType.SCREENING: ApplicationStatus.SCREENING,
+            ApplicationMilestoneType.ASSESSMENT: ApplicationStatus.ASSESSMENT,
+            ApplicationMilestoneType.INTERVIEW: ApplicationStatus.INTERVIEW,
+        }.get(body.type)
+        if target is None:
+            raise HTTPException(
+                422, "This milestone does not have an application stage."
+            )
+        previous = application.status
+        if previous != body.expected_status or (
+            body.expected_updated_at
+            and not _same_instant(application.updated_at, body.expected_updated_at)
+        ):
+            raise HTTPException(409, "Application changed. Refresh and reopen it.")
+        if APPLICATION_STAGE_ORDER[previous] >= APPLICATION_STAGE_ORDER[target]:
+            raise HTTPException(
+                409, "Choose a milestone that moves the application forward."
+            )
+        application.status = target.value
+        session.add(
+            JobEvent(
+                application_id=application.id,
+                event_type="CONFIRMED_MILESTONE",
+                previous_status=previous,
+                new_status=target.value,
+                event_at=utc_now(),
+                notes=title,
+            )
+        )
     milestone = ApplicationMilestone(
+        **({"id": milestone_id} if milestone_id else {}),
         application_id=application.id,
         type=body.type.value,
-        title=body.title.strip(),
-        scheduled_at=body.scheduled_at,
+        title=title,
+        scheduled_at=_utc_datetime(body.scheduled_at) if body.scheduled_at else None,
         notes=body.notes.strip() if body.notes else None,
     )
     session.add(milestone)
     await session.flush()
+    await session.refresh(milestone)
     result = milestone_response(milestone, job_id)
     await session.commit()
     return result
