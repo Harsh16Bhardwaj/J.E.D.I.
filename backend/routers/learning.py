@@ -5,12 +5,18 @@ from random import SystemRandom
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, null, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
 from backend.auth import CurrentUser
-from backend.database import LearningAttempt, ResumeEvidenceRecord, get_session, utc_now
+from backend.database import (
+    JobDraft,
+    LearningAttempt,
+    ResumeEvidenceRecord,
+    get_session,
+    utc_now,
+)
 from backend.routers.workspace import get_job_or_404
 from backend.schemas.learning import (
     ResumeEvidence,
@@ -81,6 +87,14 @@ async def extract_resume_text(
 @router.delete("/api/resume", status_code=204)
 async def delete_resume(user: CurrentUser, session: DatabaseSession) -> None:
     context = await require_group_context(session, user.id, lock=True)
+    await session.execute(
+        update(JobDraft)
+        .where(
+            JobDraft.group_member_id == context.membership.id,
+            JobDraft.fit_snapshot.is_not(None),
+        )
+        .values(fit_snapshot=null(), updated_at=JobDraft.updated_at)
+    )
     await session.execute(
         delete(ResumeEvidenceRecord).where(
             ResumeEvidenceRecord.group_member_id == context.membership.id

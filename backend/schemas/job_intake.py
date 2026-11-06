@@ -126,6 +126,22 @@ class DraftFitReport(ApiModel):
     job_minimum_years: float | None = None
     resume_years: float | None = None
     assessment: FitAssessment | None = None
+    input_version: str | None = None
+
+
+class SaveDraftFitSnapshot(ApiModel):
+    draft_revision: int = Field(ge=1)
+    input_version: str = Field(pattern=r"^[0-9a-f]{64}$")
+    expected_saved_version: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class DraftFitSnapshot(ApiModel):
+    draft_revision: int
+    resume_reviewed_at: datetime
+    saved_at: datetime
+    title: str
+    employer: str
+    report: DraftFitReport
 
 
 class DraftApplicationEvent(ApiModel):

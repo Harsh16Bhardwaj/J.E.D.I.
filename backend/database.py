@@ -1733,6 +1733,9 @@ class JobDraft(Base):
     description: Mapped[str] = mapped_column(Text)
     preview: Mapped[dict] = mapped_column(json_type)
     application: Mapped[dict | None] = mapped_column(json_type, nullable=True)
+    fit_snapshot: Mapped[dict | None] = mapped_column(
+        "fitSnapshot", json_type, nullable=True
+    )
     revision: Mapped[int] = mapped_column(Integer, default=1)
     updated_at: Mapped[datetime] = mapped_column(
         "updatedAt", DateTime(timezone=True), default=utc_now, onupdate=utc_now

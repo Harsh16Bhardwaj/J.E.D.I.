@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { FileText, Upload, Check, LoaderCircle } from "lucide-react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { toast } from "sonner";
 import { apiRequest, errorSummary, isApiError } from "@/lib/api";
 import type { ResumeEvidence } from "@/lib/learning";
@@ -24,6 +24,7 @@ export function ResumeUpload({
   onPendingChange?: (pending: boolean) => void;
 }) {
   const saved = useSWR<ResumeEvidence | null>("/api/resume");
+  const { mutate } = useSWRConfig();
   const [draft, setDraft] = useState<ResumeEvidence | null>(null);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -93,7 +94,11 @@ export function ResumeUpload({
     onPendingChange?.(true);
     try {
       await apiRequest<void>("/api/resume", { method: "DELETE", signal: AbortSignal.timeout(15_000) });
-      await saved.mutate(null, false);
+      await Promise.all([
+        saved.mutate(null, false),
+        mutate((key) => typeof key === "string" && key.startsWith("/api/job-drafts/") &&
+          key.endsWith("/skill-fit/saved"), null, { revalidate: false }),
+      ]);
       setDraft(null);
       setPastedText("");
       setConfirmed(false);
@@ -185,7 +190,7 @@ export function ResumeUpload({
         <div className="space-y-2">
           {confirmDelete ? (
             <>
-              <p className="text-sm text-muted-foreground">Delete your saved resume evidence and clear this preview?</p>
+              <p className="text-sm text-muted-foreground">Delete your saved resume evidence and saved fit comparisons? This also clears the current preview.</p>
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="destructive" disabled={busy} onClick={() => void removeSavedEvidence()}>Confirm delete</Button>
                 <Button type="button" variant="outline" disabled={busy} onClick={() => setConfirmDelete(false)}>Keep evidence</Button>

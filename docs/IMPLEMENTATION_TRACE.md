@@ -136,3 +136,20 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 
 - Connect a scheduler or worker service to the internal endpoint to run imports unattended in a deployment. The browser still advances checkpoints when open.
 - Background collection and discovery, live employer coverage, and a timed PostgreSQL race test for browser and worker requests remain open.
+
+## Save a private baseline for resume fit
+
+**Working**
+
+- Each private draft can keep one saved fit comparison. It preserves the inputs and scored findings from the reviewed draft and resume, with the draft revision, resume review date, and scorer version.
+- Members can revisit the saved result after editing the draft or resume, compare again, and explicitly replace or delete the baseline. The API checks the live inputs and the expected baseline before replacing it.
+- Deleting a draft or the underlying resume evidence removes its saved comparison. Raw saved inputs remain server-side and responses stay out of browser refresh storage.
+
+**Verified**
+
+- 10 intake and fit tests, including immutable findings after resume edits, replay, stale replacement and deletion, cross-member isolation, and resume deletion.
+- 184 backend tests passed, including the PostgreSQL checks. All 24 migrations were applied to the isolated test database. The 32 frontend tests, frontend production build, and lint passed.
+
+**Open**
+
+- Apply the fit snapshot migration before deploying. Per-draft comparison history, seniority and domain alignment, and score calibration remain open.

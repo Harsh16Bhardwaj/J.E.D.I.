@@ -1029,6 +1029,7 @@ model JobDraft {
   description   String
   preview       Json
   application   Json?
+  fitSnapshot   Json?
   revision      Int         @default(1)
   updatedAt     DateTime    @updatedAt @db.Timestamptz(3)
 

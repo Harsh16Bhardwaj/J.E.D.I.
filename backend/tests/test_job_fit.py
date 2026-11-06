@@ -132,3 +132,70 @@ def test_pasted_resume_preview_and_deletion_are_private(product_client):
     assert product_client.delete("/api/resume").status_code == 204
     assert product_client.delete("/api/resume").status_code == 204
     assert product_client.get("/api/resume").json() is None
+
+
+def test_fit_snapshot_keeps_reviewed_inputs_and_respects_retention(product_client):
+    login(product_client)
+    path = f"/api/job-drafts/{uuid4()}"
+    fields = preview_job(DESCRIPTION).fields.model_dump(mode="json", by_alias=True)
+    assert (
+        product_client.put(
+            path, json={"description": DESCRIPTION, "fields": fields, "revision": 0}
+        ).status_code
+        == 200
+    )
+    resume = {"text": RESUME, "explicitSkills": ["React"]}
+    assert product_client.put("/api/resume", json=resume).status_code == 200
+    fit = f"{path}/skill-fit"
+    snapshots = f"{fit}/saved"
+    initial = product_client.get(f"{fit}?revision=1").json()
+    payload = {"draftRevision": 1, "inputVersion": initial["inputVersion"]}
+    saved = product_client.put(snapshots, json=payload)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["report"] == initial
+    assert "inputs" not in saved.json()
+    assert "no-store" in product_client.get(snapshots).headers["cache-control"]
+
+    changed_resume = {**resume, "explicitSkills": ["Kubernetes"]}
+    assert product_client.put("/api/resume", json=changed_resume).status_code == 200
+    assert product_client.put(snapshots, json=payload).json() == saved.json()
+    latest = product_client.get(f"{fit}?revision=1").json()
+    assert latest["inputVersion"] != initial["inputVersion"]
+    assert product_client.get(snapshots).json()["report"] == initial
+    replacement = {**payload, "inputVersion": latest["inputVersion"]}
+    assert product_client.put(snapshots, json=replacement).status_code == 409
+    replacement["expectedSavedVersion"] = initial["inputVersion"]
+    assert product_client.put(snapshots, json=replacement).json()["report"] == latest
+    assert (
+        product_client.delete(
+            f"{snapshots}?inputVersion={initial['inputVersion']}"
+        ).status_code
+        == 409
+    )
+
+    member = product_client.post(
+        "/api/auth/login",
+        json={"email": "friend@example.com", "password": "friend password"},
+    )
+    assert member.status_code == 200
+    assert product_client.get(snapshots).status_code == 404
+    assert product_client.put(snapshots, json=replacement).status_code == 404
+    assert product_client.delete("/api/resume").status_code == 204
+    login(product_client)
+    assert product_client.get(snapshots).json()["report"] == latest
+    assert (
+        product_client.delete(
+            f"{snapshots}?inputVersion={latest['inputVersion']}"
+        ).status_code
+        == 204
+    )
+    assert product_client.get(snapshots).json() is None
+    assert product_client.put(snapshots, json=payload).status_code == 409
+    assert (
+        product_client.put(
+            snapshots, json={**replacement, "expectedSavedVersion": None}
+        ).status_code
+        == 200
+    )
+    assert product_client.delete("/api/resume").status_code == 204
+    assert product_client.get(snapshots).json() is None

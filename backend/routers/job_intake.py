@@ -5,7 +5,7 @@ from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, null, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth import CurrentUser
@@ -16,12 +16,14 @@ from backend.schemas.job_intake import (
     DraftApplicationMove,
     DraftApplicationState,
     DraftFitReport,
+    DraftFitSnapshot,
     JobDraftDetail,
     JobDraftSummary,
     JobPreview,
     LinkedJobPreview,
     LinkJobRequest,
     PasteJobRequest,
+    SaveDraftFitSnapshot,
     SaveJobDraft,
 )
 from backend.schemas.learning import ResumeEvidence
@@ -31,6 +33,7 @@ from backend.services.group_access import require_group_context
 from backend.services.job_fit import compare_draft
 from backend.services.job_intake import preview_job
 from backend.services.job_links import JobLinkError, parse_job_link, preview_link
+from backend.services.product import stable_hash
 from backend.services.skill_vocabulary import canonical_skill, skill_key
 
 DatabaseSession = Annotated[AsyncSession, Depends(get_session)]
@@ -244,6 +247,51 @@ async def get_draft(
     return draft_detail(row)
 
 
+async def owned_draft(session: AsyncSession, owner: str, draft_id: UUID) -> JobDraft:
+    draft = await session.get(JobDraft, (owner, str(draft_id)))
+    if draft is None:
+        raise HTTPException(404, "Job draft not found.")
+    return draft
+
+
+async def draft_resume(
+    session: AsyncSession, draft: JobDraft
+) -> ResumeEvidenceRecord | None:
+    return await session.scalar(
+        select(ResumeEvidenceRecord).where(
+            ResumeEvidenceRecord.group_member_id == draft.group_member_id
+        )
+    )
+
+
+def versioned_fit(
+    draft: JobDraft, evidence: ResumeEvidenceRecord | None
+) -> tuple[DraftFitReport, dict]:
+    detail = draft_detail(draft)
+    resume = ResumeEvidence.model_validate(evidence.evidence) if evidence else None
+    report = compare_draft(detail, resume)
+    inputs = {
+        "job": detail.model_dump(
+            mode="json", include={"description", "fields", "requirements", "source_url"}
+        ),
+        "resume": resume.model_dump(
+            mode="json",
+            include={"text", "explicit_skills", "inferred_skills", "experience_years"},
+        )
+        if resume
+        else None,
+    }
+    if report.assessment:
+        report.input_version = stable_hash(
+            {
+                "inputs": inputs,
+                "draftRevision": draft.revision,
+                "scorer": report.assessment.version,
+            }
+        )
+    return report, inputs
+
+
 @router.get("/{draft_id}/skill-fit", response_model=DraftFitReport)
 async def draft_skill_fit(
     draft_id: UUID,
@@ -252,19 +300,96 @@ async def draft_skill_fit(
     revision: Annotated[int, Query(ge=1)],
 ) -> DraftFitReport:
     context = await require_group_context(session, user.id)
-    owner = context.membership.id
-    draft = await session.get(JobDraft, (owner, str(draft_id)))
-    if draft is None:
-        raise HTTPException(404, "Job draft not found.")
+    draft = await owned_draft(session, context.membership.id, draft_id)
     if draft.revision != revision:
         raise draft_changed()
-    evidence = await session.scalar(
-        select(ResumeEvidenceRecord.evidence).where(
-            ResumeEvidenceRecord.group_member_id == owner
-        )
+    report, _ = versioned_fit(draft, await draft_resume(session, draft))
+    return report
+
+
+@router.get("/{draft_id}/skill-fit/saved", response_model=DraftFitSnapshot | None)
+async def get_fit_snapshot(
+    draft_id: UUID, user: CurrentUser, session: DatabaseSession
+) -> DraftFitSnapshot | None:
+    context = await require_group_context(session, user.id)
+    draft = await owned_draft(session, context.membership.id, draft_id)
+    return (
+        DraftFitSnapshot.model_validate(draft.fit_snapshot)
+        if draft.fit_snapshot
+        else None
     )
-    resume = ResumeEvidence.model_validate(evidence) if evidence is not None else None
-    return compare_draft(draft_detail(draft), resume)
+
+
+@router.put("/{draft_id}/skill-fit/saved", response_model=DraftFitSnapshot)
+async def save_fit_snapshot(
+    draft_id: UUID,
+    body: SaveDraftFitSnapshot,
+    user: CurrentUser,
+    session: DatabaseSession,
+) -> DraftFitSnapshot:
+    context = await require_group_context(session, user.id, lock=True)
+    draft = await owned_draft(session, context.membership.id, draft_id)
+    saved = (
+        DraftFitSnapshot.model_validate(draft.fit_snapshot)
+        if draft.fit_snapshot
+        else None
+    )
+    saved_version = saved.report.input_version if saved else None
+    if (
+        saved
+        and saved_version == body.input_version
+        and saved.draft_revision == body.draft_revision
+    ):
+        return saved
+    if saved_version != body.expected_saved_version:
+        raise HTTPException(409, "The saved comparison changed. Reopen it to continue.")
+    if draft.revision != body.draft_revision:
+        raise draft_changed()
+    evidence = await draft_resume(session, draft)
+    report, inputs = versioned_fit(draft, evidence)
+    if evidence is None or body.input_version != report.input_version:
+        raise HTTPException(
+            409, "Resume evidence or the scorer changed. Compare again before saving."
+        )
+    snapshot = DraftFitSnapshot(
+        draft_revision=draft.revision,
+        resume_reviewed_at=evidence.updated_at.replace(tzinfo=UTC),
+        saved_at=utc_now(),
+        title=draft.preview["fields"]["title"],
+        employer=draft.preview["fields"]["employer"],
+        report=report,
+    )
+    draft.fit_snapshot = {**snapshot.model_dump(mode="json"), "inputs": inputs}
+    await session.commit()
+    return snapshot
+
+
+@router.delete("/{draft_id}/skill-fit/saved", status_code=204)
+async def delete_fit_snapshot(
+    draft_id: UUID,
+    user: CurrentUser,
+    session: DatabaseSession,
+    input_version: Annotated[
+        str, Query(alias="inputVersion", pattern=r"^[0-9a-f]{64}$")
+    ],
+) -> None:
+    context = await require_group_context(session, user.id, lock=True)
+    draft = await owned_draft(session, context.membership.id, draft_id)
+    if draft.fit_snapshot:
+        saved = DraftFitSnapshot.model_validate(draft.fit_snapshot)
+        if saved.report.input_version != input_version:
+            raise HTTPException(
+                409, "The saved comparison changed. Reopen it to continue."
+            )
+        await session.execute(
+            update(JobDraft)
+            .where(
+                JobDraft.group_member_id == draft.group_member_id,
+                JobDraft.id == draft.id,
+            )
+            .values(fit_snapshot=null(), updated_at=JobDraft.updated_at)
+        )
+        await session.commit()
 
 
 @router.put("/{draft_id}", response_model=JobDraftDetail)
