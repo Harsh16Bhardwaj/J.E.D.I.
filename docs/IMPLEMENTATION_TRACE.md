@@ -171,3 +171,18 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 
 - Employer coverage beyond the four supported single-job URL providers, scheduler deployment for approved imports, and unattended source discovery and collection remain open.
 - Fit calibration and seniority/domain alignment, synchronized guide progress, and shared filters across catalog and private applications remain open.
+
+## Verify SmartRecruiters public pagination and branch readiness
+
+**Working**
+
+- The pagination regression test parses query parameters by name. It verifies the saved offset and public-only destination on each page, regardless of parameter order.
+
+**Verified**
+
+- 186 backend tests passed, including the PostgreSQL integration and concurrency tests. The isolated database used all 24 migrations.
+- All 32 frontend tests, the production build, backend Ruff, frontend lint, and Prisma schema validation passed.
+
+**Open**
+
+- Apply the new migrations in the target deployment and connect the scraper import scheduler. Live browser verification against the target deployment, additional provider coverage, and the remaining fit and application roadmap items are pending.

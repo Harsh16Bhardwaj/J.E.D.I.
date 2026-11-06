@@ -1,6 +1,7 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from urllib.parse import parse_qs, urlsplit
 
 from backend.services import scraper
 from backend.services.scraper import (
@@ -269,7 +270,9 @@ def test_smartrecruiters_page_checkpoint_resumes_without_restarting(
     calls: list[int] = []
 
     async def fake_json(url, _config, *, allow_unlocker=True):
-        offset = int(url.split("offset=")[-1])
+        query = parse_qs(urlsplit(url).query)
+        assert query["destination"] == ["PUBLIC"]
+        offset = int(query["offset"][0])
         calls.append(offset)
         count = 100 if offset == 0 else 50
         return {
