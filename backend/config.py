@@ -21,7 +21,6 @@ class Settings(BaseSettings):
     session_cookie_name: str = "jedi_session"
     session_days: int = 7
     session_cookie_secure: bool = False
-    password_reset_origin: str = ""
     email_enabled: bool = False
     gmail_smtp_user: str = ""
     gmail_smtp_app_password: str = ""

@@ -36,7 +36,6 @@ from backend.services.password_reset import (
     consume_reset,
     issue_reset,
     mail_configured,
-    recovery_origin,
     send_recovery_mail,
 )
 
@@ -109,26 +108,28 @@ async def forgot_password(
 ) -> dict[str, str]:
     started_at = monotonic()
     settings = get_settings()
-    origin = recovery_origin(settings)
-    if not origin or not mail_configured(settings):
+    if not mail_configured(settings):
         raise HTTPException(503, "Password reset email is currently unavailable.")
     issued = await issue_reset(session, body.email)
     await session.rollback()
     if issued:
-        recipient, token = issued
-        link = f"{origin}/reset-password#token={token}"
+        recipient, code = issued
+        grouped_code = "-".join(
+            code[index : index + 4] for index in range(0, len(code), 4)
+        )
         background.add_task(
             send_recovery_mail,
             recipient,
             "Reset your JEDI password",
-            f"Open this link to choose a new JEDI password:\n\n{link}\n\n"
-            "The link expires in 30 minutes. "
+            f"Your one-time recovery code is:\n\n{grouped_code}\n\n"
+            "Return to JEDI and enter this code to choose a new password. "
+            "The code expires in 15 minutes. "
             "If you didn't request it, ignore this email.",
         )
     # Mask the usual timing difference between a lookup and issuing a token.
     await sleep(max(0, 0.25 - (monotonic() - started_at)))
     return {
-        "message": "If an account exists for that email, a reset link will be sent."
+        "message": "If an account exists for that email, a recovery code will be sent."
     }
 
 
@@ -139,10 +140,12 @@ async def reset_password(
     background: BackgroundTasks,
     session: DatabaseSession,
 ) -> None:
-    recipient = await consume_reset(session, body.token, body.password)
+    recipient = await consume_reset(
+        session, body.token or body.code or "", body.password, email=body.email
+    )
     if recipient is None:
         raise HTTPException(
-            400, "This reset link is invalid or expired. Request a new one."
+            400, "This recovery code or link is invalid or expired. Request a new code."
         )
     await logout(response)
     background.add_task(
@@ -150,7 +153,7 @@ async def reset_password(
         recipient,
         "Your JEDI password was changed",
         "Your JEDI password was changed and previous sessions were signed out. "
-        "If you didn't make this change, request a new reset link "
+        "If you didn't make this change, request a new recovery code "
         "and contact your group owner.",
     )
 

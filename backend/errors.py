@@ -76,8 +76,11 @@ async def validation_exception_handler(
     request: Request,
     exception: RequestValidationError,
 ) -> JSONResponse:
+    excluded = {"ctx"}
+    if request.url.path.startswith("/api/auth/"):
+        excluded.add("input")
     details = [
-        {key: value for key, value in error.items() if key != "ctx"}
+        {key: value for key, value in error.items() if key not in excluded}
         for error in exception.errors()
     ]
     return _error_response(

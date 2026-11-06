@@ -1,5 +1,6 @@
 """Contracts for shared-group registration, invitations, and onboarding."""
 
+import re
 from datetime import datetime
 
 from pydantic import Field, field_validator, model_validator
@@ -51,12 +52,34 @@ class ForgotPasswordRequest(ApiModel):
 
 
 class ResetPasswordRequest(ApiModel):
-    token: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+    token: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{43}$")
+    code: str | None = Field(default=None, max_length=64)
+    email: str | None = Field(default=None, min_length=3, max_length=320)
     password: str = Field(min_length=8, max_length=256)
     confirm_password: str = Field(min_length=8, max_length=256)
 
+    @field_validator("code")
+    @classmethod
+    def normalize_code(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        code = re.sub(r"[ \t\r\n-]", "", value).upper()
+        if not re.fullmatch(r"[A-Z2-7]{16}", code):
+            raise ValueError("Enter the 16-character recovery code from your email.")
+        return code
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str | None) -> str | None:
+        return normalize_email(value) if value is not None else None
+
     @model_validator(mode="after")
-    def passwords_match(self):
+    def validate_reset(self):
+        if self.token is None:
+            if self.code is None or self.email is None:
+                raise ValueError("Enter the email and recovery code.")
+        elif self.code is not None:
+            raise ValueError("Use one recovery credential at a time.")
         if self.password != self.confirm_password:
             raise ValueError("Passwords must match.")
         return self

@@ -1,11 +1,15 @@
 # ruff: noqa: F401, F811
 
+import asyncio
+import re
+from contextlib import aclosing
 from datetime import UTC, datetime, timedelta
-from urllib.parse import parse_qs, urlsplit
+from secrets import token_urlsafe
 
 import pytest
 
 from backend.config import get_settings
+from backend.database import PasswordReset, get_session
 from backend.services import password_reset
 from backend.services.email import GmailSmtpTransport
 from backend.tests.test_product_api import login, product_client
@@ -17,7 +21,6 @@ RESET = "/api/auth/reset-password"
 @pytest.fixture
 def mailbox(monkeypatch):
     settings = get_settings()
-    monkeypatch.setattr(settings, "password_reset_origin", "https://jedi.example.test")
     monkeypatch.setattr(settings, "gmail_smtp_user", "sender@example.test")
     monkeypatch.setattr(settings, "gmail_smtp_app_password", "test-password")
     messages = []
@@ -30,17 +33,18 @@ def mailbox(monkeypatch):
     return messages
 
 
-def reset_token(message):
-    url = urlsplit(message[2].splitlines()[2])
-    assert url.netloc == "jedi.example.test"
-    assert url.path == "/reset-password"
-    assert not url.query
-    return parse_qs(url.fragment)["token"][0]
+def recovery_code(message):
+    body = message[2]
+    assert "https://" not in body and "http://" not in body
+    code = body.splitlines()[2]
+    assert re.fullmatch(r"[A-Z2-7]{4}(?:-[A-Z2-7]{4}){3}", code)
+    return code
 
 
-def reset_body(token):
+def reset_body(code):
     return {
-        "token": token,
+        "email": "owner@example.com",
+        "code": code,
         "password": "new correct horse",
         "confirmPassword": "new correct horse",
     }
@@ -63,13 +67,20 @@ def test_reset_email_changes_password_and_revokes_old_sessions(product_client, m
     )
     assert len(mailbox) == 1
     assert mailbox[0][0] == "owner@example.com"
-    token = reset_token(mailbox[0])
-    assert token not in issued.text
+    code = recovery_code(mailbox[0])
+    assert code not in issued.text
+    assert code.replace("-", "") not in issued.text
 
-    mismatch = {**reset_body(token), "confirmPassword": "different password"}
-    assert product_client.post(RESET, json=mismatch).status_code == 422
-    assert product_client.post(RESET, json=reset_body(token)).status_code == 204
-    assert product_client.post(RESET, json=reset_body(token)).status_code == 400
+    mismatch = {**reset_body(code), "confirmPassword": "different password"}
+    validation = product_client.post(RESET, json=mismatch)
+    assert validation.status_code == 422
+    assert code not in validation.text
+    assert mismatch["password"] not in validation.text
+    wrong_email = {**reset_body(code), "email": "friend@example.com"}
+    assert product_client.post(RESET, json=wrong_email).status_code == 400
+    normalized = reset_body(code.replace("-", " ").lower())
+    assert product_client.post(RESET, json=normalized).status_code == 204
+    assert product_client.post(RESET, json=reset_body(code)).status_code == 400
     assert len(mailbox) == 2
     assert "password was changed" in mailbox[1][1]
     assert (
@@ -95,11 +106,41 @@ def test_reset_expiry_and_replacement(product_client, mailbox, monkeypatch):
     monkeypatch.setattr(password_reset, "utc_now", lambda: now)
     email = {"email": "owner@example.com"}
     assert product_client.post(FORGOT, json=email).status_code == 202
-    first = reset_token(mailbox[0])
+    first = recovery_code(mailbox[0])
     now += timedelta(minutes=6)
     assert product_client.post(FORGOT, json=email).status_code == 202
-    replacement = reset_token(mailbox[1])
+    replacement = recovery_code(mailbox[1])
     assert product_client.post(RESET, json=reset_body(first)).status_code == 400
-    now += timedelta(minutes=31)
+    now += timedelta(minutes=15)
     assert product_client.post(RESET, json=reset_body(replacement)).status_code == 400
     login(product_client)
+
+
+def test_previously_issued_reset_link_remains_usable(product_client, mailbox):
+    token = token_urlsafe(32)
+    now = datetime.now(UTC)
+
+    async def store_previous_token():
+        session_provider = product_client.app.dependency_overrides[get_session]
+        async with aclosing(session_provider()) as sessions:
+            session = await anext(sessions)
+            session.add(
+                PasswordReset(
+                    user_id="user-1",
+                    token_hash=password_reset.token_digest(token),
+                    requested_at=now,
+                    expires_at=now + timedelta(minutes=30),
+                )
+            )
+            await session.commit()
+
+    asyncio.run(store_previous_token())
+    body = {
+        "token": token,
+        "password": "new correct horse",
+        "confirmPassword": "new correct horse",
+    }
+    assert product_client.post(RESET, json=body).status_code == 204
+    assert product_client.post(RESET, json=body).status_code == 400
+    assert len(mailbox) == 1
+    assert "password was changed" in mailbox[0][1]

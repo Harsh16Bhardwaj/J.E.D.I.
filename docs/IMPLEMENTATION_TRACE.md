@@ -201,3 +201,19 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 **Open**
 
 - Connect the scheduler and verify an approved import completes in the target deployment after the owner closes the browser. The local race test uses API requests and does not exercise that deployed path.
+
+## Recover passwords with an emailed code
+
+**Working**
+
+- Forgot password emails a single-use, 16-character recovery code to the registered address. Members enter it in JEDI and choose their own new password. Codes expire in 15 minutes, and each account can request one every five minutes.
+- Recovery no longer needs a frontend origin setting. Previously issued reset links work until their original expiry, and a completed reset revokes older sessions. Auth validation errors omit submitted values.
+
+**Verified**
+
+- 18 recovery and group API tests cover code formatting, address binding, expiry, replacement, one-time use, session revocation, and compatibility with previously issued links.
+- The recovery smoke test passed against isolated PostgreSQL with stub mail delivery. Backend Ruff, 32 frontend tests, targeted lint, and the production build passed.
+
+**Open**
+
+- The configured hosted Supabase database lacks the existing password-reset migration. Apply it to the approved target before testing live delivery. Gmail delivery was exercised through a stub.

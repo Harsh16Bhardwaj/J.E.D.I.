@@ -63,7 +63,7 @@ npm run user:bootstrap
 ```
 
 Both paths normalize the email and store only an Argon2 password hash. Login
-sets an HTTP-only signed cookie. There is intentionally no password-reset flow.
+sets an HTTP-only signed cookie. Members can recover access from Forgot password.
 
 ## Start the servers
 
@@ -264,13 +264,12 @@ and the 12:00 AM IST cron retries eligible rows.
 
 ### Password recovery
 
-Apply the password reset migration, then set `PASSWORD_RESET_ORIGIN` to the
-trusted frontend origin and configure `GMAIL_SMTP_USER` and
-`GMAIL_SMTP_APP_PASSWORD` on the backend. Use HTTPS for deployed origins.
-Account recovery uses transactional email independently of the digest toggle.
-Reset requests are limited to one per account every five minutes. Links expire
-after 30 minutes and can only be used once. Completing a reset signs out the
-account's previous sessions.
+Apply the password reset migration and configure `GMAIL_SMTP_USER` and
+`GMAIL_SMTP_APP_PASSWORD` on the backend. Account recovery uses transactional
+email independently of the digest toggle. Members enter the emailed recovery
+code in JEDI and choose a new password. Each code expires after 15 minutes
+and can only be used once. Reset requests are limited to one per account every
+five minutes. Completing a reset signs out the account's previous sessions.
 
 `POST /api/batches/{batchId}/rank` intentionally queues pending execution and
 does not invent scores. Real model results are accepted by the rankings route.
