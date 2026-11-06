@@ -1,5 +1,7 @@
 from datetime import date
 from io import BytesIO
+from xml.sax.saxutils import escape
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 from pydantic import ValidationError
@@ -9,6 +11,7 @@ from backend.schemas.learning import QuestionBank
 from backend.services.learning import compare_skills, load_banks
 from backend.services.resume import (
     ResumeError,
+    extract_docx_resume,
     extract_resume,
     parse_resume_text,
     work_months,
@@ -30,6 +33,58 @@ Portfolio — Built a Next.js portfolio with reusable components.
 Education
 BSc Computer Science, Example University, 2021
 """
+
+
+def make_resume_docx(
+    document: str | None = None, *, macro_enabled: bool = False
+) -> bytes:
+    if document is None:
+        paragraphs = "".join(
+            f"<w:p><w:r><w:t>{escape(line)}</w:t></w:r></w:p>"
+            for line in RESUME.splitlines()
+        )
+        document = (
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            f"<w:body>{paragraphs}</w:body></w:document>"
+        )
+    mime_type = (
+        "application/vnd.openxmlformats-officedocument."
+        "wordprocessingml.document.main+xml"
+    )
+    if macro_enabled:
+        mime_type = "application/vnd.ms-word.document.macroEnabled.main+xml"
+    output = BytesIO()
+    with ZipFile(output, "w", ZIP_DEFLATED) as package:
+        package.writestr(
+            "[Content_Types].xml",
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            f'<Override PartName="/word/document.xml" ContentType="{mime_type}"/>'
+            "</Types>",
+        )
+        package.writestr("word/document.xml", document)
+    return output.getvalue()
+
+
+def test_docx_extraction_reuses_resume_evidence():
+    assert extract_docx_resume(make_resume_docx()) == parse_resume_text(RESUME)
+
+
+@pytest.mark.parametrize(
+    ("data", "code"),
+    [
+        (b"PK\x03\x04broken", "INVALID_DOCX"),
+        (make_resume_docx(macro_enabled=True), "INVALID_DOCX"),
+        (
+            make_resume_docx('<!DOCTYPE doc [<!ENTITY content "test">]><doc/>'),
+            "INVALID_DOCX",
+        ),
+        (make_resume_docx("x" * 2_000_001), "DOCX_TOO_LARGE"),
+    ],
+)
+def test_docx_rejects_invalid_or_unbounded_documents(data, code):
+    with pytest.raises(ResumeError) as error:
+        extract_docx_resume(data)
+    assert error.value.code == code
 
 
 def test_resume_separates_explicit_and_inferred_evidence():

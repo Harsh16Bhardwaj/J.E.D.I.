@@ -21,7 +21,7 @@ from backend.schemas.learning import (
 from backend.services.group_access import require_group_context
 from backend.services.learning import TOPIC_SKILLS, compare_skills, load_banks
 from backend.services.resume import (
-    MAX_PDF_BYTES,
+    MAX_RESUME_BYTES,
     ResumeError,
     extract_resume_isolated,
     parse_resume_text,
@@ -50,9 +50,10 @@ async def evidence_for(session: AsyncSession, owner: str) -> ResumeEvidence | No
 
 @router.post("/api/resume/extract", response_model=ResumeEvidence)
 async def extract(file: UploadFile, user: CurrentUser, session: DatabaseSession):
-    await member_id(session, user.id)
     try:
-        data = await file.read(MAX_PDF_BYTES + 1)
+        await member_id(session, user.id)
+        await session.rollback()
+        data = await file.read(MAX_RESUME_BYTES + 1)
         return await run_in_threadpool(extract_resume_isolated, data)
     except ResumeError as exc:
         fail(exc.code, str(exc))

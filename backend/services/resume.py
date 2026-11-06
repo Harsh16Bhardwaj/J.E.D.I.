@@ -1,15 +1,26 @@
-"""Conservative local PDF extraction. Document content is data, never instructions."""
+"""Conservative local resume extraction from text, PDF, and DOCX."""
 
 import re
 from datetime import date
 from io import BytesIO
+from xml.etree import ElementTree
+from zipfile import ZIP_DEFLATED, ZIP_STORED, BadZipFile, ZipFile
+from zlib import error as ZipCompressionError
 
 from pypdf import PdfReader
 
 from backend.schemas.learning import InferredSkill, ResumeEvidence
 from backend.services.skill_vocabulary import BROADER_SKILLS, skill_names, vocabulary
 
-MAX_PDF_BYTES = 5 * 1024 * 1024
+MAX_RESUME_BYTES = 5 * 1024 * 1024
+_DOCX_CONTENT_TYPE = (
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
+)
+_PACKAGE_TYPES = "{http://schemas.openxmlformats.org/package/2006/content-types}"
+_WORD_NAMESPACES = (
+    "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}",
+    "{http://purl.oclc.org/ooxml/wordprocessingml/main}",
+)
 SECTIONS = {
     "summary": ["summary", "profile", "professional summary", "objective", "about me"],
     "skills": [
@@ -138,7 +149,7 @@ def parse_resume_text(text: str) -> ResumeEvidence:
     if len(text) < 80:
         raise ResumeError(
             "UNREADABLE_RESUME",
-            "This PDF has too little readable text. Upload a text-based resume.",
+            "This resume has too little readable text. Upload a text-based file.",
         )
     if len(text) > 100_000:
         raise ResumeError("PDF_TOO_LARGE", "Resume text exceeds the supported length.")
@@ -241,7 +252,7 @@ def parse_resume_text(text: str) -> ResumeEvidence:
 
 
 def extract_resume(data: bytes) -> ResumeEvidence:
-    if len(data) > MAX_PDF_BYTES:
+    if len(data) > MAX_RESUME_BYTES:
         raise ResumeError("PDF_TOO_LARGE", "Upload a PDF of 5 MB or less.")
     if not data.startswith(b"%PDF-"):
         raise ResumeError("INVALID_PDF", "Upload a valid PDF resume.")
@@ -276,17 +287,100 @@ def extract_resume(data: bytes) -> ResumeEvidence:
         ) from exc
 
 
+def _docx_xml(package: ZipFile, path: str, limit: int) -> ElementTree.Element:
+    part = package.getinfo(path)
+    if part.compress_type not in {ZIP_STORED, ZIP_DEFLATED}:
+        raise ValueError("Unsupported Word document compression")
+    if part.file_size > limit:
+        raise ResumeError(
+            "DOCX_TOO_LARGE", "Export a simpler Word resume or paste the text."
+        )
+    with package.open(part) as stream:
+        data = stream.read(limit + 1)
+    if len(data) > limit:
+        raise ResumeError(
+            "DOCX_TOO_LARGE", "Export a simpler Word resume or paste the text."
+        )
+    encoding = "utf-16" if data.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
+    xml = data.decode(encoding)
+    if "\x00" in xml or "<!DOCTYPE" in xml or "<!ENTITY" in xml:
+        raise ResumeError(
+            "INVALID_DOCX", "Export a standard DOCX resume and try again."
+        )
+    return ElementTree.fromstring(xml)
+
+
+def extract_docx_resume(data: bytes) -> ResumeEvidence:
+    if len(data) > MAX_RESUME_BYTES:
+        raise ResumeError("DOCX_TOO_LARGE", "Upload a DOCX of 5 MB or less.")
+    try:
+        with ZipFile(BytesIO(data)) as package:
+            names = package.namelist()
+            if len(names) > 2_000 or len(names) != len(set(names)):
+                raise ValueError("Invalid ZIP directory")
+            types = _docx_xml(package, "[Content_Types].xml", 64_000)
+            if types.tag != _PACKAGE_TYPES + "Types" or not any(
+                entry.tag == _PACKAGE_TYPES + "Override"
+                and entry.get("PartName") == "/word/document.xml"
+                and entry.get("ContentType") == _DOCX_CONTENT_TYPE
+                for entry in types
+            ):
+                raise ValueError("Missing standard Word document content type")
+            document = _docx_xml(package, "word/document.xml", 2_000_000)
+        namespace = next(
+            (ns for ns in _WORD_NAMESPACES if document.tag == ns + "document"), ""
+        )
+        body = document.find(namespace + "body") if namespace else None
+        if body is None:
+            raise ValueError("Missing Word document body")
+        separators = {
+            namespace + "tab": " ",
+            namespace + "br": "\n",
+            namespace + "cr": "\n",
+        }
+        lines = [
+            "".join(
+                (node.text or "")
+                if node.tag == namespace + "t"
+                else separators.get(node.tag, "")
+                for node in paragraph.iter()
+            )
+            for paragraph in body.iter(namespace + "p")
+        ]
+        return parse_resume_text("\n".join(lines))
+    except ResumeError as exc:
+        if exc.code == "PDF_TOO_LARGE":
+            raise ResumeError("DOCX_TOO_LARGE", str(exc)) from exc
+        raise
+    except (
+        BadZipFile,
+        ElementTree.ParseError,
+        KeyError,
+        ValueError,
+        RuntimeError,
+        ZipCompressionError,
+    ) as exc:
+        raise ResumeError(
+            "INVALID_DOCX",
+            "Cannot read this Word document. Export a standard DOCX or paste the text.",
+        ) from exc
+
+
 def extract_resume_isolated(data: bytes) -> ResumeEvidence:
-    """Keep hostile or unusually complex PDF parsing out of the API process."""
+    """Keep unusually complex documents out of the API process."""
     import json
     import subprocess
     import sys
     from pathlib import Path
 
-    if len(data) > MAX_PDF_BYTES:
+    docx = data.startswith(b"PK\x03\x04")
+    if len(data) > MAX_RESUME_BYTES:
+        if docx:
+            raise ResumeError("DOCX_TOO_LARGE", "Upload a DOCX of 5 MB or less.")
         raise ResumeError("PDF_TOO_LARGE", "Upload a PDF of 5 MB or less.")
-    if not data.startswith(b"%PDF-"):
-        raise ResumeError("INVALID_PDF", "Upload a valid PDF resume.")
+    if not docx and not data.startswith(b"%PDF-"):
+        raise ResumeError("INVALID_PDF", "Upload a valid PDF or DOCX resume.")
+    limit_code = "DOCX_PROCESSING_LIMIT" if docx else "PDF_PROCESSING_LIMIT"
     try:
         result = subprocess.run(
             [sys.executable, "-m", "backend.services.resume_worker"],
@@ -298,13 +392,13 @@ def extract_resume_isolated(data: bytes) -> ResumeEvidence:
         )
     except subprocess.TimeoutExpired as exc:
         raise ResumeError(
-            "PDF_PROCESSING_LIMIT",
-            "This PDF took too long to read. Export a simpler PDF resume.",
+            limit_code,
+            "The document took too long to read. Try a simpler file or paste the text.",
         ) from exc
     if result.returncode != 0:
         raise ResumeError(
-            "PDF_PROCESSING_LIMIT",
-            "This PDF is too complex to read. Export a simpler PDF resume.",
+            limit_code,
+            "The document is too complex. Try a simpler file or paste the text.",
         )
     payload = json.loads(result.stdout)
     if "error" in payload:

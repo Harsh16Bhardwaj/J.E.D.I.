@@ -85,3 +85,20 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 **Open**
 
 - Apply the private draft application migration before deploying. Unified filters, saved fit reports, and confirmed milestone moves remain open.
+
+## Preview and review Word resumes
+
+**Working**
+
+- A DOCX upload follows the same private preview and explicit save flow as PDF and pasted text. The app discards the uploaded file after extraction.
+- The isolated worker reads bounded Word body text. It rejects malformed, macro-enabled, and oversized packages and blocks XML declarations that could define entities. Worker JSON uses portable encoding for non-ASCII resume text.
+
+**Verified**
+
+- 29 resume and learning tests. The new tests cover Word and text evidence parity, malformed ZIPs, macro-enabled files, XML entities, decompression limits, and a private API preview followed by an explicit save.
+- Repository-wide backend Ruff, targeted frontend ESLint, TypeScript, and the production frontend build passed.
+
+**Open**
+
+- DOCX reads body text, including table paragraphs. Header and footer text, images, and complex Word layouts can still require pasted text or manual review.
+- Fit report snapshots, seniority and domain alignment, and calibration against labeled examples remain open.

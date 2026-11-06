@@ -49,10 +49,10 @@ export function ResumeUpload({
     if (!file || busy) return;
     setError(undefined);
     if (
-      !file.name.toLowerCase().endsWith(".pdf") ||
+      !/\.(pdf|docx)$/i.test(file.name) ||
       file.size > 5 * 1024 * 1024
     ) {
-      setError("Choose a PDF resume of 5 MB or less.");
+      setError("Choose a PDF or DOCX resume of 5 MB or less.");
       setInvalid(true);
       return;
     }
@@ -155,15 +155,15 @@ export function ResumeUpload({
         )}
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold">
-            {busy ? "Processing resume…" : "Upload a PDF resume"}
+            {busy ? "Processing resume…" : "Upload a PDF or DOCX resume"}
           </span>
           <span className="mt-1 block text-xs text-muted-foreground">
-            Text-based PDF · Up to 5 MB · 1–10 pages · No password
+            Text-based PDF or Word document · Up to 5 MB · PDF limit of 10 pages
           </span>
           <input
-            aria-label="Upload PDF resume"
+            aria-label="Upload PDF or DOCX resume"
             type="file"
-            accept=".pdf,application/pdf"
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             className="mt-3 block w-full text-xs file:mr-3 file:rounded file:border file:border-border file:bg-card file:px-3 file:py-2 file:text-foreground"
             disabled={busy || saved.isLoading}
             onChange={(event) => {
@@ -221,7 +221,7 @@ export function ResumeUpload({
           </legend>
           <p className="text-xs text-muted-foreground">
             These facts are private to you. Review and save before finishing
-            onboarding. The original PDF is not stored.
+            onboarding. JEDI discards the original upload after extraction.
           </p>
           <TagField
             id="resume-explicit"
@@ -382,7 +382,7 @@ export function ResumeUpload({
           <DialogHeader>
             <DialogTitle>Upload a readable resume</DialogTitle>
             <DialogDescription>
-              {error ?? "Please upload a valid PDF resume."}
+              {error ?? "Please upload a valid PDF or DOCX resume."}
             </DialogDescription>
           </DialogHeader>
           <Button type="button" onClick={() => setInvalid(false)}>

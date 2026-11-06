@@ -1,4 +1,4 @@
-"""One-shot bounded PDF worker; stdin is PDF bytes, stdout is structured JSON."""
+"""One-shot bounded resume worker with document bytes in and evidence JSON out."""
 
 import json
 import sys
@@ -13,11 +13,20 @@ def main():
         resource.setrlimit(resource.RLIMIT_CPU, (10, 10))
         if sys.platform == "linux":
             resource.setrlimit(resource.RLIMIT_AS, (512 * 1024 * 1024,) * 2)
-    from backend.services.resume import MAX_PDF_BYTES, ResumeError, extract_resume
+    from backend.services.resume import (
+        MAX_RESUME_BYTES,
+        ResumeError,
+        extract_docx_resume,
+        extract_resume,
+    )
 
     try:
-        evidence = extract_resume(sys.stdin.buffer.read(MAX_PDF_BYTES + 1))
-        print(evidence.model_dump_json(by_alias=True))
+        data = sys.stdin.buffer.read(MAX_RESUME_BYTES + 1)
+        parser = (
+            extract_docx_resume if data.startswith(b"PK\x03\x04") else extract_resume
+        )
+        evidence = parser(data)
+        print(json.dumps(evidence.model_dump(mode="json", by_alias=True)))
     except ResumeError as exc:
         print(json.dumps({"error": {"code": exc.code, "message": str(exc)}}))
 

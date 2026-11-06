@@ -7,8 +7,14 @@ from sqlalchemy import select
 
 from backend.database import LearningAttempt, utc_now
 from backend.services.resume import parse_resume_text
-from backend.tests.test_group_access import create_invite, group_client, login_owner
-from backend.tests.test_learning import RESUME
+from backend.tests.test_group_access import (
+    create_invite,
+    login_owner,
+)
+from backend.tests.test_group_access import (
+    group_client as group_client,
+)
+from backend.tests.test_learning import RESUME, make_resume_docx
 
 
 def test_learning_requires_auth(group_client):
@@ -146,6 +152,20 @@ def test_upload_rejects_arbitrary_and_unreadable_pdf(group_client):
         files={"file": ("resume.pdf", output.getvalue(), "application/pdf")},
     )
     assert result.json()["error"]["code"] == "UNREADABLE_RESUME"
+
+
+def test_docx_upload_is_private_preview_and_can_be_reviewed(group_client):
+    client, _ = group_client
+    login_owner(client)
+    response = client.post(
+        "/api/resume/extract",
+        files={"file": ("resume.docx", make_resume_docx(), "application/octet-stream")},
+    )
+    assert response.status_code == 200, response.text
+    assert "React" in response.json()["explicitSkills"]
+    assert "no-store" in response.headers["cache-control"]
+    assert client.get("/api/resume").json() is None
+    assert client.put("/api/resume", json=response.json()).status_code == 200
 
 
 def test_valid_upload_review_and_dynamic_job_track(group_client):
