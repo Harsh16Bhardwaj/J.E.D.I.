@@ -5,14 +5,19 @@ from random import SystemRandom
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
 from backend.auth import CurrentUser
 from backend.database import LearningAttempt, ResumeEvidenceRecord, get_session, utc_now
 from backend.routers.workspace import get_job_or_404
-from backend.schemas.learning import ResumeEvidence, StartAttempt, SubmitAnswer
+from backend.schemas.learning import (
+    ResumeEvidence,
+    ResumeTextRequest,
+    StartAttempt,
+    SubmitAnswer,
+)
 from backend.services.group_access import require_group_context
 from backend.services.learning import TOPIC_SKILLS, compare_skills, load_banks
 from backend.services.resume import (
@@ -58,6 +63,29 @@ async def extract(file: UploadFile, user: CurrentUser, session: DatabaseSession)
 @router.get("/api/resume", response_model=ResumeEvidence | None)
 async def get_resume(user: CurrentUser, session: DatabaseSession):
     return await evidence_for(session, await member_id(session, user.id))
+
+
+@router.post("/api/resume/extract-text", response_model=ResumeEvidence)
+async def extract_resume_text(
+    body: ResumeTextRequest, user: CurrentUser, session: DatabaseSession
+) -> ResumeEvidence:
+    await member_id(session, user.id)
+    await session.rollback()
+    try:
+        return await run_in_threadpool(parse_resume_text, body.text)
+    except ResumeError as exc:
+        fail(exc.code, str(exc))
+
+
+@router.delete("/api/resume", status_code=204)
+async def delete_resume(user: CurrentUser, session: DatabaseSession) -> None:
+    context = await require_group_context(session, user.id, lock=True)
+    await session.execute(
+        delete(ResumeEvidenceRecord).where(
+            ResumeEvidenceRecord.group_member_id == context.membership.id
+        )
+    )
+    await session.commit()
 
 
 @router.put("/api/resume", response_model=ResumeEvidence)

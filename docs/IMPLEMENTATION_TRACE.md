@@ -50,3 +50,21 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 **Open**
 
 - Chapter progress is device-local. Account sync and rollout metrics remain open.
+
+## Add resume retention controls and documented fit scoring
+
+**Working**
+
+- Members can preview pasted resume text, save reviewed evidence, and delete their own saved evidence. Resume and skill-gap responses stay out of browser refresh storage.
+- Draft comparison reports a versioned documented-fit score when required evidence can be evaluated. When a role-wide minimum is listed and resume years are available, required skills contribute 80 points and total years contribute 20. Otherwise, a score without a listed minimum uses direct required-skill evidence alone.
+- Required findings needing review and unknown experience against a listed minimum hold the score. The report flags a reviewed total below the minimum separately.
+
+**Verified**
+
+- 21 resume, learning, and draft-fit backend tests and 32 frontend tests. Tests cover text preview, cross-member deletion isolation, scoring weights, and uncertainty.
+
+**Open**
+
+- Seniority and domain alignment, versioned report snapshots, calibration fixtures, and DOCX intake remain open.
+- Private drafts on the application board and automatic milestone moves remain open.
+- Broader employer-site coverage and unattended scraper execution remain open.

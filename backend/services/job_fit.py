@@ -4,6 +4,7 @@ import re
 
 from backend.schemas.job_intake import (
     DraftFitReport,
+    FitAssessment,
     JobDraftDetail,
     JobRequirement,
     SkillFitFinding,
@@ -100,6 +101,40 @@ def explicit_quotes(resume: ResumeEvidence, explicit: set[str]) -> dict[str, str
     return quotes
 
 
+def assess_documented_fit(report: DraftFitReport) -> FitAssessment:
+    required = [
+        finding
+        for finding in report.findings
+        if finding.requirement.level == "required"
+    ]
+    minimum, total = report.job_minimum_years, report.resume_years
+    if minimum is None:
+        experience = "not_listed"
+    elif total is None:
+        experience = "unknown"
+    else:
+        experience = "meets_minimum" if total >= minimum else "below_minimum"
+
+    score = None
+    if not required:
+        basis = "Add required skills before calculating a score."
+    elif any(finding.status == "needs_review" for finding in required):
+        basis = "Confirm the required evidence flagged for review before scoring."
+    elif experience == "unknown":
+        basis = "Add reviewed total experience to evaluate the listed minimum."
+    else:
+        coverage = sum(finding.status == "evidenced" for finding in required)
+        if experience == "not_listed":
+            score = round(100 * coverage / len(required))
+            basis = "Based on direct evidence for the required skills."
+        else:
+            score = round(
+                80 * coverage / len(required) + 20 * (experience == "meets_minimum")
+            )
+            basis = "Required skill evidence contributes 80 points and total years 20."
+    return FitAssessment(score=score, basis=basis, role_experience=experience)
+
+
 def compare_draft(
     draft: JobDraftDetail, resume: ResumeEvidence | None
 ) -> DraftFitReport:
@@ -158,4 +193,5 @@ def compare_draft(
                 note=note,
             )
         )
+    report.assessment = assess_documented_fit(report)
     return report

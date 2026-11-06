@@ -112,8 +112,16 @@ class SkillFitFinding(ApiModel):
     note: str | None = None
 
 
+class FitAssessment(ApiModel):
+    version: Literal["documented-fit-v1"] = "documented-fit-v1"
+    score: int | None = Field(default=None, ge=0, le=100)
+    basis: str
+    role_experience: Literal["meets_minimum", "below_minimum", "unknown", "not_listed"]
+
+
 class DraftFitReport(ApiModel):
     has_resume: bool
     findings: list[SkillFitFinding] = Field(default_factory=list)
     job_minimum_years: float | None = None
     resume_years: float | None = None
+    assessment: FitAssessment | None = None

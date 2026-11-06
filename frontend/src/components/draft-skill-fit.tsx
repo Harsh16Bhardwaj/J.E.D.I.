@@ -23,6 +23,12 @@ type FitReport = {
   findings: FitFinding[];
   jobMinimumYears: number | null;
   resumeYears: number | null;
+  assessment?: {
+    version: string;
+    score: number | null;
+    basis: string;
+    roleExperience: "meets_minimum" | "below_minimum" | "unknown" | "not_listed";
+  } | null;
 };
 
 const statusLabels = {
@@ -70,6 +76,19 @@ export function DraftSkillFit({ draftId, revision }: { draftId: string; revision
       )}
       {report?.hasResume && (
         <>
+          {report.assessment && (
+            <div className="rounded-lg border border-purple/30 bg-purple/5 p-3">
+              <p className="font-bold">
+                {report.assessment.score === null
+                  ? "Documented fit score unavailable"
+                  : `Documented fit ${report.assessment.score}/100`}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{report.assessment.basis}</p>
+              {report.assessment.roleExperience === "below_minimum" && (
+                <p className="mt-1 text-xs text-coral">Reviewed total experience is below the listed minimum.</p>
+              )}
+            </div>
+          )}
           <p role="status" className="text-sm text-muted-foreground">
             {required.length ? `${evidenced} of ${required.length} required skill items clearly evidenced.` : "Add required skills to the draft to see required skill coverage."}
           </p>

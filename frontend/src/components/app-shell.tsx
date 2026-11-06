@@ -20,6 +20,13 @@ const publicRoutes = new Set(["/", "/login", "/register", "/forgot-password", "/
 const refreshCacheKey = "jedi:swr-refresh-cache:v2";
 const refreshCacheTtlMs = 5 * 60 * 1_000;
 
+function canPersistRefreshKey(key: string) {
+  return !key.startsWith("/api/email/") &&
+    !key.endsWith("/email-deliveries") &&
+    key !== "/api/resume" &&
+    !key.endsWith("/skill-gap");
+}
+
 type StoredRefreshCache = {
   savedAt: number;
   entries: Array<[string, State<unknown>]>;
@@ -40,7 +47,10 @@ class RefreshPersistentCache implements Cache<unknown> {
         window.sessionStorage.removeItem(refreshCacheKey);
         return;
       }
-      stored.entries.forEach(([key, value]) => this.values.set(key, value));
+      stored.entries.forEach(([key, value]) => {
+        if (canPersistRefreshKey(key)) this.values.set(key, value);
+      });
+      if (this.values.size !== stored.entries.length) this.schedulePersist();
     } catch {
       window.sessionStorage.removeItem(refreshCacheKey);
     }
@@ -73,8 +83,7 @@ class RefreshPersistentCache implements Cache<unknown> {
   private persist() {
     const entries = Array.from(this.values.entries())
       .filter(([key, value]) =>
-        !key.startsWith("/api/email/") &&
-        !key.endsWith("/email-deliveries") &&
+        canPersistRefreshKey(key) &&
         value.data !== undefined &&
         value.error === undefined
       )

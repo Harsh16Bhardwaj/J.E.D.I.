@@ -29,6 +29,8 @@ export function ResumeUpload({
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string>();
   const [invalid, setInvalid] = useState(false);
+  const [pastedText, setPastedText] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const evidence = draft ?? saved.data;
   const [confirmed, setConfirmed] = useState(false);
 
@@ -54,21 +56,53 @@ export function ResumeUpload({
       setInvalid(true);
       return;
     }
-    setBusy(true);
-    onPendingChange?.(true);
     const body = new FormData();
     body.append("file", file);
+    await extractEvidence("/api/resume/extract", body);
+  }
+
+  async function extractEvidence(path: string, body: FormData | string) {
+    if (busy) return;
+    setBusy(true);
+    setError(undefined);
+    setInvalid(false);
+    onPendingChange?.(true);
     try {
-      const result = await apiRequest<ResumeEvidence>("/api/resume/extract", {
+      const result = await apiRequest<ResumeEvidence>(path, {
         method: "POST",
         body,
+        signal: AbortSignal.timeout(30_000),
       });
       setDraft(result);
+      setPastedText("");
       setDirty(true);
       setConfirmed(false);
     } catch (cause) {
       setError(errorSummary(cause));
-      setInvalid(isApiError(cause) && cause.status === 422);
+      setInvalid(body instanceof FormData && isApiError(cause) && cause.status === 422);
+      onPendingChange?.(dirty);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeSavedEvidence() {
+    if (busy || !confirmDelete) return;
+    setBusy(true);
+    setError(undefined);
+    onPendingChange?.(true);
+    try {
+      await apiRequest<void>("/api/resume", { method: "DELETE", signal: AbortSignal.timeout(15_000) });
+      await saved.mutate(null, false);
+      setDraft(null);
+      setPastedText("");
+      setConfirmed(false);
+      setConfirmDelete(false);
+      setDirty(false);
+      onPendingChange?.(false);
+      toast.success("Saved resume evidence deleted.");
+    } catch (cause) {
+      setError(errorSummary(cause));
       onPendingChange?.(dirty);
     } finally {
       setBusy(false);
@@ -139,6 +173,27 @@ export function ResumeUpload({
           />
         </span>
       </label>
+      <details className="space-y-3 rounded-lg border border-border p-4">
+        <summary className="cursor-pointer text-sm font-semibold">Paste resume text</summary>
+        <label htmlFor="resume-text-input" className="text-sm">Resume text</label>
+        <Textarea id="resume-text-input" className="min-h-36" maxLength={100_000} value={pastedText} disabled={busy} onChange={(event) => setPastedText(event.target.value)} />
+        <Button type="button" variant="outline" disabled={busy || !pastedText.trim()} onClick={() => void extractEvidence("/api/resume/extract-text", JSON.stringify({ text: pastedText }))}>
+          Preview pasted resume
+        </Button>
+      </details>
+      {saved.data && (
+        <div className="space-y-2">
+          {confirmDelete ? (
+            <>
+              <p className="text-sm text-muted-foreground">Delete your saved resume evidence and clear this preview?</p>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="destructive" disabled={busy} onClick={() => void removeSavedEvidence()}>Confirm delete</Button>
+                <Button type="button" variant="outline" disabled={busy} onClick={() => setConfirmDelete(false)}>Keep evidence</Button>
+              </div>
+            </>
+          ) : <Button type="button" variant="outline" disabled={busy} onClick={() => setConfirmDelete(true)}>Delete saved resume evidence</Button>}
+        </div>
+      )}
       {saved.isLoading && (
         <p className="text-xs text-muted-foreground">Loading saved resume…</p>
       )}

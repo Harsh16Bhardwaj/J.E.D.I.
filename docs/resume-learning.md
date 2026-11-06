@@ -1,6 +1,6 @@
 # Resume onboarding and interview practice
 
-The onboarding page keeps all manual preferences and adds an optional PDF upload.
+The onboarding page accepts a PDF or pasted resume text.
 A member reviews extracted facts and saves them independently of the group ranking
 profile. Job details now offer **Compare skills**. The **Learning** page recommends
 available question banks for missing skills and provides a general practice library.
@@ -11,19 +11,18 @@ Install the updated Python dependencies (`pip install -e 'backend[dev]'` in the
 Python 3.12 environment), and build the frontend with Node 22 and `npm ci` / `npm run build`.
 The PDF dependency is `pypdf>=6.12,<7`.
 
-Prisma and SQLAlchemy now define `ResumeEvidence` and `LearningAttempt`, linked to
-`GroupMember`. No database migration has been created or executed in this change:
-the repository requires an approved development PostgreSQL URL first. Before
-shipping these endpoints, create and review the migration using `prisma migrate dev
---name resume_learning` against that approved development database, then apply the
-reviewed migration using `prisma migrate deploy` in deployment. Never use
-`prisma db push` in production. Existing records do not need backfilling.
+Prisma and SQLAlchemy define `ResumeEvidence` and `LearningAttempt`, linked to
+`GroupMember`. Apply the checked-in `20260812050000_member_resume_and_learning`
+migration using `prisma migrate deploy`. Existing records need no backfill.
 
 Keep the question JSON files in the deployed Python package. `backend/pyproject.toml`
 includes `content/*.json` as package data. PDF extraction runs in a short-lived
 Python subprocess with a 15-second wall-clock limit, a Unix CPU limit, and a Linux
 512 MB address-space limit. Ensure the Python deployment permits subprocesses.
 Original PDFs are processed in memory and are not persisted by the application.
+Saved evidence, including source text, belongs to the member who saves it. It is
+retained until that member deletes it from onboarding or the membership is removed.
+Resume evidence and skill comparisons are excluded from browser refresh storage.
 
 ## Extraction scope
 
@@ -73,7 +72,8 @@ resumed from history with the original deadline.
 ## APIs
 
 - `POST /api/resume/extract`: multipart `file`; returns unsaved reviewable evidence.
-- `GET /api/resume`, `PUT /api/resume`: member-private reviewed evidence.
+- `POST /api/resume/extract-text` accepts up to 100,000 characters for an unsaved preview.
+- `GET /api/resume`, `PUT /api/resume`, and `DELETE /api/resume` manage member-private reviewed evidence.
 - `GET /api/jobs/{jobId}/skill-gap`: matched and missing skills with source labels.
 - `GET /api/learning/topics`: metadata only, no answer keys.
 - `GET /api/learning/attempts`, `POST /api/learning/attempts`: history and creation.

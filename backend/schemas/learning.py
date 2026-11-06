@@ -42,6 +42,10 @@ class ResumeEvidence(ApiModel):
         return self
 
 
+class ResumeTextRequest(ApiModel):
+    text: str = Field(min_length=1, max_length=100_000)
+
+
 class ContentModel(ApiModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 

@@ -3,9 +3,14 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from backend.schemas.job_intake import JobDraftDetail
+from backend.schemas.job_intake import (
+    DraftFitReport,
+    JobDraftDetail,
+    JobRequirement,
+    SkillFitFinding,
+)
 from backend.schemas.learning import ResumeEvidence
-from backend.services.job_fit import compare_draft
+from backend.services.job_fit import assess_documented_fit, compare_draft
 from backend.services.job_intake import preview_job
 from backend.tests.test_learning import RESUME
 from backend.tests.test_product_api import login, product_client
@@ -18,6 +23,26 @@ Kubernetes
 Preferred skills:
 Machine learning
 """
+
+
+def test_documented_fit_weights_and_withholds_uncertain_scores():
+    report = DraftFitReport(has_resume=True, job_minimum_years=3, resume_years=4)
+    for name, status in (("React", "evidenced"), ("AWS", "not_evidenced")):
+        report.findings.append(
+            SkillFitFinding(
+                requirement=JobRequirement(
+                    level="required", match="all", skills=[name], text=name
+                ),
+                status=status,
+                evidence=[],
+            )
+        )
+    assert assess_documented_fit(report).score == 60
+    report.resume_years = 2
+    assert assess_documented_fit(report).score == 40
+    assert assess_documented_fit(report).role_experience == "below_minimum"
+    report.findings[1].status = "needs_review"
+    assert assess_documented_fit(report).score is None
 
 
 def test_draft_fit_preserves_alternatives_and_does_not_infer_years():
@@ -86,3 +111,24 @@ def test_saved_draft_fit_reads_only_the_members_resume(product_client):
     )
     assert member.status_code == 200
     assert product_client.get(fit).status_code == 404
+
+
+def test_pasted_resume_preview_and_deletion_are_private(product_client):
+    login(product_client)
+    preview = product_client.post("/api/resume/extract-text", json={"text": RESUME})
+    assert preview.status_code == 200, preview.text
+    assert "React" in preview.json()["explicitSkills"]
+    assert product_client.get("/api/resume").json() is None
+    assert product_client.put("/api/resume", json=preview.json()).status_code == 200
+
+    member = product_client.post(
+        "/api/auth/login",
+        json={"email": "friend@example.com", "password": "friend password"},
+    )
+    assert member.status_code == 200
+    assert product_client.delete("/api/resume").status_code == 204
+    login(product_client)
+    assert product_client.get("/api/resume").json()["text"] == preview.json()["text"]
+    assert product_client.delete("/api/resume").status_code == 204
+    assert product_client.delete("/api/resume").status_code == 204
+    assert product_client.get("/api/resume").json() is None
