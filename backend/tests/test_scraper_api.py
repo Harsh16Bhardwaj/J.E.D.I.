@@ -12,6 +12,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.config import get_settings
 from backend.routers import scraper as scraper_router
 from backend.services.scraper import FetchResult, SourceSpec
 from backend.tests.test_product_api import login, product_client  # noqa: F811
@@ -158,6 +159,38 @@ def test_scraper_owner_workflow_imports_normalizes_without_ranking(
     assert replayed.status_code == 200
     assert replayed.json()["batch"]["replayed"] is True
     assert replayed.json()["batch"]["batchId"] == body["batch"]["batchId"]
+
+
+def test_import_worker_advances_only_owner_approved_runs(
+    product_client: TestClient, monkeypatch
+) -> None:
+    login(product_client)
+    configure_test_sources(monkeypatch)
+    monkeypatch.setattr(scraper_router, "fetch_source_jobs", fake_fetch)
+    run_id = product_client.post("/api/scraper/runs").json()["id"]
+    assert advance_to_review(product_client, run_id)["status"] == "REVIEW_READY"
+    worker = "/api/scraper/internal/import-tick"
+    token = {"X-JEDI-SERVICE-TOKEN": get_settings().ml_service_secret}
+    assert product_client.post(worker).status_code == 401
+    assert product_client.post(worker, headers=token).json() is None
+    run = f"/api/scraper/runs/{run_id}"
+    assert product_client.post(f"{run}/queue-import", json={}).status_code == 202
+    assert product_client.post("/api/auth/logout").status_code == 204
+
+    linked = product_client.post(worker, headers=token)
+    assert linked.status_code == 200, linked.text
+    checkpoint = linked.json()
+    assert checkpoint["runId"] == run_id
+    assert checkpoint["status"] == "NORMALIZING"
+    assert checkpoint["importedBatchId"]
+    done = product_client.post(worker, headers=token)
+    assert done.json() == {**checkpoint, "status": "IMPORTED"}
+    assert product_client.post(worker, headers=token).json() is None
+
+    login(product_client)
+    batch = product_client.get(f"/api/batches/{checkpoint['importedBatchId']}").json()
+    assert batch["batch"]["status"] == "NORMALIZED"
+    assert batch["batch"]["rankedAt"] is None
 
 
 def test_scraper_import_resumes_at_batch_checkpoint_after_normalization_failure(

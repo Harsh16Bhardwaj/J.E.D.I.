@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import case, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.auth import CurrentUser
+from backend.auth import CurrentUser, ServiceToken
 from backend.config import get_settings
 from backend.database import (
     Batch,
@@ -36,6 +36,7 @@ from backend.schemas.scraper import (
     ScrapeCandidateResponse,
     ScrapeImportRequest,
     ScrapeImportResponse,
+    ScrapeImportTick,
     ScraperConfigSummary,
     ScrapeRunDetail,
     ScrapeRunPage,
@@ -87,6 +88,7 @@ CANCELLABLE_STATUSES = {
     "REVIEW_READY",
     "NORMALIZATION_FAILED",
 }
+IMPORT_CHECKPOINTS = ("IMPORTING", "NORMALIZING")
 
 
 def source_response(item: ScrapeSource) -> ScrapeSourceResponse:
@@ -1954,7 +1956,7 @@ async def _queue_import(
         run.status = "IMPORTING"
     elif run.status == "NORMALIZATION_FAILED":
         run.status = "NORMALIZING"
-    elif run.status not in {"IMPORTING", "NORMALIZING", "IMPORTED"}:
+    elif run.status not in (*IMPORT_CHECKPOINTS, "IMPORTED"):
         raise HTTPException(status_code=409, detail="This run is not ready to import.")
     run.error_message = None
     await session.commit()
@@ -1995,9 +1997,14 @@ async def _advance_import(
     session: AsyncSession, run: ScrapeRun
 ) -> tuple[ScrapeRun, dict | None, Exception | None]:
     locked = await _lock_import_run(session, run)
-    if locked is None or locked.status not in {"IMPORTING", "NORMALIZING"}:
+    if locked is None or locked.status not in IMPORT_CHECKPOINTS:
         return locked or run, None, None
-    run = locked
+    return await _advance_locked_import(session, locked)
+
+
+async def _advance_locked_import(
+    session: AsyncSession, run: ScrapeRun
+) -> tuple[ScrapeRun, dict | None, Exception | None]:
     ingesting = run.status == "IMPORTING"
     normalization = None
     error = None
@@ -2042,6 +2049,25 @@ async def _advance_import(
     return run, normalization, error
 
 
+@router.post("/internal/import-tick", response_model=ScrapeImportTick | None)
+async def run_scraper_import_tick(
+    _service: ServiceToken, session: DatabaseSession
+) -> ScrapeImportTick | None:
+    run = await session.scalar(
+        select(ScrapeRun)
+        .where(ScrapeRun.status.in_(IMPORT_CHECKPOINTS))
+        .order_by(ScrapeRun.updated_at, ScrapeRun.id)
+        .limit(1)
+        .with_for_update(skip_locked=True)
+    )
+    if run is None:
+        return None
+    run, _, _ = await _advance_locked_import(session, run)
+    return ScrapeImportTick(
+        run_id=run.id, status=run.status, imported_batch_id=run.imported_batch_id
+    )
+
+
 @router.post(
     "/runs/{run_id}/queue-import",
     response_model=ScrapeRunSummary,
@@ -2072,7 +2098,7 @@ async def _complete_legacy_import(
     ) is not None
     normalization = None
     for _ in range(2):
-        if run.status not in {"IMPORTING", "NORMALIZING"}:
+        if run.status not in IMPORT_CHECKPOINTS:
             break
         previous_status = run.status
         run, normalization, error = await _advance_import(session, run)

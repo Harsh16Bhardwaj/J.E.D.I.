@@ -119,3 +119,20 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 **Open**
 
 - Confirmed milestones are available for applications from the shared catalog. Private draft milestones, provider-inferred suggestions, and resume version filters remain open.
+
+## Advance approved scraper imports outside the browser
+
+**Working**
+
+- An internal worker can advance one already-approved import checkpoint through `POST /api/scraper/internal/import-tick` with the configured `X-JEDI-SERVICE-TOKEN`. An owner session alone cannot call the worker.
+- Each call processes the oldest available import or normalization checkpoint. PostgreSQL skips runs locked by another worker or browser request. The same checkpoint code and batch key handle both entry points.
+- The worker returns the run ID, current status, and linked batch ID, or `null` when the queue is empty. Collection and ranking remain separate owner actions.
+
+**Verified**
+
+- All 14 scraper API tests passed, including worker authorization, the owner approval boundary, and ingest and normalization after owner logout. Backend Ruff passed.
+
+**Open**
+
+- Connect a scheduler or worker service to the internal endpoint to run imports unattended in a deployment. The browser still advances checkpoints when open.
+- Background collection and discovery, live employer coverage, and a timed PostgreSQL race test for browser and worker requests remain open.

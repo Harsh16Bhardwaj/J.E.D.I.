@@ -237,3 +237,9 @@ class ScrapeImportResponse(ApiModel):
     run: ScrapeRunSummary
     batch: BatchCreateResponse
     normalization: dict | None = None
+
+
+class ScrapeImportTick(ApiModel):
+    run_id: str
+    status: str
+    imported_batch_id: str | None
