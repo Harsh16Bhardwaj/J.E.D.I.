@@ -86,6 +86,7 @@ def create_session_token(user: User) -> str:
             "sub": user.id,
             # Keeping the email in the token lets us detect account changes.
             "email": user.email,
+            "ver": user.session_version or 0,
             # ``iat`` records when the token was issued.
             "iat": now,
             # ``exp`` makes the token invalid after the configured lifetime.
@@ -172,12 +173,15 @@ async def get_current_user(
     user = await session.scalar(select(User).where(User.id == payload["sub"]))
     token_email = str(payload.get("email", "")).casefold()
 
-    # Comparing the token email with the current database email invalidates
-    # sessions if the identity was removed or materially changed.
-    if user is None or user.email.casefold() != token_email:
+    # Sessions without a version predate password recovery and use version zero.
+    if (
+        user is None
+        or user.email.casefold() != token_email
+        or payload.get("ver", 0) != user.session_version
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session user no longer exists.",
+            detail="Invalid or expired session.",
         )
     return user
 

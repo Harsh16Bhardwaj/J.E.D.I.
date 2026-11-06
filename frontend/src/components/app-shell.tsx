@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { apiGet, ApiError, type User } from "@/lib/api";
 import { onboardingRedirect } from "@/lib/public-session";
 
-const publicRoutes = new Set(["/", "/login", "/register"]);
+const publicRoutes = new Set(["/", "/login", "/register", "/forgot-password", "/reset-password"]);
 const refreshCacheKey = "jedi:swr-refresh-cache:v1";
 const refreshCacheTtlMs = 5 * 60 * 1_000;
 

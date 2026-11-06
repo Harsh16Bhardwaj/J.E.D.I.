@@ -262,6 +262,16 @@ an independent 32-character-or-longer `CRON_SECRET`. Ranking success is never
 rolled back when SMTP delivery fails; delivery history records the safe failure
 and the 12:00 AM IST cron retries eligible rows.
 
+### Password recovery
+
+Apply the password reset migration, then set `PASSWORD_RESET_ORIGIN` to the
+trusted frontend origin and configure `GMAIL_SMTP_USER` and
+`GMAIL_SMTP_APP_PASSWORD` on the backend. Use HTTPS for deployed origins.
+Account recovery uses transactional email independently of the digest toggle.
+Reset requests are limited to one per account every five minutes. Links expire
+after 30 minutes and can only be used once. Completing a reset signs out the
+account's previous sessions.
+
 `POST /api/batches/{batchId}/rank` intentionally queues pending execution and
 does not invent scores. Real model results are accepted by the rankings route.
 Embedding and direct scoring routes remain explicit `501` placeholders.

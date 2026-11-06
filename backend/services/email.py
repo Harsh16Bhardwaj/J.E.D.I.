@@ -69,15 +69,33 @@ class GmailSmtpTransport:
 
     async def send(self, delivery: EmailDelivery) -> str:
         payload = delivery.payload_snapshot
+        return await self.send_message(
+            delivery.recipient,
+            payload["subject"],
+            payload["textBody"],
+            delivery.message_id,
+            html_body=payload["htmlBody"],
+        )
+
+    async def send_message(
+        self,
+        recipient: str,
+        subject: str,
+        text_body: str,
+        message_id: str,
+        *,
+        html_body: str | None = None,
+    ) -> str:
         message = EmailMessage()
         message["From"] = (
             f"{self.settings.email_from_name} <{self.settings.gmail_smtp_user}>"
         )
-        message["To"] = delivery.recipient
-        message["Subject"] = payload["subject"]
-        message["Message-ID"] = delivery.message_id
-        message.set_content(payload["textBody"])
-        message.add_alternative(payload["htmlBody"], subtype="html")
+        message["To"] = recipient
+        message["Subject"] = subject
+        message["Message-ID"] = message_id
+        message.set_content(text_body)
+        if html_body is not None:
+            message.add_alternative(html_body, subtype="html")
         try:
             await aiosmtplib.send(
                 message,
@@ -96,7 +114,7 @@ class GmailSmtpTransport:
                 "Gmail rejected the configured SMTP credentials.",
                 retryable=False,
             ) from exc
-        return delivery.message_id
+        return message_id
 
 
 def get_email_transport() -> EmailTransport:

@@ -166,6 +166,9 @@ export default function LoginPage() {
               {isSubmitting ? "Checking credentials…" : "Open command center"}
               {!isSubmitting && <ArrowRight className="size-4" />}
             </Button>
+            <Link href="/forgot-password" className="block text-center text-sm font-semibold text-foreground hover:text-acid">
+              Forgot password?
+            </Link>
           </form>
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Have an invitation?{" "}

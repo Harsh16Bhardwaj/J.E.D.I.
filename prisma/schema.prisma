@@ -122,10 +122,20 @@ model User {
   id           String       @id @default(cuid()) /// Internal identifier stored inside the signed login session.
   email        String       @unique /// Lowercase email entered on the login page.
   passwordHash String /// Argon2 password hash compared during login; plaintext is never stored.
+  sessionVersion Int      @default(0)
+  passwordReset PasswordReset?
   ownedGroup   Group? /// The one shared JEDI group this user administers, when they are its owner.
   membership   GroupMember? /// The user's single group membership in v1.
   createdAt    DateTime     @default(now()) /// Records when the private account was created.
   updatedAt    DateTime     @updatedAt /// Records the latest account or password change.
+}
+
+model PasswordReset {
+  userId      String   @id
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String?  @unique
+  requestedAt DateTime @db.Timestamptz(3)
+  expiresAt    DateTime @db.Timestamptz(3)
 }
 
 /// The shared v1 workspace whose members use one ranking profile and model.

@@ -150,6 +150,7 @@ class User(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=new_id)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column("passwordHash", String)
+    session_version: Mapped[int] = mapped_column("sessionVersion", Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(
         "createdAt", DateTime(timezone=True), default=utc_now
     )
@@ -159,6 +160,19 @@ class User(Base):
         default=utc_now,
         onupdate=utc_now,
     )
+
+
+class PasswordReset(Base):
+    __tablename__ = "PasswordReset"
+
+    user_id: Mapped[str] = mapped_column(
+        "userId", ForeignKey("User.id", ondelete="CASCADE"), primary_key=True
+    )
+    token_hash: Mapped[str | None] = mapped_column("tokenHash", String, unique=True)
+    requested_at: Mapped[datetime] = mapped_column(
+        "requestedAt", DateTime(timezone=True)
+    )
+    expires_at: Mapped[datetime] = mapped_column("expiresAt", DateTime(timezone=True))
 
 
 class Group(Base):

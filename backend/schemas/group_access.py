@@ -41,6 +41,27 @@ class RegisterRequest(ApiModel):
         return normalize_email(value)
 
 
+class ForgotPasswordRequest(ApiModel):
+    email: str = Field(min_length=3, max_length=320)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        return normalize_email(value)
+
+
+class ResetPasswordRequest(ApiModel):
+    token: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+    password: str = Field(min_length=8, max_length=256)
+    confirm_password: str = Field(min_length=8, max_length=256)
+
+    @model_validator(mode="after")
+    def passwords_match(self):
+        if self.password != self.confirm_password:
+            raise ValueError("Passwords must match.")
+        return self
+
+
 class InvitationSummary(ApiModel):
     id: str
     expires_at: datetime

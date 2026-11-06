@@ -8,13 +8,15 @@ Compare this file with ``backend.auth``:
 
 # Standard library: Annotated lets one type carry both its Python type and
 # FastAPI dependency information.
+from asyncio import sleep
+from time import monotonic
 from typing import Annotated
 
 # Framework imports:
 # - APIRouter groups related routes.
 # - Response is the mutable outgoing HTTP response object.
 # - SQLAlchemy's func/select build SQL safely.
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,9 +25,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.auth import CurrentUser, verify_password
 from backend.config import get_settings
 from backend.database import User, get_session
-from backend.schemas.group_access import SessionUserResponse
+from backend.schemas.group_access import (
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    SessionUserResponse,
+)
 from backend.schemas.product import LoginRequest
 from backend.services.group_access import session_response, set_session_cookie
+from backend.services.password_reset import (
+    consume_reset,
+    issue_reset,
+    mail_configured,
+    recovery_origin,
+    send_recovery_mail,
+)
 
 # Every route below receives the /api/auth prefix. The tag groups these endpoints
 # together in FastAPI's generated /docs page.
@@ -87,6 +100,58 @@ async def logout(response: Response) -> None:
         secure=settings.session_cookie_secure,
         httponly=True,
         samesite="strict",
+    )
+
+
+@router.post("/forgot-password", status_code=202)
+async def forgot_password(
+    body: ForgotPasswordRequest, background: BackgroundTasks, session: DatabaseSession
+) -> dict[str, str]:
+    started_at = monotonic()
+    settings = get_settings()
+    origin = recovery_origin(settings)
+    if not origin or not mail_configured(settings):
+        raise HTTPException(503, "Password reset email is currently unavailable.")
+    issued = await issue_reset(session, body.email)
+    await session.rollback()
+    if issued:
+        recipient, token = issued
+        link = f"{origin}/reset-password#token={token}"
+        background.add_task(
+            send_recovery_mail,
+            recipient,
+            "Reset your JEDI password",
+            f"Open this link to choose a new JEDI password:\n\n{link}\n\n"
+            "The link expires in 30 minutes. "
+            "If you didn't request it, ignore this email.",
+        )
+    # Mask the usual timing difference between a lookup and issuing a token.
+    await sleep(max(0, 0.25 - (monotonic() - started_at)))
+    return {
+        "message": "If an account exists for that email, a reset link will be sent."
+    }
+
+
+@router.post("/reset-password", status_code=204)
+async def reset_password(
+    body: ResetPasswordRequest,
+    response: Response,
+    background: BackgroundTasks,
+    session: DatabaseSession,
+) -> None:
+    recipient = await consume_reset(session, body.token, body.password)
+    if recipient is None:
+        raise HTTPException(
+            400, "This reset link is invalid or expired. Request a new one."
+        )
+    await logout(response)
+    background.add_task(
+        send_recovery_mail,
+        recipient,
+        "Your JEDI password was changed",
+        "Your JEDI password was changed and previous sessions were signed out. "
+        "If you didn't make this change, request a new reset link "
+        "and contact your group owner.",
     )
 
 
