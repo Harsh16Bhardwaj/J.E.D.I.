@@ -186,3 +186,18 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 **Open**
 
 - Apply the new migrations in the target deployment and connect the scraper import scheduler. Live browser verification against the target deployment, additional provider coverage, and the remaining fit and application roadmap items are pending.
+
+## Verify competing scraper import requests on PostgreSQL
+
+**Working**
+
+- The race regression test holds the worker's ingestion claim while the owner API checks the same run, then holds the owner's normalization claim while the worker checks the queue. Both competing requests return within the test deadline. The run creates one batch and performs normalization once.
+
+**Verified**
+
+- 16 scraper API and PostgreSQL tests passed on the migrated local database. The new race test uses the real API endpoints and PostgreSQL row locks. Backend Ruff passed.
+- To run the race test, set `JEDI_TEST_SCRAPER_DATABASE_URL` to a dedicated migrated loopback PostgreSQL database with an empty scraper import queue, then run `pytest backend/tests/test_scraper_v2_postgres.py`.
+
+**Open**
+
+- Connect the scheduler and verify an approved import completes in the target deployment after the owner closes the browser. The local race test uses API requests and does not exercise that deployed path.

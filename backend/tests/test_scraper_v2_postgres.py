@@ -1,14 +1,22 @@
 import asyncio
+import os
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from uuid import uuid4
 
+import httpx
 import pytest
-from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy import delete, func, select
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from backend.auth import create_session_token
 from backend.config import get_settings
 from backend.database import (
+    Batch,
     Group,
+    GroupMember,
+    ProfileVersion,
     ScrapeAttempt,
     ScrapeCandidate,
     ScrapeProviderUse,
@@ -16,7 +24,12 @@ from backend.database import (
     ScrapeSource,
     SourceDiscoveryAttempt,
     SourceDiscoveryRun,
+    User,
+    get_session,
 )
+from backend.main import app
+from backend.routers import scraper
+from backend.tests.test_scraper_api import scraper_job
 
 
 def test_scraper_v2_postgres_models_match_deployed_migration() -> None:
@@ -147,6 +160,194 @@ def test_scraper_v2_postgres_models_match_deployed_migration() -> None:
                 )
                 await session.execute(
                     delete(ScrapeSource).where(ScrapeSource.id == source_id)
+                )
+                await session.commit()
+            await engine.dispose()
+
+    asyncio.run(verify())
+
+
+def test_browser_and_worker_serialize_import_checkpoints(monkeypatch) -> None:
+    database_url = os.getenv("JEDI_TEST_SCRAPER_DATABASE_URL")
+    if not database_url:
+        pytest.skip("Set JEDI_TEST_SCRAPER_DATABASE_URL to a dedicated local test DB.")
+    url = make_url(database_url)
+    assert url.get_backend_name() == "postgresql"
+    assert url.host in {"127.0.0.1", "localhost", "::1"}
+
+    async def verify() -> None:
+        engine = create_async_engine(url.set(drivername="postgresql+psycopg"))
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        suffix = uuid4().hex
+        user_id = f"scraper-race-user-{suffix}"
+        group_id = f"scraper-race-group-{suffix}"
+        profile_id = f"scraper-race-profile-{suffix}"
+        run_id = f"scraper-race-run-{suffix}"
+        batch_key = f"scraper-{run_id}"
+        settings = get_settings()
+
+        async def test_session() -> AsyncIterator[AsyncSession]:
+            async with sessions() as session:
+                yield session
+
+        ingest_started, finish_ingest = asyncio.Event(), asyncio.Event()
+        normalize_started, finish_normalization = asyncio.Event(), asyncio.Event()
+        ingest, normalize = (
+            scraper._ingest_scraper_selection,
+            scraper.normalize_batch_service,
+        )
+        ingest_calls = normalization_calls = 0
+
+        async def gated_ingest(*args, **kwargs):
+            nonlocal ingest_calls
+            ingest_calls += 1
+            ingest_started.set()
+            await finish_ingest.wait()
+            return await ingest(*args, **kwargs)
+
+        async def gated_normalization(*args, **kwargs):
+            nonlocal normalization_calls
+            normalization_calls += 1
+            normalize_started.set()
+            await finish_normalization.wait()
+            return await normalize(*args, **kwargs)
+
+        monkeypatch.setattr(scraper, "_ingest_scraper_selection", gated_ingest)
+        monkeypatch.setattr(scraper, "normalize_batch_service", gated_normalization)
+        monkeypatch.setitem(app.dependency_overrides, get_session, test_session)
+
+        try:
+            async with sessions() as session:
+                assert not await session.scalar(
+                    select(ScrapeRun.id)
+                    .where(ScrapeRun.status.in_(scraper.IMPORT_CHECKPOINTS))
+                    .limit(1)
+                ), "Use a test database with no queued scraper imports."
+                owner = User(
+                    id=user_id,
+                    email=f"{suffix}@example.invalid",
+                    password_hash="unused",
+                )
+                session.add(owner)
+                await session.flush()
+                session.add(Group(id=group_id, owner_id=user_id))
+                await session.flush()
+                session.add(GroupMember(group_id=group_id, user_id=user_id))
+                if not await session.scalar(
+                    select(ProfileVersion.id).where(ProfileVersion.active.is_(True))
+                ):
+                    session.add(
+                        ProfileVersion(
+                            id=profile_id,
+                            content_hash=suffix,
+                            resume_text="Python backend engineer",
+                            active=True,
+                        )
+                    )
+                session.add(
+                    ScrapeRun(
+                        id=run_id,
+                        group_id=group_id,
+                        status="REVIEW_READY",
+                        config_version="scraper-race-test",
+                        config_hash=suffix,
+                        selected_count=1,
+                    )
+                )
+                await session.flush()
+                source_url = f"https://jobs.example.invalid/{suffix}"
+                session.add(
+                    ScrapeCandidate(
+                        run_id=run_id,
+                        source_key="test",
+                        source_provider="test",
+                        source_url=source_url,
+                        canonical_url=source_url,
+                        company_name="Example Labs",
+                        role_title="Backend Engineer",
+                        schema_valid=True,
+                        source_quality_valid=True,
+                        selected=True,
+                        review_group="RECOMMENDED",
+                        payload={**scraper_job(), "applyUrl": source_url},
+                    )
+                )
+                await session.commit()
+                cookie = create_session_token(owner)
+
+            transport = httpx.ASGITransport(app=app)
+            path = f"/api/scraper/runs/{run_id}"
+            worker_path = "/api/scraper/internal/import-tick"
+            async with (
+                httpx.AsyncClient(
+                    transport=transport,
+                    base_url="http://testserver",
+                    cookies={settings.session_cookie_name: cookie},
+                ) as browser,
+                httpx.AsyncClient(
+                    transport=transport,
+                    base_url="http://testserver",
+                    headers={"X-JEDI-SERVICE-TOKEN": settings.ml_service_secret},
+                ) as worker,
+            ):
+                queued = await browser.post(f"{path}/queue-import", json={})
+                assert queued.status_code == 202, queued.text
+                async with asyncio.TaskGroup() as tasks:
+                    worker_claim = tasks.create_task(worker.post(worker_path))
+                    await asyncio.wait_for(ingest_started.wait(), timeout=5)
+                    browser_retry = await asyncio.wait_for(
+                        browser.post(f"{path}/advance-import"), timeout=5
+                    )
+                    assert browser_retry.status_code == 200, browser_retry.text
+                    assert browser_retry.json()["status"] == "IMPORTING"
+                    assert browser_retry.json()["importedBatchId"] is None
+                    finish_ingest.set()
+                linked = worker_claim.result()
+                assert linked.status_code == 200, linked.text
+                assert linked.json()["status"] == "NORMALIZING"
+                batch_id = linked.json()["importedBatchId"]
+                assert batch_id
+
+                async with asyncio.TaskGroup() as tasks:
+                    browser_claim = tasks.create_task(
+                        browser.post(f"{path}/advance-import")
+                    )
+                    await asyncio.wait_for(normalize_started.wait(), timeout=5)
+                    worker_retry = await asyncio.wait_for(
+                        worker.post(worker_path), timeout=5
+                    )
+                    assert worker_retry.status_code == 200, worker_retry.text
+                    assert worker_retry.json() is None
+                    finish_normalization.set()
+                done = browser_claim.result()
+                assert done.status_code == 200, done.text
+                assert done.json()["status"] == "IMPORTED", done.text
+                assert done.json()["importedBatchId"] == batch_id
+                assert (await worker.post(worker_path)).json() is None
+                batch = await browser.get(f"/api/batches/{batch_id}")
+                assert batch.status_code == 200, batch.text
+                assert batch.json()["preparedCount"] == 1
+                assert batch.json()["batch"]["rankedAt"] is None
+
+            assert (ingest_calls, normalization_calls) == (1, 1)
+            async with sessions() as session:
+                assert (
+                    await session.scalar(
+                        select(func.count())
+                        .select_from(Batch)
+                        .where(Batch.external_batch_id == batch_key)
+                    )
+                    == 1
+                )
+        finally:
+            async with sessions() as session:
+                await session.execute(delete(Group).where(Group.id == group_id))
+                await session.execute(delete(User).where(User.id == user_id))
+                await session.execute(
+                    delete(Batch).where(Batch.external_batch_id == batch_key)
+                )
+                await session.execute(
+                    delete(ProfileVersion).where(ProfileVersion.id == profile_id)
                 )
                 await session.commit()
             await engine.dispose()
