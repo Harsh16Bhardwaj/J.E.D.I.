@@ -1028,6 +1028,7 @@ model JobDraft {
   id            String
   description   String
   preview       Json
+  application   Json?
   revision      Int         @default(1)
   updatedAt     DateTime    @updatedAt @db.Timestamptz(3)
 

@@ -63,6 +63,10 @@ from backend.schemas.product import (
     RelevanceLabel,
     ReviewStatus,
 )
+from backend.services.application_moves import (
+    TERMINAL_APPLICATION_STATES,
+    validate_application_move,
+)
 from backend.services.group_access import group_context, require_group_context
 from backend.services.product import clean_text, stable_hash
 
@@ -1063,16 +1067,6 @@ async def application_summary(
     )
 
 
-TERMINAL_APPLICATION_STATES = {
-    ApplicationStatus.ACCEPTED,
-    ApplicationStatus.REJECTED,
-    ApplicationStatus.WITHDRAWN,
-}
-APPLICATION_STAGE_ORDER = {
-    stage: index for index, stage in enumerate(ApplicationStatus)
-}
-
-
 @router.post(
     "/api/jobs/{job_id}/application-events",
     response_model=JobEventResponse,
@@ -1140,17 +1134,9 @@ async def create_application_event(
         or body.request_id is not None
         or body.correction
     ):
-        if previous_status == target:
-            raise HTTPException(409, "This application is already in that stage.")
-        backwards = (
-            previous_status in TERMINAL_APPLICATION_STATES
-            or APPLICATION_STAGE_ORDER[target]
-            < APPLICATION_STAGE_ORDER[previous_status]
+        validate_application_move(
+            previous_status, target, correction=body.correction, notes=notes
         )
-        if backwards and not body.correction:
-            raise HTTPException(409, "Record a correction to reopen or move backwards.")
-        if body.correction and not notes:
-            raise HTTPException(422, "Add a reason for the correction.")
     event_at = body.event_at or utc_now()
     application.status = target.value
     if (

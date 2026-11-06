@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import useSWR from "swr";
 import { BrutalCard } from "@/components/brutal-card";
 import { DraftSkillFit } from "@/components/draft-skill-fit";
@@ -56,7 +57,7 @@ type Preview = {
   }[];
 };
 type DraftSummary = { id: string; title: string; employer: string; updatedAt: string };
-type Draft = Preview & { id: string; description: string; revision: number; updatedAt: string };
+type Draft = Preview & { id: string; description: string; revision: number; updatedAt: string; trackedApplication: boolean };
 type LinkedPreview = Preview & { description: string; sourceUrl: string };
 
 function editFields(fields: Fields): Editor {
@@ -98,7 +99,7 @@ function draftRequest<T>(path = "", init: RequestInit = {}) {
 
 const inputClass = "mt-1 min-h-10 w-full";
 
-function JobIntakeWorkspace() {
+function JobIntakeWorkspace({ linkedDraft }: { linkedDraft: string | null }) {
   // Private draft bodies stay in component memory rather than the app's
   // sessionStorage-backed SWR cache.
   const [drafts, setDrafts] = useState<DraftSummary[]>();
@@ -108,10 +109,23 @@ function JobIntakeWorkspace() {
   const [reviewed, setReviewed] = useState<{ description: string; preview: Preview }>();
   const [editor, setEditor] = useState<Editor>();
   const [identity, setIdentity] = useState<{ id: string; revision: number }>();
-  const [busy, setBusy] = useState<"preview" | "url" | "save" | "open" | "delete">();
+  const [busy, setBusy] = useState<"preview" | "url" | "save" | "open" | "delete" | "track" | undefined>(
+    linkedDraft ? "open" : undefined,
+  );
   const [message, setMessage] = useState<{ text: string; error?: boolean }>();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [tracked, setTracked] = useState(false);
+
+  const showDraft = useCallback((draft: Draft) => {
+    setIdentity({ id: draft.id, revision: draft.revision });
+    setDescription(draft.description);
+    setJobUrl(draft.sourceUrl ?? "");
+    setReviewed({ description: draft.description, preview: draft });
+    setEditor(editFields(draft.fields));
+    setTracked(draft.trackedApplication);
+    setDirty(false);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -119,8 +133,16 @@ function JobIntakeWorkspace() {
     void draftRequest<DraftSummary[]>("", { signal }).then(setDrafts, (error) => {
       if (!controller.signal.aborted) setListError(errorSummary(error));
     });
+    if (linkedDraft) {
+      void draftRequest<Draft>(`/${linkedDraft}`, { signal })
+        .then((draft) => { if (!controller.signal.aborted) showDraft(draft); })
+        .catch((error) => {
+          if (!controller.signal.aborted) setMessage({ text: errorSummary(error), error: true });
+        })
+        .finally(() => { if (!controller.signal.aborted) setBusy(undefined); });
+    }
     return () => controller.abort();
-  }, []);
+  }, [linkedDraft, showDraft]);
 
   async function reloadDrafts() {
     setListError(undefined);
@@ -129,15 +151,6 @@ function JobIntakeWorkspace() {
     } catch (error) {
       setListError(errorSummary(error));
     }
-  }
-
-  function showDraft(draft: Draft) {
-    setIdentity({ id: draft.id, revision: draft.revision });
-    setDescription(draft.description);
-    setJobUrl(draft.sourceUrl ?? "");
-    setReviewed({ description: draft.description, preview: draft });
-    setEditor(editFields(draft.fields));
-    setDirty(false);
   }
 
   async function openDraft(id: string) {
@@ -157,6 +170,7 @@ function JobIntakeWorkspace() {
   function startNew() {
     if (dirty && !window.confirm("Discard unsaved changes and start a new draft?")) return;
     setIdentity(undefined);
+    setTracked(false);
     setDescription("");
     setJobUrl("");
     setReviewed(undefined);
@@ -164,6 +178,21 @@ function JobIntakeWorkspace() {
     setDirty(false);
     setConfirmDelete(false);
     setMessage(undefined);
+  }
+
+  async function trackDraft() {
+    if (busy || !identity || dirty || tracked) return;
+    setBusy("track");
+    setMessage(undefined);
+    try {
+      await draftRequest(`/${identity.id}/application`, { method: "POST" });
+      setTracked(true);
+      setMessage({ text: "Added to your private applications." });
+    } catch (error) {
+      setMessage({ text: errorSummary(error), error: true });
+    } finally {
+      setBusy(undefined);
+    }
   }
 
   async function extract() {
@@ -263,6 +292,7 @@ function JobIntakeWorkspace() {
       await draftRequest<void>(`/${identity.id}?revision=${identity.revision}`, { method: "DELETE" });
       setDrafts((current) => current?.filter((item) => item.id !== identity.id));
       setIdentity(undefined);
+      setTracked(false);
       setDescription("");
       setJobUrl("");
       setReviewed(undefined);
@@ -307,6 +337,7 @@ function JobIntakeWorkspace() {
             </Button>
           </BrutalCard>
           {message && <p role={message.error ? "alert" : "status"} className={message.error ? "text-sm text-coral" : "text-sm text-acid"}>{message.text}</p>}
+          {busy === "open" && <p role="status" className="text-sm text-muted-foreground">Opening draft…</p>}
           {reviewed && editor && (
             <BrutalCard className="space-y-4">
               <h2 className="text-lg font-bold">Review job details</h2>
@@ -365,6 +396,9 @@ function JobIntakeWorkspace() {
                   )}
                 </div>
               </form>
+              {confirmDelete && tracked && (
+                <p role="status" className="text-sm text-coral">Deleting this draft also deletes its application history.</p>
+              )}
               {Boolean(reviewed.preview.requirements?.length) && (
                 <details className="rounded-lg border border-border p-3">
                   <summary className="cursor-pointer text-sm font-bold">Requirements in the original text</summary>
@@ -398,11 +432,20 @@ function JobIntakeWorkspace() {
                 </details>
               )}
               {identity && identity.revision > 0 && !dirty && (
-                <DraftSkillFit
-                  key={`${identity.id}:${identity.revision}`}
-                  draftId={identity.id}
-                  revision={identity.revision}
-                />
+                <>
+                  {tracked ? (
+                    <Link href="/applications#private-drafts" className={buttonVariants({ variant: "outline" })}>View in Applications</Link>
+                  ) : (
+                    <Button type="button" variant="outline" disabled={Boolean(busy)} onClick={() => void trackDraft()}>
+                      {busy === "track" ? "Adding…" : "Add to Applications"}
+                    </Button>
+                  )}
+                  <DraftSkillFit
+                    key={`${identity.id}:${identity.revision}`}
+                    draftId={identity.id}
+                    revision={identity.revision}
+                  />
+                </>
               )}
             </BrutalCard>
           )}
@@ -433,7 +476,13 @@ function JobIntakeWorkspace() {
   );
 }
 
-export default function JobIntakePage() {
+function JobIntakeSession() {
   const { data: user } = useSWR<User>("/api/auth/session");
-  return user ? <JobIntakeWorkspace key={user.id} /> : null;
+  const draft = useSearchParams().get("draft");
+  const linkedDraft = draft && /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(draft) ? draft : null;
+  return user ? <JobIntakeWorkspace key={`${user.id}:${linkedDraft ?? ""}`} linkedDraft={linkedDraft} /> : null;
+}
+
+export default function JobIntakePage() {
+  return <Suspense fallback={<p role="status">Loading job intake…</p>}><JobIntakeSession /></Suspense>;
 }

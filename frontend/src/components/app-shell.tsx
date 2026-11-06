@@ -22,6 +22,7 @@ const refreshCacheTtlMs = 5 * 60 * 1_000;
 
 function canPersistRefreshKey(key: string) {
   return !key.startsWith("/api/email/") &&
+    !key.startsWith("/api/job-drafts") &&
     !key.endsWith("/email-deliveries") &&
     key !== "/api/resume" &&
     !key.endsWith("/skill-gap");

@@ -2,15 +2,19 @@
 
 from datetime import UTC
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth import CurrentUser
-from backend.database import JobDraft, ResumeEvidenceRecord, get_session
+from backend.database import JobDraft, ResumeEvidenceRecord, get_session, utc_now
 from backend.schemas.job_intake import (
+    DraftApplicationEvent,
+    DraftApplicationItem,
+    DraftApplicationMove,
+    DraftApplicationState,
     DraftFitReport,
     JobDraftDetail,
     JobDraftSummary,
@@ -21,6 +25,8 @@ from backend.schemas.job_intake import (
     SaveJobDraft,
 )
 from backend.schemas.learning import ResumeEvidence
+from backend.schemas.product import ApplicationStatus
+from backend.services.application_moves import validate_application_move
 from backend.services.group_access import require_group_context
 from backend.services.job_fit import compare_draft
 from backend.services.job_intake import preview_job
@@ -47,6 +53,7 @@ def draft_detail(row: JobDraft) -> JobDraftDetail:
         description=row.description,
         revision=row.revision,
         updated_at=row.updated_at.replace(tzinfo=UTC),
+        tracked_application=row.application is not None,
     )
 
 
@@ -106,6 +113,124 @@ async def list_drafts(
         )
         for row in rows
     ]
+
+
+@router.get("/applications", response_model=list[DraftApplicationItem])
+async def list_draft_applications(
+    user: CurrentUser, session: DatabaseSession
+) -> list[DraftApplicationItem]:
+    context = await require_group_context(session, user.id)
+    rows = await session.scalars(
+        select(JobDraft)
+        .where(
+            JobDraft.group_member_id == context.membership.id,
+            JobDraft.application.is_not(None),
+        )
+        .order_by(JobDraft.updated_at.desc(), JobDraft.id)
+        .limit(MAX_DRAFTS)
+    )
+    return [
+        DraftApplicationItem(
+            draft_id=row.id,
+            title=row.preview["fields"]["title"],
+            employer=row.preview["fields"]["employer"],
+            application=DraftApplicationState.model_validate(
+                {
+                    **row.application,
+                    "events": row.application["events"][-10:],
+                }
+            ),
+        )
+        for row in rows
+        if row.application
+    ]
+
+
+async def lock_application_draft(
+    session: AsyncSession, user_id: str, draft_id: UUID
+) -> JobDraft:
+    context = await require_group_context(session, user_id)
+    row = await session.get(
+        JobDraft, (context.membership.id, str(draft_id)), with_for_update=True
+    )
+    if row is None:
+        raise HTTPException(404, "Job draft not found.")
+    return row
+
+
+@router.post("/{draft_id}/application", response_model=DraftApplicationState)
+async def start_draft_application(
+    draft_id: UUID, user: CurrentUser, session: DatabaseSession
+) -> DraftApplicationState:
+    row = await lock_application_draft(session, user.id, draft_id)
+    if row.application:
+        return DraftApplicationState.model_validate(row.application)
+    now = utc_now()
+    state = DraftApplicationState(
+        status=ApplicationStatus.PREPARING,
+        revision=1,
+        updated_at=now,
+        events=[
+            DraftApplicationEvent(
+                request_id=uuid4(),
+                revision=1,
+                from_status=ApplicationStatus.NOT_STARTED,
+                to_status=ApplicationStatus.PREPARING,
+                correction=False,
+                created_at=now,
+            )
+        ],
+    )
+    row.application = state.model_dump(mode="json")
+    await session.commit()
+    return state
+
+
+@router.patch("/{draft_id}/application", response_model=DraftApplicationState)
+async def move_draft_application(
+    draft_id: UUID,
+    body: DraftApplicationMove,
+    user: CurrentUser,
+    session: DatabaseSession,
+) -> DraftApplicationState:
+    row = await lock_application_draft(session, user.id, draft_id)
+    if not row.application:
+        raise HTTPException(404, "Start tracking this draft first.")
+    state = DraftApplicationState.model_validate(row.application)
+    notes = body.notes.strip() if body.notes and body.notes.strip() else None
+    for event in state.events:
+        if event.request_id == body.request_id:
+            if (
+                event.revision != body.expected_revision + 1
+                or event.to_status != body.status
+                or event.correction != body.correction
+                or event.notes != notes
+            ):
+                raise HTTPException(409, "This move ID has already been used.")
+            return state
+    if state.revision != body.expected_revision:
+        raise HTTPException(409, "Application changed. Refresh and reopen it.")
+    validate_application_move(
+        state.status, body.status, correction=body.correction, notes=notes
+    )
+    now = utc_now()
+    state.revision += 1
+    state.events.append(
+        DraftApplicationEvent(
+            request_id=body.request_id,
+            revision=state.revision,
+            from_status=state.status,
+            to_status=body.status,
+            correction=body.correction,
+            notes=notes,
+            created_at=now,
+        )
+    )
+    state.status = body.status
+    state.updated_at = now
+    row.application = state.model_dump(mode="json")
+    await session.commit()
+    return state
 
 
 @router.get("/{draft_id}", response_model=JobDraftDetail)

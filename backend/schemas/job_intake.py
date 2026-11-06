@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import Field, StringConstraints, model_validator
 
-from backend.schemas.product import ApiModel
+from backend.schemas.product import ApiModel, ApplicationStatus
 
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=300)]
 Skill = Annotated[
@@ -103,6 +103,7 @@ class JobDraftDetail(JobPreview):
     description: str
     revision: int
     updated_at: datetime
+    tracked_application: bool = False
 
 
 class SkillFitFinding(ApiModel):
@@ -125,3 +126,35 @@ class DraftFitReport(ApiModel):
     job_minimum_years: float | None = None
     resume_years: float | None = None
     assessment: FitAssessment | None = None
+
+
+class DraftApplicationEvent(ApiModel):
+    request_id: UUID
+    revision: int
+    from_status: ApplicationStatus
+    to_status: ApplicationStatus
+    correction: bool
+    notes: str | None = None
+    created_at: datetime
+
+
+class DraftApplicationState(ApiModel):
+    status: ApplicationStatus
+    revision: int
+    updated_at: datetime
+    events: list[DraftApplicationEvent] = Field(default_factory=list)
+
+
+class DraftApplicationMove(ApiModel):
+    status: ApplicationStatus
+    expected_revision: int = Field(ge=1)
+    request_id: UUID
+    correction: bool = False
+    notes: str | None = Field(default=None, max_length=1000)
+
+
+class DraftApplicationItem(ApiModel):
+    draft_id: UUID
+    title: str
+    employer: str
+    application: DraftApplicationState

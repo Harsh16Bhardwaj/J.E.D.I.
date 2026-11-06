@@ -141,3 +141,79 @@ def test_drafts_are_private_revision_checked_and_retryable(
     assert product_client.get(path).status_code == 200
     assert product_client.delete(f"{path}?revision=2").status_code == 204
     assert product_client.get(path).status_code == 404
+
+
+def test_private_application_moves_are_isolated_and_retryable(
+    product_client: TestClient,
+) -> None:
+    login(product_client)
+    base = "/api/job-drafts"
+    path = f"{base}/{uuid4()}"
+    saved = product_client.put(
+        path,
+        json={
+            "description": DESCRIPTION,
+            "fields": preview_job(DESCRIPTION).fields.model_dump(by_alias=True),
+            "revision": 0,
+        },
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["trackedApplication"] is False
+    assert product_client.get(f"{base}/applications").json() == []
+
+    endpoint = f"{path}/application"
+    started = product_client.post(endpoint)
+    assert started.status_code == 200, started.text
+    assert started.json()["status"] == "PREPARING"
+    assert product_client.post(endpoint).json() == started.json()
+    assert product_client.get(path).json()["trackedApplication"] is True
+
+    move = {"status": "APPLIED", "expectedRevision": 1, "requestId": str(uuid4())}
+    moved = product_client.patch(endpoint, json=move)
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["revision"] == 2
+    assert product_client.patch(endpoint, json=move).json() == moved.json()
+    assert (
+        product_client.patch(endpoint, json={**move, "status": "INTERVIEW"}).status_code
+        == 409
+    )
+    correction = {
+        "status": "PREPARING",
+        "expectedRevision": 2,
+        "requestId": str(uuid4()),
+    }
+    assert product_client.patch(endpoint, json=correction).status_code == 409
+    assert (
+        product_client.patch(
+            endpoint, json={**correction, "correction": True}
+        ).status_code
+        == 422
+    )
+    corrected = product_client.patch(
+        endpoint, json={**correction, "correction": True, "notes": "Submission failed"}
+    )
+    assert corrected.status_code == 200, corrected.text
+    assert corrected.json()["events"][-1]["notes"] == "Submission failed"
+    assert product_client.patch(endpoint, json=move).json()["revision"] == 3
+    assert (
+        product_client.patch(
+            endpoint, json={**move, "requestId": str(uuid4())}
+        ).status_code
+        == 409
+    )
+    listed = product_client.get(f"{base}/applications")
+    assert listed.json()[0]["application"] == corrected.json()
+    assert "no-store" in listed.headers["cache-control"]
+
+    member = product_client.post(
+        "/api/auth/login",
+        json={"email": "friend@example.com", "password": "friend password"},
+    )
+    assert member.status_code == 200
+    assert product_client.get(f"{base}/applications").json() == []
+    assert product_client.post(endpoint).status_code == 404
+    assert product_client.patch(endpoint, json=move).status_code == 404
+
+    login(product_client)
+    assert product_client.delete(f"{path}?revision=1").status_code == 204
+    assert product_client.get(f"{base}/applications").json() == []

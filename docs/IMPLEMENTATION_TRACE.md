@@ -68,3 +68,20 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 - Seniority and domain alignment, versioned report snapshots, calibration fixtures, and DOCX intake remain open.
 - Private drafts on the application board and automatic milestone moves remain open.
 - Broader employer-site coverage and unattended scraper execution remain open.
+
+## Track private job drafts in Applications
+
+**Working**
+
+- A saved private draft can start a Preparing application. Its card links back to the saved description, reviewed requirements, and current resume comparison.
+- Draft applications share the stage and correction rules used by the main pipeline. Moves use a revision and request ID. Retries preserve history, and a backward move or reopening requires a reason.
+- Only the draft owner can read or move its application. Deleting the draft removes its application and history.
+
+**Verified**
+
+- 15 targeted intake, fit, and application API tests plus 32 frontend tests. The new API test covers duplicate starts and moves, stale revisions, required correction notes, member isolation, and deletion.
+- TypeScript, lint for the changed files, and Prisma schema validation passed. Repository-wide Ruff still flags fixture imports in the existing learning API tests.
+
+**Open**
+
+- Apply the private draft application migration before deploying. Unified filters, saved fit reports, and confirmed milestone moves remain open.
