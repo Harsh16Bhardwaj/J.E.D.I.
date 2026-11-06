@@ -75,6 +75,7 @@ const freshnessLabels: Record<string, string> = {
   REVIEW_RECENT: "date needs review",
   REJECTED: "date unavailable or stale",
 };
+const candidatePageSize = 25;
 
 function reasonLabel(reason: string): string {
   return reason
@@ -128,11 +129,16 @@ export default function ScraperPage() {
     selectedRunId && loadReviewData
       ? `/api/scraper/runs/${selectedRunId}/attempts?page=1&pageSize=100`
       : null,
+    { keepPreviousData: false },
   );
   const candidates = useSWR<ScrapeCandidatePage>(
     selectedRunId && loadReviewData
-      ? `/api/scraper/runs/${selectedRunId}/candidates?page=${candidatePage}&pageSize=100`
+      ? `/api/scraper/runs/${selectedRunId}/candidates?page=${candidatePage}&pageSize=${candidatePageSize}`
       : null,
+    {
+      keepPreviousData: false,
+      fetcher: (path: string) => apiRequest<ScrapeCandidatePage>(path, { signal: AbortSignal.timeout(15_000) }),
+    },
   );
   const runStats = useSWR<ScrapeRunStats>(
     owner && selectedRunId ? `/api/scraper/runs/${selectedRunId}/stats` : null,
@@ -147,6 +153,7 @@ export default function ScraperPage() {
     owner && selectedRunId && expandedCandidateId
       ? `/api/scraper/runs/${selectedRunId}/candidates/${expandedCandidateId}`
       : null,
+    { keepPreviousData: false },
   );
 
   async function publishRun(next: ScrapeRunSummary) {
@@ -666,6 +673,12 @@ export default function ScraperPage() {
               <Play className="size-4" /> Run scraper
             </Button>
           </div>
+            {config.error && (
+              <div className="mt-4 space-y-2">
+                <p role="alert" className="text-sm text-coral">Collection policy could not load. {errorSummary(config.error)}</p>
+                <Button size="sm" variant="outline" onClick={() => void config.mutate()}>Retry collection policy</Button>
+              </div>
+            )}
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border border-border p-4">
               <p className="text-2xl font-black">
@@ -857,6 +870,9 @@ export default function ScraperPage() {
                 )}
               </div>
             </div>
+            {run.status === "CANCELLED" && (
+              <p className="mt-4 text-sm text-muted-foreground">This run is available for review. Use Run scraper to start a new collection.</p>
+            )}
             <div className="mt-6 grid gap-2 md:grid-cols-4">
               {["1. Collect", "2. Review & select", "3. Import & normalize", "4. Rank manually"].map(
                 (label, index) => (
@@ -1018,6 +1034,12 @@ export default function ScraperPage() {
             </BrutalCard>
           )}
 
+          {loadReviewData && attempts.error && (
+            <BrutalCard className="border-coral">
+              <p role="alert" className="text-sm text-coral">Source attempts could not load. {errorSummary(attempts.error)}</p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => void attempts.mutate()}>Retry attempts</Button>
+            </BrutalCard>
+          )}
           {runAttempts.some((attempt) => attempt.errorMessage) && (
             <BrutalCard className="border-coral">
               <p className="ops-label text-coral">Source errors</p>
@@ -1034,6 +1056,14 @@ export default function ScraperPage() {
             </BrutalCard>
           )}
 
+          {loadReviewData && candidates.error && (
+            <BrutalCard className="border-coral">
+              <p role="alert" className="text-sm text-coral">Candidate review could not load. {errorSummary(candidates.error)}</p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => void candidates.mutate()}>Retry candidates</Button>
+            </BrutalCard>
+          )}
+          {loadReviewData && !candidates.data && !candidates.error && <p role="status" className="text-sm text-muted-foreground">Loading candidate review…</p>}
+          {loadReviewData && candidates.data?.total === 0 && <p className="text-sm text-muted-foreground">No candidates were staged for this run.</p>}
           {runCandidates.length > 0 && (
             <BrutalCard className="overflow-hidden p-0">
               <div className="border-b border-border p-5">
@@ -1100,6 +1130,13 @@ export default function ScraperPage() {
                                 ? candidate.qualityFailures.map(reasonLabel).join(" · ")
                                 : "No review notes."}
                             </p>
+                            {expandedCandidate.error && (
+                              <>
+                                <p role="alert" className="mt-2 text-coral">{errorSummary(expandedCandidate.error)}</p>
+                                <Button size="sm" variant="ghost" onClick={() => void expandedCandidate.mutate()}>Retry evidence</Button>
+                              </>
+                            )}
+                            {expandedCandidate.isLoading && <p role="status" className="mt-2">Loading evidence…</p>}
                             {expandedCandidate.data?.evidenceSpans.slice(0, 8).map((span, index) => (
                               <p key={`${span.field}-${index}`} className="mt-1">
                                 <strong>{span.field}:</strong> “{span.text}”
@@ -1141,7 +1178,7 @@ export default function ScraperPage() {
                   ))}
                 </TableBody>
               </Table>
-              {(candidates.data?.total ?? 0) > 100 && (
+              {(candidates.data?.total ?? 0) > candidatePageSize && (
                 <div className="flex items-center justify-between border-t border-border px-5 py-3">
                   <Button
                     size="sm"
@@ -1149,18 +1186,18 @@ export default function ScraperPage() {
                     disabled={candidatePage <= 1}
                     onClick={() => setCandidatePage((page) => Math.max(1, page - 1))}
                   >
-                    Previous 100
+                    Previous page
                   </Button>
                   <span className="font-mono text-xs text-muted-foreground">
-                    Page {candidatePage} of {Math.ceil((candidates.data?.total ?? 0) / 100)}
+                    Page {candidatePage} of {Math.ceil((candidates.data?.total ?? 0) / candidatePageSize)}
                   </span>
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={candidatePage * 100 >= (candidates.data?.total ?? 0)}
+                    disabled={candidatePage * candidatePageSize >= (candidates.data?.total ?? 0)}
                     onClick={() => setCandidatePage((page) => page + 1)}
                   >
-                    Next 100
+                    Next page
                   </Button>
                 </div>
               )}

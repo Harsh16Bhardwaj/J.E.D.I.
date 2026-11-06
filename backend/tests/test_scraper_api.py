@@ -193,6 +193,64 @@ def test_import_worker_advances_only_owner_approved_runs(
     assert batch["batch"]["rankedAt"] is None
 
 
+def test_health_check_releases_the_source_and_rejects_stale_results(
+    product_client: TestClient, monkeypatch
+) -> None:
+    login(product_client)
+    configure_test_sources(monkeypatch)
+    inventory = product_client.get("/api/scraper/sources").json()
+    path = f"/api/scraper/sources/{inventory[0]['id']}"
+    started, release = Event(), Event()
+
+    async def empty_board(*_args, **_kwargs):
+        started.set()
+        if not await asyncio.to_thread(release.wait, 5):
+            raise TimeoutError("Test did not release the source check")
+        return FetchResult(jobs=[])
+
+    monkeypatch.setattr(scraper_router, "fetch_source_jobs", empty_board)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        pending = executor.submit(product_client.post, f"{path}/revalidate")
+        try:
+            assert started.wait(3)
+            disabled = product_client.patch(path, json={"active": False})
+            assert disabled.status_code == 200
+            assert not pending.done()
+        finally:
+            release.set()
+        assert pending.result(timeout=5).status_code == 409
+    assert product_client.patch(path, json={"active": True}).status_code == 200
+    healthy = product_client.post(f"{path}/revalidate")
+    assert healthy.status_code == 200, healthy.text
+    assert healthy.json()["healthStatus"] == "HEALTHY"
+    assert healthy.json()["jobsScanned"] == 0
+
+
+def test_candidates_compare_against_jobs_staged_in_the_same_fetch(
+    product_client: TestClient, monkeypatch
+) -> None:
+    login(product_client)
+    configure_test_sources(monkeypatch)
+    posted = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    jobs = [{**scraper_job(i), "postedAt": posted} for i in range(1, 12)]
+    duplicate = {**jobs[0], "applyUrl": "https://jobs.example.test/duplicate"}
+
+    async def fetch(*_args, **_kwargs):
+        return FetchResult(jobs=[*jobs, jobs[0], duplicate])
+
+    monkeypatch.setattr(scraper_router, "fetch_source_jobs", fetch)
+    run_id = product_client.post("/api/scraper/runs").json()["id"]
+    path = f"/api/scraper/runs/{run_id}"
+    step = product_client.post(f"{path}/advance")
+    assert step.status_code == 200, step.text
+    candidates = product_client.get(f"{path}/candidates?pageSize=25").json()
+    assert candidates["total"] == 12
+    by_url = {item["sourceUrl"]: item for item in candidates["items"]}
+    assert "DUPLICATE_DESCRIPTION" in by_url[duplicate["applyUrl"]]["qualityFailures"]
+    last = by_url[jobs[-1]["applyUrl"]]
+    assert "SUSPICIOUS_TIMESTAMP_REUSE" in last["qualityFailures"]
+
+
 def test_scraper_import_resumes_at_batch_checkpoint_after_normalization_failure(
     product_client: TestClient, monkeypatch
 ) -> None:

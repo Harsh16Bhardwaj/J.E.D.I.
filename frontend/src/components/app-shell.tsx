@@ -13,7 +13,7 @@ import useSWR, {
 import { Sidebar } from "@/components/sidebar";
 import { MobileNavigation } from "@/components/top-bar";
 import { Button } from "@/components/ui/button";
-import { apiGet, ApiError, type User } from "@/lib/api";
+import { apiGet, apiRequest, ApiError, type User } from "@/lib/api";
 import { onboardingRedirect } from "@/lib/public-session";
 
 const publicRoutes = new Set(["/", "/login", "/register", "/forgot-password", "/reset-password"]);
@@ -106,6 +106,7 @@ function ProtectedShell({ children }: { children: React.ReactNode }) {
   const { cache } = useSWRConfig();
   const { data: user, error, isLoading, mutate } = useSWR<User>(
     "/api/auth/session",
+    { fetcher: (path: string) => apiRequest<User>(path, { signal: AbortSignal.timeout(15_000) }) },
   );
 
   useEffect(() => {

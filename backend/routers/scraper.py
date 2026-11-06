@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from collections import Counter
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from time import perf_counter
@@ -11,6 +12,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import case, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from backend.auth import CurrentUser, ServiceToken
 from backend.config import get_settings
@@ -120,9 +122,7 @@ async def sync_seed_sources(session: AsyncSession, group_id: str) -> list[Scrape
     existing = {
         item.source_key: item
         for item in (
-            await session.scalars(
-                select(ScrapeSource).where(ScrapeSource.group_id == group_id)
-            )
+            await session.scalars(source_metadata(group_id))
         ).all()
     }
     for source in seeded_source_specs(config):
@@ -147,6 +147,14 @@ async def sync_seed_sources(session: AsyncSession, group_id: str) -> list[Scrape
             item.board_token = source.board_token
     await session.flush()
     return list(existing.values())
+
+
+def source_metadata(group_id: str):
+    return (
+        select(ScrapeSource)
+        .options(defer(ScrapeSource.response_cache, raiseload=True))
+        .where(ScrapeSource.group_id == group_id)
+    )
 
 
 def run_summary(
@@ -459,8 +467,7 @@ async def list_sources(
     context = await require_group_owner(session, user.id)
     items = (
         await session.scalars(
-            select(ScrapeSource)
-            .where(ScrapeSource.group_id == context.group.id)
+            source_metadata(context.group.id)
             .order_by(ScrapeSource.ats_type, ScrapeSource.name)
         )
     ).all()
@@ -529,8 +536,7 @@ async def add_source(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     item = await session.scalar(
-        select(ScrapeSource).where(
-            ScrapeSource.group_id == context.group.id,
+        source_metadata(context.group.id).where(
             ScrapeSource.source_key == source.source_key,
         )
     )
@@ -553,7 +559,6 @@ async def add_source(
         item.board_token = source.board_token
         item.active = True
     await session.commit()
-    await session.refresh(item)
     return source_response(item)
 
 
@@ -561,9 +566,7 @@ async def owned_source(
     session: AsyncSession, user_id: str, source_id: str, *, lock: bool = False
 ) -> ScrapeSource:
     context = await require_group_owner(session, user_id, lock=lock)
-    statement = select(ScrapeSource).where(
-        ScrapeSource.id == source_id, ScrapeSource.group_id == context.group.id
-    )
+    statement = source_metadata(context.group.id).where(ScrapeSource.id == source_id)
     if lock:
         statement = statement.with_for_update().execution_options(
             populate_existing=True
@@ -584,7 +587,6 @@ async def update_source(
     item = await owned_source(session, user.id, source_id, lock=True)
     item.active = body.active
     await session.commit()
-    await session.refresh(item)
     return source_response(item)
 
 
@@ -598,7 +600,6 @@ async def clear_source_cooldown(
     item.consecutive_zero_yield = 0
     item.health_status = "UNKNOWN"
     await session.commit()
-    await session.refresh(item)
     return source_response(item)
 
 
@@ -606,7 +607,8 @@ async def clear_source_cooldown(
 async def revalidate_source(
     source_id: str, user: CurrentUser, session: DatabaseSession
 ) -> ScrapeSourceResponse:
-    item = await owned_source(session, user.id, source_id, lock=True)
+    item = await owned_source(session, user.id, source_id)
+    revision = item.updated_at
     config = replace(load_scraper_config(), bright_data_limit=0)
     source = SourceSpec(
         source_key=item.source_key,
@@ -616,34 +618,45 @@ async def revalidate_source(
         board_token=item.board_token,
         discovered=item.discovered,
     )
+    await session.commit()
     started = perf_counter()
-    now = datetime.now(UTC)
+    error = None
+    job_count = 0
     try:
-        result = await fetch_source_jobs(source, config, allow_unlocker=False)
-        healthy = bool(result.jobs) and source_identity_consistent(
-            item.name, source, result.jobs
-        )
-        if not healthy:
+        async with asyncio.timeout(25):
+            result = await fetch_source_jobs(source, config, allow_unlocker=False)
+        if result.jobs and not source_identity_consistent(
+            source.name, source, result.jobs
+        ):
             raise RuntimeError("Source identity or direct vacancy validation failed.")
+        job_count = len(result.jobs)
+    except TimeoutError:
+        error = "The employer board did not respond in time."
+    except Exception as exc:
+        error = str(exc)[:500] or "Could not validate the employer board."
+
+    elapsed = int((perf_counter() - started) * 1000)
+    item = await owned_source(session, user.id, source_id, lock=True)
+    if item.updated_at != revision:
+        raise HTTPException(409, "The source changed during the check. Try again.")
+    now = datetime.now(UTC)
+    if error is None:
         item.health_status = "HEALTHY"
         item.last_success_at = now
         item.consecutive_failures = 0
         item.cooldown_until = None
-        item.jobs_scanned = len(result.jobs)
-    except Exception as exc:
+        item.jobs_scanned = job_count
+    else:
         item.health_status = "FAILING"
         item.last_failure_at = now
         item.consecutive_failures += 1
         if item.consecutive_failures >= 3:
             item.health_status = "COOLDOWN"
             item.cooldown_until = now + timedelta(hours=24)
-        item.response_time_ms = int((perf_counter() - started) * 1000)
-        await session.commit()
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    finally:
-        item.response_time_ms = int((perf_counter() - started) * 1000)
+    item.response_time_ms = elapsed
     await session.commit()
-    await session.refresh(item)
+    if error is not None:
+        raise HTTPException(status_code=422, detail=error)
     return source_response(item)
 
 
@@ -844,8 +857,7 @@ async def advance_source_refresh(
     if discovery_error is None:
         for source, validation in validated_sources:
             stored = await session.scalar(
-                select(ScrapeSource).where(
-                    ScrapeSource.group_id == item.group_id,
+                source_metadata(item.group_id).where(
                     ScrapeSource.source_key == source.source_key,
                 )
             )
@@ -1009,9 +1021,8 @@ async def create_run(user: CurrentUser, session: DatabaseSession) -> ScrapeRunSu
     await sync_seed_sources(session, context.group.id)
     cached = (
         await session.scalars(
-            select(ScrapeSource)
+            source_metadata(context.group.id)
             .where(
-                ScrapeSource.group_id == context.group.id,
                 ScrapeSource.active.is_(True),
                 ScrapeSource.ats_type.in_(config.ats_types),
                 or_(
@@ -1116,6 +1127,10 @@ async def list_run_candidates(
     items = (
         await session.scalars(
             select(ScrapeCandidate)
+            .options(
+                defer(ScrapeCandidate.payload, raiseload=True),
+                defer(ScrapeCandidate.evidence_spans, raiseload=True),
+            )
             .where(*where)
             .order_by(
                 case(
@@ -1249,31 +1264,37 @@ async def stage_jobs(
     config = load_scraper_config()
     valid_added = 0
     duplicate_count = 0
-    current_valid = (
-        await session.scalar(
-            select(func.count())
-            .select_from(ScrapeCandidate)
-            .where(
-                ScrapeCandidate.run_id == run.id,
-                ScrapeCandidate.schema_valid.is_(True),
-                ScrapeCandidate.source_quality_valid.is_(True),
-                ScrapeCandidate.review_group.in_(["RECOMMENDED", "NEEDS_REVIEW"]),
-            )
-        )
-        or 0
-    )
-    company_counts: dict[str, int] = {}
-    existing_companies = (
-        await session.scalars(
-            select(ScrapeCandidate.company_name).where(
-                ScrapeCandidate.run_id == run.id,
-                ScrapeCandidate.selected.is_(True),
-            )
+    # The caller holds the run lock. Read the existing comparison keys once
+    # and update the same indexes as new candidates are staged.
+    existing = (
+        await session.execute(
+            select(
+                ScrapeCandidate.canonical_url,
+                ScrapeCandidate.description_fingerprint,
+                ScrapeCandidate.source_key,
+                ScrapeCandidate.posted_at,
+                ScrapeCandidate.company_name,
+                ScrapeCandidate.selected,
+                ScrapeCandidate.schema_valid,
+                ScrapeCandidate.source_quality_valid,
+                ScrapeCandidate.review_group,
+            ).where(ScrapeCandidate.run_id == run.id)
         )
     ).all()
-    for company in existing_companies:
-        key = str(company).casefold()
-        company_counts[key] = company_counts.get(key, 0) + 1
+    canonical_urls = {row.canonical_url for row in existing}
+    descriptions = {row.description_fingerprint for row in existing}
+    timestamps = Counter(
+        parse_datetime(row.posted_at) for row in existing
+        if row.source_key == attempt.source_key and row.posted_at is not None
+    )
+    company_counts = Counter(
+        row.company_name.casefold() for row in existing if row.selected
+    )
+    current_valid = sum(
+        row.schema_valid and row.source_quality_valid
+        and row.review_group in {"RECOMMENDED", "NEEDS_REVIEW"}
+        for row in existing
+    )
     for job in jobs:
         title_value = str(job.get("roleTitle") or "").casefold()
         if not any(alias in title_value for alias in config.title_aliases):
@@ -1284,38 +1305,13 @@ async def stage_jobs(
             canonical = canonical_candidate_url(payload)
         except ValueError:
             continue
-        if await session.scalar(
-            select(ScrapeCandidate.id).where(
-                ScrapeCandidate.run_id == run.id,
-                ScrapeCandidate.canonical_url == canonical,
-            )
-        ):
+        if canonical in canonical_urls:
             duplicate_count += 1
             continue
-        duplicate_description = await session.scalar(
-            select(ScrapeCandidate.id).where(
-                ScrapeCandidate.run_id == run.id,
-                ScrapeCandidate.description_fingerprint
-                == assessment.description_fingerprint,
-            )
-        )
+        duplicate_description = assessment.description_fingerprint in descriptions
         valid, errors = validate_candidate(payload)
         posted_at = parse_datetime(payload.get("postedAt"))
-        repeated_timestamp = False
-        if posted_at is not None:
-            timestamp_count = (
-                await session.scalar(
-                    select(func.count())
-                    .select_from(ScrapeCandidate)
-                    .where(
-                        ScrapeCandidate.run_id == run.id,
-                        ScrapeCandidate.source_key == attempt.source_key,
-                        ScrapeCandidate.posted_at == posted_at,
-                    )
-                )
-                or 0
-            )
-            repeated_timestamp = timestamp_count >= 10
+        repeated_timestamp = posted_at is not None and timestamps[posted_at] >= 10
         company_name = str(payload.get("companyName") or "Unknown")
         company_key = company_name.casefold()
         failures = list(assessment.quality_failures)
@@ -1378,9 +1374,13 @@ async def stage_jobs(
                 validation_errors=errors or None,
             )
         )
+        canonical_urls.add(canonical)
+        descriptions.add(assessment.description_fingerprint)
+        if posted_at is not None:
+            timestamps[posted_at] += 1
         if selectable:
             valid_added += 1
-            company_counts[company_key] = company_counts.get(company_key, 0) + 1
+            company_counts[company_key] += 1
     return valid_added, duplicate_count
 
 
@@ -1531,9 +1531,7 @@ async def advance_run(
     source_health = {
         source.source_key: source
         for source in (
-            await session.scalars(
-                select(ScrapeSource).where(ScrapeSource.group_id == run.group_id)
-            )
+            await session.scalars(source_metadata(run.group_id))
         ).all()
     }
     attempt = min(
@@ -1566,6 +1564,16 @@ async def advance_run(
         await refresh_counts(session, run)
         await session.commit()
         return run_summary(run)
+    stored = source_health.get(attempt.source_key)
+    cached_jobs = None
+    if (
+        stored
+        and stored.ats_type == "greenhouse"
+        and (stored.etag or stored.last_modified)
+    ):
+        cached_jobs = await session.scalar(
+            select(ScrapeSource.response_cache).where(ScrapeSource.id == stored.id)
+        )
     run.status = "RUNNING"
     attempt.status = "RUNNING"
     attempt.attempt_count += 1
@@ -1575,7 +1583,6 @@ async def advance_run(
     attempt.lease_expires_at = now + timedelta(seconds=config.lease_seconds)
     await session.commit()
 
-    stored = source_health.get(attempt.source_key)
     started = perf_counter()
     result: FetchResult | None = None
     fetch_error: Exception | None = None
@@ -1601,7 +1608,7 @@ async def advance_run(
             checkpoint=attempt.checkpoint,
             etag=stored.etag,
             last_modified=stored.last_modified,
-            cached_jobs=stored.response_cache,
+            cached_jobs=cached_jobs,
             allow_unlocker=attempt.retry_count == 0,
         )
     except Exception as exc:
@@ -1627,11 +1634,8 @@ async def advance_run(
         return run_summary(run)
 
     stored = await session.scalar(
-        select(ScrapeSource)
-        .where(
-            ScrapeSource.group_id == run.group_id,
-            ScrapeSource.source_key == attempt.source_key,
-        )
+        source_metadata(run.group_id)
+        .where(ScrapeSource.source_key == attempt.source_key)
         .with_for_update()
         .execution_options(populate_existing=True)
     )
@@ -1662,13 +1666,17 @@ async def advance_run(
             stored.health_status = "COOLDOWN"
         stored.etag = result.etag or stored.etag
         stored.last_modified = result.last_modified or stored.last_modified
-        merged_cache: dict[str, dict] = {}
-        for cached_job in [*(stored.response_cache or []), *result.jobs]:
-            try:
-                merged_cache[canonical_candidate_url(cached_job)] = cached_job
-            except ValueError:
-                continue
-        stored.response_cache = list(merged_cache.values())[-1000:]
+        if stored.ats_type == "greenhouse":
+            existing_cache = await session.scalar(
+                select(ScrapeSource.response_cache).where(ScrapeSource.id == stored.id)
+            )
+            merged_cache: dict[str, dict] = {}
+            for cached_job in [*(existing_cache or []), *result.jobs]:
+                try:
+                    merged_cache[canonical_candidate_url(cached_job)] = cached_job
+                except ValueError:
+                    continue
+            stored.response_cache = list(merged_cache.values())[-1000:]
         stored.last_checkpoint = result.next_checkpoint
         attempt.checkpoint = result.next_checkpoint
         for use in result.provider_uses:

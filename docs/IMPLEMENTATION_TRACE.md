@@ -233,3 +233,22 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 **Open**
 
 - The account holder still needs to enter the code and choose a password. Inbox delivery and the account holder's completed reset require their verification.
+
+## Restore and speed up the live scraper workspace
+
+**Working**
+
+- The configured database now has the existing provider-retry, draft, resume, private-application, and fit-snapshot migrations. Scraper attempts and stats, along with private draft applications, returned 200 after migration.
+- Source inventory and source administration read metadata without downloading the provider response cache. Collection loads cached jobs for the relevant Greenhouse source only. Candidate staging uses one comparison query per provider response and keeps duplicate and repeated-timestamp checks.
+- Board checks release database locks before provider I/O, stop waiting after 25 seconds, and discard a result when the source changes in the meantime. Reachable boards with zero jobs report healthy.
+- Candidate review loads 25 rows at a time. The UI shows loading, empty, and retry states for candidate and attempt requests. Readiness checks the schema versions required by this build.
+
+**Verified**
+
+- The hosted source inventory held about 42 MB of uncompressed provider cache. Before the projection change, the inventory took 14–18 seconds in completed probes and timed out in a concurrent probe.
+- A fresh browser session on localhost showed Source Health in 3.6 seconds and Candidate Review in 5.8 seconds. Pagination, candidate evidence, source reload, and filtering produced zero API errors.
+- 190 backend tests passed with isolated PostgreSQL, along with 32 frontend tests, targeted lint, TypeScript, and the production build.
+
+**Open**
+
+- The browser check used the existing cancelled run for read-only review. A fresh collection and import against live employer boards were outside this verification.

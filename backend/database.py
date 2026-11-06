@@ -1787,6 +1787,7 @@ class LearningAttempt(Base):
 settings = get_settings()
 engine = create_async_engine(
     settings.sqlalchemy_database_url,
+    connect_args={"connect_timeout": 8},
     pool_pre_ping=True,
     # Three scraper workers may finish together while the browser also asks for
     # progress or sends a cancellation. Keep spare capacity for those control

@@ -23,30 +23,36 @@ else:
     from backend.services.model_runtime import ModelRuntimeError, model_runtime
 
 router = APIRouter(tags=["service"])
-EXPECTED_MIGRATION = "20260802000000_email_event_control"
+REQUIRED_MIGRATIONS = (
+    "20260802000000_email_event_control",
+    "20260812030000_scraper_provider_retry",
+    "20260812040000_member_job_drafts",
+    "20260812050000_member_resume_and_learning",
+    "20260812060000_password_reset",
+    "20260812070000_member_display_names",
+    "20260812080000_private_draft_applications",
+    "20260812090000_private_fit_snapshots",
+)
 
 
 async def check_readiness() -> bool:
-    """Verify both database access and the migration required by this build."""
+    """Verify database access and the migrations required by this build."""
     try:
-        async with engine.connect() as connection:
-            await connection.execute(text("SELECT 1"))
+        async with asyncio.timeout(10), engine.connect() as connection:
             migration_applied = await connection.scalar(
                 text(
                     """
-                    SELECT EXISTS (
-                      SELECT 1
-                      FROM "_prisma_migrations"
-                      WHERE migration_name = :migration
-                        AND finished_at IS NOT NULL
-                        AND rolled_back_at IS NULL
-                    )
+                    SELECT COUNT(DISTINCT migration_name)
+                    FROM "_prisma_migrations"
+                    WHERE migration_name = ANY(:migrations)
+                      AND finished_at IS NOT NULL
+                      AND rolled_back_at IS NULL
                     """
                 ),
-                {"migration": EXPECTED_MIGRATION},
+                {"migrations": list(REQUIRED_MIGRATIONS)},
             )
-        return bool(migration_applied)
-    except SQLAlchemyError:
+        return migration_applied == len(REQUIRED_MIGRATIONS)
+    except (SQLAlchemyError, TimeoutError):
         return False
 
 

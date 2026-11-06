@@ -124,13 +124,20 @@ async def group_context(
     *,
     lock: bool = False,
 ) -> GroupContext | None:
+    if not lock:
+        result = await session.execute(
+            select(GroupMember, Group)
+            .join(Group, Group.id == GroupMember.group_id)
+            .where(GroupMember.user_id == user_id)
+        )
+        row = result.one_or_none()
+        return GroupContext(membership=row[0], group=row[1]) if row else None
+
     statement = select(GroupMember).where(GroupMember.user_id == user_id)
-    if lock:
-        statement = statement.with_for_update()
-    membership = await session.scalar(statement)
+    membership = await session.scalar(statement.with_for_update())
     if membership is None:
         return None
-    group = await session.get(Group, membership.group_id, with_for_update=lock)
+    group = await session.get(Group, membership.group_id, with_for_update=True)
     if group is None:
         return None
     return GroupContext(membership=membership, group=group)
