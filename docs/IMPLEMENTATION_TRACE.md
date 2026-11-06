@@ -34,3 +34,19 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 **Open**
 
 - Older API callers can still submit the legacy move payload. Private drafts are not yet linked into the board, and milestone-triggered transition suggestions remain open.
+
+## Add workflow guides and chapter progress
+
+**Working**
+
+- The feature catalog provides routes, audiences, prerequisites, and steps for intake, resume comparison, application moves, scraper recovery, and email dispatch.
+- Each workflow links to its guide. The tutorial shows owner chapters only to owners and includes a sample posting for intake.
+- Device-local chapter progress is tracked independently. A completed legacy field guide still counts as core completion.
+
+**Verified**
+
+- 32 frontend tests, including chapter compatibility, plus TypeScript checking and targeted lint.
+
+**Open**
+
+- Chapter progress is device-local. Account sync and rollout metrics remain open.

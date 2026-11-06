@@ -7,10 +7,24 @@ import {
   visibleNavigation,
 } from "./navigation";
 import {
+  completeTutorialChapter,
+  completedTutorialChapters,
   hasCompletedTutorial,
   persistTutorialComplete,
   TUTORIAL_COMPLETE_KEY,
 } from "./tutorial-state";
+
+test("chapter progress preserves the legacy core guide without completing new guides", () => {
+  const values = new Map([[TUTORIAL_COMPLETE_KEY, "1"]]);
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => void values.set(key, value),
+  };
+  assert.deepEqual([...completedTutorialChapters(storage)], ["core-guide"]);
+  completeTutorialChapter(storage, "job-intake");
+  completeTutorialChapter(storage, "job-intake");
+  assert.deepEqual([...completedTutorialChapters(storage)], ["core-guide", "job-intake"]);
+});
 
 test("members see the shared daily workflow without owner controls", () => {
   assert.deepEqual(

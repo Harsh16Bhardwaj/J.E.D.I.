@@ -28,11 +28,16 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import useSWR from "swr";
 
 import { RouteHeader } from "@/components/route-header";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { featureGuide } from "@/lib/feature-guide";
+import type { User } from "@/lib/api";
 import {
+  completeTutorialChapter,
+  completedTutorialChapters,
   hasCompletedTutorial,
   markTutorialCompleteInBrowser,
 } from "@/lib/tutorial-state";
@@ -173,10 +178,14 @@ function FlowArrow() {
 
 export default function TutorialPage() {
   const [complete, setComplete] = useState(false);
+  const [chapters, setChapters] = useState(new Set<string>());
+  const { data: user } = useSWR<User>("/api/auth/session");
+  const visibleFeatures = featureGuide.filter((feature) => feature.audience === "member" || user?.isGroupOwner);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       setComplete(hasCompletedTutorial(window.localStorage));
+      setChapters(completedTutorialChapters(window.localStorage));
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
@@ -195,6 +204,34 @@ export default function TutorialPage() {
         path="/tutorial"
         description="Follow a job from daily collection to a ranked recommendation, a personalized email, and your private application board."
       />
+
+      <section aria-labelledby="feature-guides" className="space-y-4">
+        <div>
+          <h2 id="feature-guides" className="text-2xl font-bold">Workflow guides</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {visibleFeatures.filter((feature) => chapters.has(feature.id)).length} of {visibleFeatures.length} completed on this device.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {visibleFeatures.map((feature) => (
+            <article key={feature.id} id={feature.id} className="scroll-mt-8 space-y-3 rounded-xl border border-border bg-card p-5">
+              <p className="ops-label text-muted-foreground">{feature.audience === "owner" ? "Group owner" : "Member"}</p>
+              <h3 className="text-lg font-bold">{feature.title}</h3>
+              <p className="text-sm text-muted-foreground">{feature.prerequisite}</p>
+              <ol className="list-decimal space-y-1 pl-5 text-sm">
+                {feature.steps.map((step) => <li key={step}>{step}</li>)}
+              </ol>
+              {"sample" in feature && <pre className="whitespace-pre-wrap rounded-lg border border-border p-3 text-xs">{feature.sample}</pre>}
+              <div className="flex flex-wrap gap-2">
+                <Link href={feature.route} className={buttonVariants({ size: "sm", variant: "outline" })}>Open workflow</Link>
+                <Button size="sm" variant="ghost" disabled={chapters.has(feature.id)} onClick={() => setChapters(completeTutorialChapter(window.localStorage, feature.id))}>
+                  {chapters.has(feature.id) ? "Completed" : "Mark chapter complete"}
+                </Button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <section className="relative overflow-hidden border border-border bg-card" aria-labelledby="system-map-title">
         <div className="absolute inset-y-0 right-0 hidden w-1/3 bg-[radial-gradient(circle_at_center,hsl(var(--acid)/0.12),transparent_68%)] lg:block" />
@@ -336,7 +373,7 @@ export default function TutorialPage() {
               ["CANCELLED", "Paused recipient or an older event superseded by reranking"],
             ].map(([status, meaning]) => <li key={status} className="flex gap-3 border-t border-border pt-3"><CircleDot className="mt-0.5 size-4 shrink-0 text-coral" /><div><strong className="font-mono text-xs">{status}</strong><p className="mt-1 text-xs text-muted-foreground">{meaning}</p></div></li>)}
           </ol>
-          <Link href="/settings/email" className={buttonVariants({ variant: "outline", className: "mt-6 min-h-11" })}>Open email control <ChevronRight /></Link>
+          {user?.isGroupOwner && <Link href="/settings/email" className={buttonVariants({ variant: "outline", className: "mt-6 min-h-11" })}>Open email control <ChevronRight /></Link>}
         </article>
 
         <article className="border border-border bg-card p-6 sm:p-8">
