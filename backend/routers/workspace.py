@@ -14,6 +14,7 @@ from backend.database import (
     Application,
     ApplicationMilestone,
     Batch,
+    GroupMember,
     Job,
     JobAnnotation,
     JobEvent,
@@ -779,6 +780,7 @@ async def update_application(
     context = await require_group_context(session, user.id)
     member_id = context.membership.id
     await get_job_or_404(session, job_id)
+    await session.get(GroupMember, member_id, with_for_update=True)
     application = await session.scalar(
         select(Application)
         .where(
@@ -1061,6 +1063,16 @@ async def application_summary(
     )
 
 
+TERMINAL_APPLICATION_STATES = {
+    ApplicationStatus.ACCEPTED,
+    ApplicationStatus.REJECTED,
+    ApplicationStatus.WITHDRAWN,
+}
+APPLICATION_STAGE_ORDER = {
+    stage: index for index, stage in enumerate(ApplicationStatus)
+}
+
+
 @router.post(
     "/api/jobs/{job_id}/application-events",
     response_model=JobEventResponse,
@@ -1075,6 +1087,7 @@ async def create_application_event(
     context = await require_group_context(session, user.id)
     member_id = context.membership.id
     await get_job_or_404(session, job_id)
+    await session.get(GroupMember, member_id, with_for_update=True)
     application = await session.scalar(
         select(Application)
         .where(
@@ -1088,26 +1101,72 @@ async def create_application_event(
         session.add(application)
         await session.flush()
     previous_status = application.status
+    target = body.application_status
+    notes = body.notes.strip() if body.notes and body.notes.strip() else None
+    event_type = "CORRECTION" if body.correction else target.value
+    event_id = None
+    if body.request_id:
+        event_id = stable_hash(
+            {"application": application.id, "request": str(body.request_id)}
+        )
+        existing = await session.get(JobEvent, event_id)
+        if existing:
+            if (
+                existing.new_status != target
+                or existing.event_type != event_type
+                or existing.notes != notes
+                or (
+                    body.expected_status
+                    and existing.previous_status != body.expected_status
+                )
+                or (
+                    body.event_at
+                    and not _same_instant(existing.event_at, body.event_at)
+                )
+            ):
+                raise HTTPException(409, "This move ID has already been used.")
+            return event_response(existing, job_id)
+    if (
+        (body.expected_status is not None and previous_status != body.expected_status)
+        or (
+            body.expected_updated_at
+            and not _same_instant(application.updated_at, body.expected_updated_at)
+        )
+    ):
+        raise HTTPException(409, "Application changed. Refresh and reopen it.")
+    if (
+        body.expected_status is not None
+        or body.expected_updated_at is not None
+        or body.request_id is not None
+        or body.correction
+    ):
+        if previous_status == target:
+            raise HTTPException(409, "This application is already in that stage.")
+        backwards = (
+            previous_status in TERMINAL_APPLICATION_STATES
+            or APPLICATION_STAGE_ORDER[target]
+            < APPLICATION_STAGE_ORDER[previous_status]
+        )
+        if backwards and not body.correction:
+            raise HTTPException(409, "Record a correction to reopen or move backwards.")
+        if body.correction and not notes:
+            raise HTTPException(422, "Add a reason for the correction.")
     event_at = body.event_at or utc_now()
-    application.status = body.application_status.value
+    application.status = target.value
     if (
         body.application_status == ApplicationStatus.APPLIED
         and not application.applied_at
     ):
         application.applied_at = event_at
-    terminal = {
-        ApplicationStatus.ACCEPTED,
-        ApplicationStatus.REJECTED,
-        ApplicationStatus.WITHDRAWN,
-    }
-    application.closed_at = event_at if body.application_status in terminal else None
+    application.closed_at = event_at if target in TERMINAL_APPLICATION_STATES else None
     event = JobEvent(
+        **({"id": event_id} if event_id else {}),
         application_id=application.id,
-        event_type=body.application_status.value,
+        event_type=event_type,
         previous_status=previous_status,
         new_status=body.application_status.value,
         event_at=event_at,
-        notes=body.notes.strip() if body.notes else None,
+        notes=notes,
     )
     session.add(event)
     try:

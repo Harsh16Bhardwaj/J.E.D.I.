@@ -18,3 +18,19 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 
 - Apply the display-name migration before deploying. Browser role-switch validation and member-specific newsletter preferences remain open.
 - Application transition protection, private draft tracking, broader fit scoring, and unattended scraper execution remain on the roadmap.
+
+## Protect application stage changes
+
+**Working**
+
+- The board, job detail, and quick-start flows send an expected stage and a retry ID. The board and job detail also send the record timestamp they opened.
+- Repeating the same request returns the original event. A stale snapshot or reused ID with different contents returns a conflict.
+- Backward moves and reopening require a reason in the updated UI and are recorded as corrections. The Not started filter displays planning records.
+
+**Verified**
+
+- Nine targeted application and member backend tests, 31 frontend tests, type checking, and targeted lint.
+
+**Open**
+
+- Older API callers can still submit the legacy move payload. Private drafts are not yet linked into the board, and milestone-triggered transition suggestions remain open.

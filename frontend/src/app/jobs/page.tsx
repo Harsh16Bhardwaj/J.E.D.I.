@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -42,6 +42,7 @@ import {
   type JobStateResult,
 } from "@/lib/api";
 import { formatCompensationLpa, postedDaysAgo } from "@/lib/job-display";
+import { prepareApplicationMove, type ApplicationMoveAttempt } from "@/lib/application-move";
 
 const PAGE_SIZE = 20;
 
@@ -206,6 +207,7 @@ function JobsWorkspace() {
   const [markingId, setMarkingId] = useState<string>();
   const [bookmarkingId, setBookmarkingId] = useState<string>();
   const [selectedJob, setSelectedJob] = useState<JobListItem>();
+  const startAttempt = useRef<ApplicationMoveAttempt>(undefined);
   const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState<unknown>();
 
@@ -335,15 +337,20 @@ function JobsWorkspace() {
     if (!selectedJob || starting) return;
     setStarting(true);
     setActionError(undefined);
+    const request = prepareApplicationMove(
+      { status: selectedJob.applicationStatus, updatedAt: null },
+      "PREPARING",
+      "Application preparation started from the ranked jobs queue.",
+      startAttempt.current,
+    );
+    startAttempt.current = request.attempt;
     try {
       await apiRequest<ApplicationEventResult>(
         `/api/jobs/${selectedJob.id}/application-events`,
         {
           method: "POST",
-          body: JSON.stringify({
-            applicationStatus: "PREPARING",
-            notes: "Application preparation started from the ranked jobs queue.",
-          }),
+          body: request.body,
+          signal: AbortSignal.timeout(15_000),
         },
       );
       toast.success("Application moved to preparing.");
@@ -498,6 +505,7 @@ function JobsWorkspace() {
               onBookmark={() => void toggleBookmark(job)}
               onStart={() => {
                 setActionError(undefined);
+                startAttempt.current = undefined;
                 setSelectedJob(job);
               }}
             />

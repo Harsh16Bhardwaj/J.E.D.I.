@@ -49,6 +49,7 @@ import {
   type PredictionSummary,
 } from "@/lib/api";
 import { formatCompensationLpa, postedDaysAgo } from "@/lib/job-display";
+import { needsApplicationCorrection, prepareApplicationMove, type ApplicationMoveAttempt } from "@/lib/application-move";
 
 const statuses = [
   "NOT_STARTED",
@@ -167,9 +168,13 @@ function ApplicationPanel({ jobId, application, refresh }: { jobId: string; appl
   const [notes, setNotes] = useState(application.notes ?? "");
   const [statusOpen, setStatusOpen] = useState(false);
   const [nextStatus, setNextStatus] = useState(application.status);
+  const [moveSnapshot, setMoveSnapshot] = useState(application);
+  const moveAttempt = useRef<ApplicationMoveAttempt>(undefined);
   const [eventNotes, setEventNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
+  const correcting = needsApplicationCorrection(moveSnapshot.status, nextStatus);
+  const canMove = moveSnapshot.status !== nextStatus && (!correcting || eventNotes.trim());
 
   async function savePlan() {
     if (busy) return;
@@ -199,13 +204,16 @@ function ApplicationPanel({ jobId, application, refresh }: { jobId: string; appl
   }
 
   async function changeStatus() {
-    if (busy) return;
+    if (busy || !canMove) return;
     setBusy(true);
     setError(undefined);
+    const request = prepareApplicationMove(moveSnapshot, nextStatus, eventNotes, moveAttempt.current);
+    moveAttempt.current = request.attempt;
     try {
       await apiRequest(`/api/jobs/${jobId}/application-events`, {
         method: "POST",
-        body: JSON.stringify({ applicationStatus: nextStatus, notes: eventNotes || null }),
+        body: request.body,
+        signal: AbortSignal.timeout(15_000),
       });
       toast.success(`Application moved to ${cleanLabel(nextStatus)}.`);
       setStatusOpen(false);
@@ -239,7 +247,14 @@ function ApplicationPanel({ jobId, application, refresh }: { jobId: string; appl
       {error ? <RequestError error={error} /> : null}
       <div className="flex flex-wrap gap-2">
         <Button disabled={busy} onClick={() => void savePlan()}><Save />Save plan</Button>
-        <Button variant="outline" disabled={busy} onClick={() => { setNextStatus(application.status); setStatusOpen(true); }}><BriefcaseBusiness />Change stage</Button>
+        <Button variant="outline" disabled={busy} onClick={() => {
+          setMoveSnapshot(application);
+          moveAttempt.current = undefined;
+          setNextStatus(application.status);
+          setEventNotes("");
+          setError(undefined);
+          setStatusOpen(true);
+        }}><BriefcaseBusiness />Change stage</Button>
       </div>
       <Dialog open={statusOpen} onOpenChange={(open) => { if (!busy) setStatusOpen(open); }}>
         <DialogContent showCloseButton={!busy}>
@@ -250,11 +265,11 @@ function ApplicationPanel({ jobId, application, refresh }: { jobId: string; appl
           <select className="min-h-11 rounded-lg border bg-background px-3" value={nextStatus} onChange={(event) => setNextStatus(event.target.value)}>
             {statuses.map((value) => <option key={value}>{value}</option>)}
           </select>
-          <Textarea placeholder="Optional context" value={eventNotes} onChange={(event) => setEventNotes(event.target.value)} />
+          <Textarea placeholder={correcting ? "Reason for the correction" : "Optional context"} value={eventNotes} onChange={(event) => setEventNotes(event.target.value)} />
           {error ? <RequestError error={error} /> : null}
           <DialogFooter>
             <Button variant="outline" disabled={busy} onClick={() => setStatusOpen(false)}>Cancel</Button>
-            <Button disabled={busy} onClick={() => void changeStatus()}>{busy ? "Saving..." : "Record change"}</Button>
+            <Button disabled={busy || !canMove} onClick={() => void changeStatus()}>{busy ? "Saving..." : correcting ? "Record correction" : "Record change"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

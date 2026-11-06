@@ -3,6 +3,7 @@
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -749,6 +750,10 @@ class ApplicationEventCreate(ApiModel):
     application_status: ApplicationStatus
     event_at: datetime | None = None
     notes: str | None = Field(default=None, max_length=10_000)
+    expected_status: ApplicationStatus | None = None
+    expected_updated_at: datetime | None = None
+    request_id: UUID | None = None
+    correction: bool = False
 
 
 class ApplicationPatch(ApiModel):
