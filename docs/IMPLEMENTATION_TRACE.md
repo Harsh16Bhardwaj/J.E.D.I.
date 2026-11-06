@@ -217,3 +217,19 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 **Open**
 
 - The configured hosted Supabase database lacks the existing password-reset migration. Apply it to the approved target before testing live delivery. Gmail delivery was exercised through a stub.
+
+## Restore live password recovery for the local app
+
+**Working**
+
+- The configured Supabase database now has the password-reset table, session version column, and member display name column required by the current auth flow. The two existing additive migrations were recorded in Prisma.
+- The local backend on port 8000 now serves the recovery-code flow. The older backend process returned the obsolete recovery-origin error.
+
+**Verified**
+
+- Both the application and migration connections reached the database containing the requested account. Gmail authenticated and accepted the requested recovery message.
+- The local readiness endpoint returned 200, and a probe using a reserved nonexistent address returned the generic 202 recovery-code response.
+
+**Open**
+
+- The account holder still needs to enter the code and choose a password. Inbox delivery and the account holder's completed reset require their verification.
