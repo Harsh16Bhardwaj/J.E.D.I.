@@ -157,7 +157,7 @@ export function Sidebar({
         />
         {miscItems.length > 0 && (
           <NavigationGroup
-            label="Model room"
+            label="Legacy"
             items={miscItems}
             onNavigate={onNavigate}
             tutorialViewed={tutorialViewed}
@@ -173,7 +173,7 @@ export function Sidebar({
           </span>
         </div>
         <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          One shared profile, model, and daily ranked feed.
+          Your workspace. Shared model tools are in Legacy.
         </p>
         <Button
           variant="outline"

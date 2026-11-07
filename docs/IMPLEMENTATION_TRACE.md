@@ -245,10 +245,28 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 
 **Verified**
 
-- The hosted source inventory held about 42 MB of uncompressed provider cache. Before the projection change, the inventory took 14–18 seconds in completed probes and timed out in a concurrent probe.
+- The hosted source inventory held about 42 MB of uncompressed provider cache. Before the projection change, the inventory took 14â€“18 seconds in completed probes and timed out in a concurrent probe.
 - A fresh browser session on localhost showed Source Health in 3.6 seconds and Candidate Review in 5.8 seconds. Pagination, candidate evidence, source reload, and filtering produced zero API errors.
 - 190 backend tests passed with isolated PostgreSQL, along with 32 frontend tests, targeted lint, TypeScript, and the production build.
 
 **Open**
 
 - The browser check used the existing cancelled run for read-only review. A fresh collection and import against live employer boards were outside this verification.
+
+
+## Separate the shared ranking experience into Legacy
+
+**Working**
+
+- Original dashboard, ranked catalog, and public landing implementation are preserved under `/legacy/dashboard`, `/legacy/jobs`, and `/legacy/landing`. Existing dashboard/catalog entry points remain compatible during transition.
+- Sidebar groups the shared leaderboard, owner profile, model tools, and training data under Legacy. Existing score cards explicitly identify legacy preference scores. Personal resume, intake, and application tools remain in the main workspace.
+- No database or account changes.
+
+**Verified**
+
+- Frontend unit suite and TypeScript validation recorded with this commit.
+
+**Open**
+
+- Replace the dashboard entry with personal preferences and batch recommendations after researching the retrieval architecture.
+- Redesign the public landing and verify desktop/mobile behavior.

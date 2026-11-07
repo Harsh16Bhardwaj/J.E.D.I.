@@ -29,7 +29,7 @@ test("chapter progress preserves the legacy core guide without completing new gu
 test("members see the shared daily workflow without owner controls", () => {
   assert.deepEqual(
     visibleNavigation(allNavigation, { isGroupOwner: false }).map(({ label }) => label),
-    ["Daily Feed", "Jobs", "Applications", "Learning", "Tutorial", "Batches", "Group"],
+    ["Daily Feed", "Jobs", "Applications", "Learning", "Tutorial", "Batches", "Group", "Shared leaderboard"],
   );
 });
 
@@ -46,6 +46,7 @@ test("owners see scraper, shared profile, model, and training controls", () => {
       "Scraper",
       "Group",
       "Email",
+      "Shared leaderboard",
       "Shared Profile",
       "Models",
       "Training Data",

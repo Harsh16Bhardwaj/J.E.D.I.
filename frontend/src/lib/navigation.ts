@@ -35,11 +35,12 @@ export const primaryNavigation = [
 export const settingsNavigation = [
   { href: "/settings/group", label: "Group", icon: UsersRound },
   { href: "/settings/email", label: "Email", icon: Mail, ownerOnly: true },
-  { href: "/settings/profile", label: "Shared Profile", icon: UserRound, ownerOnly: true },
-  { href: "/settings/models", label: "Models", icon: Sparkles, ownerOnly: true },
 ] satisfies readonly NavigationItem[];
 
 export const miscNavigation = [
+  { href: "/legacy/dashboard", label: "Shared leaderboard", icon: Newspaper },
+  { href: "/settings/profile", label: "Shared Profile", icon: UserRound, ownerOnly: true },
+  { href: "/settings/models", label: "Models", icon: Sparkles, ownerOnly: true },
   { href: "/misc/training-data", label: "Training Data", icon: DatabaseZap, ownerOnly: true },
 ] satisfies readonly NavigationItem[];
 
