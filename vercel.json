@@ -37,6 +37,10 @@
     {
       "path": "/svc/ml/internal/email-deliveries/run",
       "schedule": "30 18 * * *"
+    },
+    {
+      "path": "/svc/ml/internal/recommendations/run",
+      "schedule": "0 1 * * *"
     }
   ]
 }

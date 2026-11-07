@@ -373,7 +373,7 @@ function JobsWorkspace() {
           <div>
             <h1 className="text-4xl font-black uppercase tracking-[-0.05em] sm:text-6xl">Jobs</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Find the strongest matches, see what you have reviewed, and move promising work into your private application pipeline.
+              Browse the shared catalog and manage your private applications. Scores here use the Legacy group profile. Your personal shortlist is in Daily Feed.
             </p>
           </div>
           <div className="flex gap-2">

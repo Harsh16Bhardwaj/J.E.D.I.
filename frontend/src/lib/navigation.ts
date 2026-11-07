@@ -25,6 +25,7 @@ export type NavigationItem = {
 export const primaryNavigation = [
   { href: "/dashboard", label: "Daily Feed", icon: Newspaper },
   { href: "/jobs", label: "Jobs", icon: BriefcaseBusiness },
+  { href: "/jobs/intake", label: "Resume fit", icon: Sparkles },
   { href: "/applications", label: "Applications", icon: ClipboardCheck },
   { href: "/learning", label: "Learning", icon: GraduationCap },
   { href: "/tutorial", label: "Tutorial", icon: BookOpenCheck, tutorial: true },

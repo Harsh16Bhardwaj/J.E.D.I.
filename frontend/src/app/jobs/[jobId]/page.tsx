@@ -115,7 +115,7 @@ function ScorePanel({ predictions }: { predictions: PredictionSummary[] }) {
       </div>
       <div className="mt-5 grid grid-cols-2 gap-3">
         <div className="rounded-lg border border-border bg-background/70 p-4">
-          <p className="ops-label text-muted-foreground">Preference</p>
+          <p className="ops-label text-muted-foreground">Legacy group preference</p>
           <p className="mt-2 text-4xl font-black tracking-[-0.06em]">{latest.rankingScore.toFixed(1)}</p>
         </div>
         <div className="rounded-lg border border-border bg-background/70 p-4">

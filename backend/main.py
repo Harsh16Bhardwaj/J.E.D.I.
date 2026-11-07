@@ -31,6 +31,7 @@ from backend.routers import (
     models,
     normalization,
     operations,
+    recommendations,
     scoring,
     scraper,
     workflow,
@@ -93,3 +94,4 @@ app.include_router(embeddings.router)
 app.include_router(scoring.router)
 app.include_router(scraper.router)
 app.include_router(job_intake.router)
+app.include_router(recommendations.router)

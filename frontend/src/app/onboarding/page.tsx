@@ -148,18 +148,18 @@ export default function OnboardingPage() {
             Add your context.
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-            The group model powers your results today. This profile is stored now so JEDI can personalize your ranking in v2.
+            Your preferences shape your personal daily feed. Review your resume evidence separately to understand your fit for a specific role.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <BrutalCard className="p-4">
             <BrainCircuit className="size-5 text-purple" />
-            <p className="mt-5 ops-label text-muted-foreground">Active now</p>
+            <p className="mt-5 ops-label text-muted-foreground">Legacy</p>
             <p className="mt-2 text-sm font-semibold">Shared group profile</p>
           </BrutalCard>
           <BrutalCard className="p-4">
             <Database className="size-5 text-muted-foreground" />
-            <p className="mt-5 ops-label text-muted-foreground">Saved for v2</p>
+            <p className="mt-5 ops-label text-muted-foreground">Personal feed</p>
             <p className="mt-2 text-sm font-semibold">Your member profile</p>
           </BrutalCard>
         </div>
@@ -168,7 +168,7 @@ export default function OnboardingPage() {
       <div className="mt-8 grid gap-8 lg:grid-cols-[.7fr_1.3fr]">
         <aside className="space-y-4">
           <BrutalCard className="p-5">
-            <p className="ops-label text-muted-foreground">Ranking profile</p>
+            <p className="ops-label text-muted-foreground">Legacy ranking profile</p>
             <h2 className="mt-3 text-xl font-semibold">{onboarding.data.sharedProfile ? "Configured" : "Not configured"}</h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">{onboarding.data.sharedProfile?.resumePreview ?? "The group owner still needs to activate a profile."}</p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -176,7 +176,7 @@ export default function OnboardingPage() {
             </div>
           </BrutalCard>
           <BrutalCard className="p-5">
-            <p className="ops-label text-muted-foreground">Ranking model</p>
+            <p className="ops-label text-muted-foreground">Legacy ranking model</p>
             <h2 className="mt-3 text-xl font-semibold">{onboarding.data.sharedModel?.name ?? "Not configured"}</h2>
             <p className="mt-2 font-mono text-xs text-muted-foreground">{onboarding.data.sharedModel?.featureSchemaVersion ?? "No feature contract pinned"}</p>
           </BrutalCard>

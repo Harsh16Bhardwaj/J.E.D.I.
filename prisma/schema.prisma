@@ -1062,3 +1062,16 @@ model LearningAttempt {
 
   @@index([groupMemberId, startedAt])
 }
+
+
+/// Daily shared retrieval snapshot. No member identifiers or resume text.
+model RecommendationBatch {
+  id String @id
+  status String
+  pools Json
+  catalogCount Int @default(0)
+  truncated Boolean @default(false)
+  errorCode String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  completedAt DateTime? @db.Timestamptz(3)
+}

@@ -24,6 +24,7 @@ else:
 
 router = APIRouter(tags=["service"])
 REQUIRED_MIGRATIONS = (
+    "20261107000000_daily_recommendations",
     "20260802000000_email_event_control",
     "20260812030000_scraper_provider_retry",
     "20260812040000_member_job_drafts",

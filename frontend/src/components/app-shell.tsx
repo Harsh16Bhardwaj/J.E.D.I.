@@ -21,7 +21,7 @@ const refreshCacheKey = "jedi:swr-refresh-cache:v2";
 const refreshCacheTtlMs = 5 * 60 * 1_000;
 
 function canPersistRefreshKey(key: string) {
-  return !key.startsWith("/api/email/") &&
+  return key !== "/api/preferences" && key !== "/api/recommendations" && !key.startsWith("/api/email/") &&
     !key.startsWith("/api/job-drafts") &&
     !key.endsWith("/email-deliveries") &&
     key !== "/api/resume" &&
@@ -166,7 +166,7 @@ function ProtectedShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-border lg:block">
+      <aside className="fixed inset-y-0 left-0 hidden w-72 overflow-y-auto border-r border-border lg:block">
         <Sidebar user={user!} />
       </aside>
       <div className="lg:pl-72">

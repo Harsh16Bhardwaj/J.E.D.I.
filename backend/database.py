@@ -21,6 +21,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    event,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.asyncio import (
@@ -264,7 +265,7 @@ class GroupInvitation(Base):
 
 
 class MemberProfile(Base):
-    """A member's stored preferences, intentionally unused by v1 ranking."""
+    """Private preferences, separate from legacy ranking."""
 
     __tablename__ = "MemberProfile"
     __table_args__ = (Index("MemberProfile_contentHash_idx", "contentHash"),)
@@ -309,6 +310,24 @@ class MemberProfile(Base):
         DateTime(timezone=True),
         default=utc_now,
         onupdate=utc_now,
+    )
+
+
+class RecommendationBatch(Base):
+    """Atomic daily retrieval snapshot. Contains job IDs, never member data."""
+
+    __tablename__ = "RecommendationBatch"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    status: Mapped[str] = mapped_column(String)
+    pools: Mapped[dict] = mapped_column(json_type, default=dict)
+    catalog_count: Mapped[int] = mapped_column("catalogCount", Integer, default=0)
+    truncated: Mapped[bool] = mapped_column(Boolean, default=False)
+    error_code: Mapped[str | None] = mapped_column("errorCode", String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        "createdAt", DateTime(timezone=True), default=utc_now
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        "completedAt", DateTime(timezone=True), nullable=True
     )
 
 
@@ -467,9 +486,7 @@ class ScrapeRun(Base):
     processed_source_count: Mapped[int] = mapped_column(
         "processedSourceCount", Integer, default=0
     )
-    stopped_early: Mapped[bool] = mapped_column(
-        "stoppedEarly", Boolean, default=False
-    )
+    stopped_early: Mapped[bool] = mapped_column("stoppedEarly", Boolean, default=False)
     imported_batch_id: Mapped[str | None] = mapped_column(
         "importedBatchId",
         ForeignKey("Batch.id", ondelete="SET NULL"),
@@ -1799,6 +1816,14 @@ engine = create_async_engine(
     pool_recycle=300,
 )
 SessionFactory = async_sessionmaker(engine, expire_on_commit=False)
+
+
+@event.listens_for(engine.sync_engine, "begin")
+def use_utc_transaction(connection) -> None:
+    """Prisma timestamp columns contain UTC even on non-UTC database hosts."""
+    # Transaction-local works with transaction poolers and cannot leak settings
+    # to the next borrower. Reapply after every commit or rollback.
+    connection.exec_driver_sql("SET LOCAL TIME ZONE 'UTC'")
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:

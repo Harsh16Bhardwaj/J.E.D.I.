@@ -270,3 +270,25 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 
 - Replace the dashboard entry with personal preferences and batch recommendations after researching the retrieval architecture.
 - Redesign the public landing and verify desktop/mobile behavior.
+
+## Personal daily briefing and shared retrieval pools
+
+**Working**
+
+- Daily Feed now uses each member's private preferences. Edits preserve resume text and leave legacy group-model settings and email subscriptions untouched. Catalog and job-detail scores identify their legacy meaning.
+- A daily authenticated server endpoint publishes role-family job pools atomically. It handles replay and overlapping PostgreSQL workers, preserves previous results on failure, and exposes cold-start, empty, stale, and failed-refresh states.
+- The scheduler declaration runs at 01:00 UTC. This prepares recommendations from existing catalog jobs; it does not schedule employer scraping or send mail. Pool limits, score weights, and missing evidence are disclosed.
+- PostgreSQL transactions use UTC, including on hosts with another default timezone. This fixes a real browser-tested case where freshly written jobs appeared future-dated after being read from timestamp columns. Existing timestamps are not rewritten.
+- Industry research, current limitations, and the deployment checklist are in `docs/PERSONAL_RECOMMENDATIONS.md`.
+
+**Verified**
+
+- All 204 backend tests passed against isolated local PostgreSQL, including concurrent worker exclusion, replay, member isolation, alias normalization, stale fallback, and a non-UTC PostgreSQL regression.
+- All 35 frontend unit tests passed. Prisma validation, Ruff, frontend lint, TypeScript, and the production build passed. A targeted recommendation rerun covers the final query projections.
+- Authenticated browser verification saved personal preferences, showed a matching job and its score explanation, and retained preferences after reload. Fifteen existing workspace pages loaded at mobile width with no page errors, failed API responses, or horizontal overflow. These are navigation checks, not exhaustive mutation tests for every feature.
+- Applied the new additive migration to isolated PostgreSQL only. No hosted account or data changes.
+
+**Open**
+
+- Deploy the migration and code to the intended production environment, configure `CRON_SECRET`, and observe an actual scheduled run. Current localhost preview still uses its existing backend configuration; isolated browser QA used a separate API on port 8107.
+- Cohorts are deterministic role buckets. Learned clustering, queued retrieval beyond the current bounds, richer role vocabulary, and authorization/location constraints need the evaluation stages in the architecture document.

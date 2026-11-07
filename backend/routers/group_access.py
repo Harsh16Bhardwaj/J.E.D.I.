@@ -504,8 +504,8 @@ async def complete_onboarding(
             "Your profile was saved and activated as the shared ranking profile."
             if initialized_shared_profile
             else (
-                "Your profile is saved for future personalization. "
-                "JEDI v1 currently uses the group ranking profile."
+                "Your preferences are saved for your personal daily feed. "
+                "Shared model scores remain available in Legacy."
             )
         ),
     )
