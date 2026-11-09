@@ -23,7 +23,7 @@ import {
   TUTORIAL_COMPLETE_EVENT,
 } from "@/lib/tutorial-state";
 import { cn } from "@/lib/utils";
-import { SignalMark } from "@/components/signal-art";
+import Image from "next/image";
 
 function NavigationGroup({
   label,
@@ -123,10 +123,16 @@ export function Sidebar({
   return (
     <div className="workspace-sidebar">
       <Link href="/dashboard" className="workspace-brand" onClick={onNavigate}>
-        <SignalMark className="size-9 text-acid" />
+        <Image
+          src="/logo.png"
+          alt=""
+          width={36}
+          height={40}
+          className="h-10 w-9 object-contain"
+        />
         <span>
           JEDI<span className="text-acid">.</span>
-          <small>YOUR NEXT ORBIT</small>
+          <small>WORKSPACE</small>
         </span>
       </Link>
 

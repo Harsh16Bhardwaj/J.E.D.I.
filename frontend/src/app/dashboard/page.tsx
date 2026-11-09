@@ -1,19 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { SignalArt } from "@/components/signal-art";
 import Link from "next/link";
 import useSWR from "swr";
-import {
-  ArrowUpRight,
-  Clock3,
-  Crosshair,
-  FileSearch,
-  Orbit,
-  RefreshCw,
-  Settings2,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowUpRight, FileSearch, RefreshCw, Settings2 } from "lucide-react";
 import { apiRequest, errorSummary } from "@/lib/api";
 import {
   feedStates,
@@ -69,66 +59,36 @@ export default function PersonalDashboard() {
 
   return (
     <div className="personal-space space-y-8">
-      <header className="relative overflow-hidden rounded-2xl border border-acid/20 bg-[radial-gradient(ellipse_at_top_right,#253c30,transparent_65%)] p-6 sm:p-10">
-        <SignalArt className="personal-orbit-art" />
-        <div className="relative">
-          <p className="ops-label text-acid">JEDI / Your personal briefing</p>
-          <h1 className="mt-5 max-w-2xl text-4xl font-semibold tracking-[-0.05em] sm:text-6xl">
-            {state?.title ?? "Your daily signal."}
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            Daily Feed
           </h1>
-          <p className="mt-4 max-w-xl text-sm leading-7 text-muted-foreground">
-            {state?.copy ?? "Loading your personal workspace…"}
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Button
-              onClick={() => {
-                setSaveError(undefined);
-                setEditing(true);
-              }}
-            >
-              <Settings2 className="size-4" /> My preferences
-            </Button>
-            <Link
-              className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm hover:border-acid"
-              href="/jobs/intake"
-            >
-              Compare a job <ArrowUpRight className="size-4" />
-            </Link>
-          </div>
+          {feed.data?.generatedAt && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Updated {new Date(feed.data.generatedAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            className="min-h-10"
+            onClick={() => {
+              setSaveError(undefined);
+              setEditing(true);
+            }}
+          >
+            <Settings2 className="size-4" /> Preferences
+          </Button>
+          <Link
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm hover:bg-muted"
+            href="/jobs/intake"
+          >
+            Compare a job <ArrowUpRight className="size-4" />
+          </Link>
         </div>
       </header>
-      <div className="personal-stats grid gap-3 sm:grid-cols-3">
-        {[
-          {
-            icon: Crosshair,
-            label: "Your orbit",
-            value: feed.data?.cohorts.join(" + ") || "Choose your preferences",
-          },
-          {
-            icon: Orbit,
-            label: "Current candidate pool",
-            value: feed.data
-              ? `${feed.data.candidateCount} available to review`
-              : "Loading…",
-          },
-          {
-            icon: Clock3,
-            label: "Last published",
-            value: feed.data?.generatedAt
-              ? new Date(feed.data.generatedAt).toLocaleString()
-              : "Awaiting first batch",
-          },
-        ].map(({ icon: Icon, label, value }) => (
-          <div
-            key={label}
-            className="rounded-xl border border-border bg-card p-5"
-          >
-            <Icon className="mb-4 size-5 text-acid" />
-            <p className="ops-label text-muted-foreground">{label}</p>
-            <p className="mt-2 text-sm capitalize">{value}</p>
-          </div>
-        ))}
-      </div>
       {feed.error && (
         <div
           role="alert"
@@ -164,20 +124,26 @@ export default function PersonalDashboard() {
           role="status"
           className="rounded-lg border border-coral/30 p-4 text-sm text-coral"
         >
-          The latest server refresh failed. Published results remain available.
-          The scheduler can safely retry.
+          The latest refresh failed.
+        </p>
+      )}
+      {feed.data?.status === "STALE" && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {state?.copy}
         </p>
       )}
       {feed.data && (
         <section aria-labelledby="personal-jobs">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="ops-label text-muted-foreground">
-                Selected for your review
-              </p>
-              <h2 id="personal-jobs" className="mt-2 text-2xl font-semibold">
-                Your shortlist
+              <h2 id="personal-jobs" className="text-xl font-semibold">
+                Shortlist
               </h2>
+              {feed.data.jobs.length > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Showing {feed.data.jobs.length} of {feed.data.candidateCount}
+                </p>
+              )}
             </div>
             <Button
               variant="ghost"
@@ -190,12 +156,6 @@ export default function PersonalDashboard() {
               Refresh view
             </Button>
           </div>
-          <p className="mb-5 max-w-3xl text-xs leading-6 text-muted-foreground">
-            Preference scores describe role, skill, location, and experience
-            alignment. Resume fit is a separate comparison. Check salary and
-            work eligibility before applying. Pools contain up to 1,000 recent
-            jobs per role family.
-          </p>
           {feed.data.truncated && (
             <p className="mb-4 text-xs text-coral">
               This batch sampled the newest 5,000 listings. It does not cover
@@ -209,14 +169,14 @@ export default function PersonalDashboard() {
             </p>
           )}
           <div className="grid gap-4 lg:grid-cols-2">
-            {feed.data.jobs.map((job, index) => (
+            {feed.data.jobs.map((job) => (
               <article
                 key={job.id}
-                className="group rounded-xl border border-border bg-card p-6 transition-colors hover:border-acid/40"
+                className="group rounded-xl border border-border bg-card p-4 transition-colors sm:p-5 hover:border-acid/40"
               >
                 <div className="flex items-start justify-between gap-4">
                   <p className="font-mono text-xs text-muted-foreground">
-                    {String(index + 1).padStart(2, "0")} / {job.companyName}
+                    {job.companyName}
                   </p>
                   <div className="text-right">
                     <strong className="text-2xl font-medium text-acid">
@@ -237,7 +197,7 @@ export default function PersonalDashboard() {
                   {job.location || "Location not listed"}
                   {job.workMode ? ` · ${job.workMode}` : ""}
                 </p>
-                <div className="mt-5 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   {job.reasons.map((reason) => (
                     <span
                       key={reason}
@@ -272,19 +232,17 @@ export default function PersonalDashboard() {
           )}
         </section>
       )}
-      <aside className="flex gap-3 border-t border-border pt-5 text-xs leading-6 text-muted-foreground">
-        <ShieldCheck className="mt-1 size-4 shrink-0 text-acid" />
-        <p>
-          Your preferences and resume stay private. The{" "}
-          <Link
-            href="/legacy/dashboard"
-            className="underline underline-offset-4"
-          >
-            Legacy leaderboard
-          </Link>{" "}
-          retains the original shared model and its historical scores.
-        </p>
-      </aside>
+      {feed.data?.jobs.length ? (
+        <details className="border-t border-border pt-3 text-xs text-muted-foreground">
+          <summary className="w-fit cursor-pointer py-2">
+            How scores work
+          </summary>
+          <p className="mt-1 max-w-xl leading-6">
+            Preference scores reflect role, skill, location, and experience
+            alignment. Use Resume fit to compare a job with your resume.
+          </p>
+        </details>
+      ) : null}
       <Dialog
         open={editing}
         onOpenChange={(open) => {

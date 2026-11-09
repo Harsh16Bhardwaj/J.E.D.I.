@@ -9,7 +9,7 @@ import {
   allNavigation,
 } from "@/lib/navigation";
 import { CommandMenu } from "@/components/command-menu";
-import { SignalMark } from "@/components/signal-art";
+import Image from "next/image";
 import { ChevronRight, Menu } from "lucide-react";
 
 import { Sidebar } from "@/components/sidebar";
@@ -60,7 +60,13 @@ export function MobileNavigation({ user }: { user: User }) {
       </div>
       <div className="workspace-breadcrumb">
         <Link href="/dashboard" aria-label="JEDI dashboard">
-          <SignalMark className="size-5" />
+          <Image
+            src="/logo.png"
+            alt=""
+            width={20}
+            height={22}
+            className="h-[22px] w-5 object-contain"
+          />
           <span>Workspace</span>
         </Link>
         <ChevronRight size={12} />

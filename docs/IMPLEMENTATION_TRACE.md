@@ -333,3 +333,10 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 
 - Continue with resume evidence hierarchy, application transitions, and data-backed source analytics in the UI roadmap. Automated visual baselines and assistive-technology/device performance review remain pending.
 - Personal-feed production migration and scheduler activation remain the separate rollout work documented above. This UI pass changes no backend data or authentication policy.
+
+## Restore the original identity and simplify browsing
+
+- Restored the earlier landing layout, original logo, and sign-in presentation. Updated the landing copy to distinguish Daily Feed from the Legacy ranking.
+- Removed the dashboard hero and oversized summary cards. The shortlist, update time, and preference controls now take priority.
+- Moved search, sorting, bookmarks, and results into one Jobs toolbar. Secondary filters collapse with an active count. Existing URL filters, including custom minimum scores, still work.
+- Verified 37 frontend tests, lint, TypeScript, and mobile browser checks with fixture data for the logo, preferences dialog, and job filters. The personal-feed database migration remains pending on the configured local connection.

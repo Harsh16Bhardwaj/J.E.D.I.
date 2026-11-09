@@ -229,6 +229,7 @@ function JobsWorkspace() {
       searchParams.get("reviewStatus") ||
       searchParams.get("sort"),
   );
+  const advancedFilterCount = ["minScore", "viewed", "applied"].filter(key => searchParams.get(key)).length;
   const bookmarkedOnly = searchParams.get("reviewStatus") === "SAVED";
 
   function updateParams(values: Record<string, string | number | null>) {
@@ -365,117 +366,71 @@ function JobsWorkspace() {
   }
 
   return (
-    <div className="space-y-8">
-      <header className="relative overflow-hidden rounded-xl border border-acid/25 bg-gradient-to-br from-acid/15 via-card to-purple/10 p-6 sm:p-8">
-        <div className="absolute -right-12 -top-16 size-48 rounded-full bg-acid/10 blur-3xl" />
-        <p className="ops-label text-acid">Opportunity workspace</p>
-        <div className="relative mt-3 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-          <div>
-            <h1 className="text-4xl font-black uppercase tracking-[-0.05em] sm:text-6xl">Jobs</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Browse the shared catalog and manage your private applications. Scores here use the Legacy group profile. Your personal shortlist is in Daily Feed.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <div className="min-w-24 rounded-lg border border-border bg-background/70 px-4 py-3">
-              <p className="text-2xl font-black">{jobs.data?.total ?? "--"}</p>
-              <p className="ops-label mt-1 text-muted-foreground">Results</p>
-            </div>
-            <div className="min-w-24 rounded-lg border border-border bg-background/70 px-4 py-3">
-              <p className="text-2xl font-black">{page}/{pages}</p>
-              <p className="ops-label mt-1 text-muted-foreground">Page</p>
-            </div>
-          </div>
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Jobs</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Scores use the Legacy group profile.</p>
         </div>
+        <Link href="/jobs/intake" className={buttonVariants({ variant: "outline" })}>Bring a job</Link>
       </header>
 
-      <Link href="/jobs/intake" className={buttonVariants({ variant: "outline" })}>Bring a job</Link>
-
-      <div className="inline-flex w-fit gap-1 rounded-xl border border-border bg-card p-1.5 shadow-sm">
-        <button
-          type="button"
-          className={`min-h-10 cursor-pointer rounded-lg border px-5 text-sm font-bold transition ${!bookmarkedOnly ? "border-acid bg-acid text-background shadow-[3px_3px_0_var(--foreground)]" : "border-transparent text-muted-foreground hover:bg-raised hover:text-foreground"}`}
-          onClick={() => updateParams({ reviewStatus: null, page: 1 })}
-        >
-          All jobs
-        </button>
-        <button
-          type="button"
-          className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-5 text-sm font-bold transition ${bookmarkedOnly ? "border-purple bg-purple text-background shadow-[3px_3px_0_var(--foreground)]" : "border-transparent text-muted-foreground hover:bg-raised hover:text-foreground"}`}
-          onClick={() => updateParams({ reviewStatus: "SAVED", viewed: null, page: 1 })}
-        >
-          <BookmarkCheck className="size-4" /> Bookmarked
-        </button>
-      </div>
-
-      <BrutalCard className="space-y-5 border-purple/25 bg-gradient-to-r from-card to-purple/5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="size-4 text-purple" />
-            <p className="ops-label">Find the right jobs</p>
+      <section aria-label="Job filters" className="space-y-3 rounded-xl border border-border bg-card p-3 sm:p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[12rem] flex-1">
+            <Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={search} onChange={event => setSearch(event.target.value)}
+              aria-label="Search jobs" placeholder="Search job titles or companies" className="min-h-10 bg-background pl-9" />
           </div>
-          {hasFilters ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="cursor-pointer text-muted-foreground hover:text-coral"
-              onClick={() => {
-                setSearch("");
-                router.replace(pathname, { scroll: false });
-              }}
-            >
-              <X className="size-4" /> Clear
-            </Button>
-          ) : null}
+          <select aria-label="Sort jobs" className="min-h-10 rounded-lg border border-border bg-background px-3 text-sm"
+            value={searchParams.get("sort") ?? "recent"} onChange={event => updateParams({ sort: event.target.value === "recent" ? null : event.target.value, page: 1 })}>
+            <option value="recent">Newest</option>
+            <option value="score">Best match</option>
+          </select>
+          {hasFilters && <Button variant="ghost" className="min-h-10" onClick={() => {
+            setSearch("");
+            router.replace(pathname, { scroll: false });
+          }}><X className="size-4" /> Clear filters</Button>}
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search company or job title..."
-            className="min-h-12 border-2 bg-background pl-10 pr-24"
-          />
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-            Auto search
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant={!bookmarkedOnly ? "secondary" : "ghost"} aria-pressed={!bookmarkedOnly}
+            onClick={() => updateParams({ reviewStatus: null, page: 1 })}>All jobs</Button>
+          <Button variant={bookmarkedOnly ? "secondary" : "ghost"} aria-pressed={bookmarkedOnly}
+            onClick={() => updateParams({ reviewStatus: "SAVED", viewed: null, page: 1 })}>
+            <BookmarkCheck className="size-4" /> Bookmarked
+          </Button>
+          <span className="ml-auto text-xs text-muted-foreground">{jobs.data ? `${jobs.data.total} results` : ""}</span>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: "Order", key: "sort", choices: [["recent", "Newest"], ["score", "Best match"]] },
-            { label: "Minimum score", key: "minScore", choices: [["", "Any"], ["60", "60+"], ["75", "75+"]] },
-            { label: "Review", key: "viewed", choices: [["", "All"], ["false", "Unseen"], ["true", "Viewed"]] },
-            { label: "Application", key: "applied", choices: [["", "All"], ["false", "Not applied"], ["true", "Applied"]] },
-          ].map((group) => (
-            <div key={group.key}>
-              <p className="ops-label mb-2 text-muted-foreground">{group.label}</p>
-              <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-background/70 p-1">
-                {group.choices.map(([value, choiceLabel]) => {
-                  const current = searchParams.get(group.key) ?? (group.key === "sort" ? "recent" : "");
-                  const active = current === value;
-                  return (
-                    <button
-                      key={value || "all"}
-                      type="button"
-                      aria-pressed={active}
-                      className={`min-h-9 flex-1 cursor-pointer rounded-md px-2 text-xs font-medium transition ${active ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:bg-raised hover:text-foreground"}`}
-                      onClick={() => updateParams({
-                        [group.key]: value,
-                        ...(group.key === "viewed" ? { reviewStatus: null } : {}),
-                        page: 1,
-                      })}
-                    >
-                      {choiceLabel}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </BrutalCard>
+        <details className="border-t border-border pt-2">
+          <summary className="w-fit cursor-pointer rounded px-2 py-1 text-sm focus-visible:outline-2 focus-visible:outline-ring">
+            <SlidersHorizontal aria-hidden="true" className="mr-2 inline size-4" /> More filters
+            {advancedFilterCount > 0 && <span className="ml-2 text-acid">({advancedFilterCount} active)</span>}
+          </summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {[
+              { label: "Minimum score", key: "minScore", choices: [["", "Any score"], ["60", "60+"], ["75", "75+"]] },
+              { label: "Review", key: "viewed", choices: [["", "Any"], ["false", "Unseen"], ["true", "Viewed"]] },
+              { label: "Application", key: "applied", choices: [["", "Any"], ["false", "Not applied"], ["true", "Applied"]] },
+            ].map(({ label, key, choices }) => {
+              const value = searchParams.get(key) ?? "";
+              return <label key={key} className="grid gap-1.5 text-xs text-muted-foreground">
+                {label}
+                <select className="min-h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground"
+                  value={value} onChange={event => updateParams({
+                    [key]: event.target.value,
+                    ...(key === "viewed" ? { reviewStatus: null } : {}),
+                    page: 1,
+                  })}>
+                  {!choices.some(([option]) => option === value) && <option value={value}>{value}</option>}
+                  {choices.map(([option, name]) => <option key={option} value={option}>{name}</option>)}
+                </select>
+              </label>;
+            })}
+          </div>
+        </details>
+      </section>
 
       {jobs.isLoading ? (
         <div className="space-y-3">
@@ -516,7 +471,7 @@ function JobsWorkspace() {
           <Search className="mx-auto size-8 text-muted-foreground" />
           <h2 className="mt-5 text-2xl font-black uppercase">No matching jobs</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Adjust the filters, or import and rank another batch.
+            Try a different search or clear the filters.
           </p>
         </BrutalCard>
       )}
