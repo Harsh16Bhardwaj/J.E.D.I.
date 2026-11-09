@@ -313,3 +313,23 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 
 - Production rollout of the personal feed remains subject to the deployment checklist in `docs/PERSONAL_RECOMMENDATIONS.md`.
 - Real-device animation performance, assistive-technology review, and broader usability testing remain follow-ups. Browser navigation checks do not establish exhaustive coverage of every existing workflow.
+
+## Minimal workspace, page launcher, and illustrated sign-in
+
+**Working**
+
+- Replaced boxed navigation with a quieter sidebar, original signal mark, one active destination, collapsible Legacy controls, and a compact responsive page header. Fixed simultaneous Jobs/Resume fit active states with longest-path matching.
+- Added a Go to page launcher with Ctrl/Cmd+K, query filtering, arrow navigation, Enter selection, and Escape dismissal. It uses the same owner/member destination filtering as the sidebar and leaves other open dialogs' shortcuts intact.
+- Added original orbit/path SVGs, short page-entry and hover motion, illustrated application empty state, and compact mobile feed summaries. Reduced-motion overrides apply to all new animations.
+- Refreshed sign-in while preserving its authentication flow; added password visibility and associated validation messages. Removed implementation details from its introductory copy.
+- Corrected the global border reset's CSS layer so transparent borders and component border colors work as intended. Follow-up priorities are in `docs/UI_ROADMAP.md`.
+
+**Verified**
+
+- 37 frontend unit tests passed, including specific-route active states, query matching, and owner/member navigation filtering. Frontend lint, TypeScript, and production build passed.
+- Controlled browser fixtures verified the dashboard, mobile drawer at 320/390/768px, command search/navigation, member permission filtering, owner-only shortcuts, password visibility, and reduced motion. Desktop and mobile screenshots were inspected. No real account writes were used for this UI check.
+
+**Open**
+
+- Continue with resume evidence hierarchy, application transitions, and data-backed source analytics in the UI roadmap. Automated visual baselines and assistive-technology/device performance review remain pending.
+- Personal-feed production migration and scheduler activation remain the separate rollout work documented above. This UI pass changes no backend data or authentication policy.

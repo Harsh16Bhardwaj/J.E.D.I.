@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SignalArt } from "@/components/signal-art";
 import Link from "next/link";
 import useSWR from "swr";
 import {
@@ -69,11 +70,7 @@ export default function PersonalDashboard() {
   return (
     <div className="personal-space space-y-8">
       <header className="relative overflow-hidden rounded-2xl border border-acid/20 bg-[radial-gradient(ellipse_at_top_right,#253c30,transparent_65%)] p-6 sm:p-10">
-        <Orbit
-          className="absolute -right-8 -top-10 size-64 text-acid/5"
-          strokeWidth={0.5}
-          aria-hidden="true"
-        />
+        <SignalArt className="personal-orbit-art" />
         <div className="relative">
           <p className="ops-label text-acid">JEDI / Your personal briefing</p>
           <h1 className="mt-5 max-w-2xl text-4xl font-semibold tracking-[-0.05em] sm:text-6xl">
@@ -100,7 +97,7 @@ export default function PersonalDashboard() {
           </div>
         </div>
       </header>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="personal-stats grid gap-3 sm:grid-cols-3">
         {[
           {
             icon: Crosshair,

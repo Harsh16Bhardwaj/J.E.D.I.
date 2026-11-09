@@ -165,14 +165,14 @@ function ProtectedShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <aside className="fixed inset-y-0 left-0 hidden w-72 overflow-y-auto border-r border-border lg:block">
+    <div className="jedi-workspace min-h-screen bg-background">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 overflow-y-auto border-r border-border lg:block">
         <Sidebar user={user!} />
       </aside>
-      <div className="lg:pl-72">
+      <div className="lg:pl-64">
         <MobileNavigation user={user!} />
-        <main className="min-h-screen overflow-hidden px-4 pb-8 pt-20 sm:px-6 lg:px-10 lg:py-12">
-          {children}
+        <main id="workspace-content" tabIndex={-1} className="workspace-main">
+          <div key={pathname} className="workspace-page">{children}</div>
         </main>
       </div>
     </div>

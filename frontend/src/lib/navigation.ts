@@ -40,9 +40,24 @@ export const settingsNavigation = [
 
 export const miscNavigation = [
   { href: "/legacy/dashboard", label: "Shared leaderboard", icon: Newspaper },
-  { href: "/settings/profile", label: "Shared Profile", icon: UserRound, ownerOnly: true },
-  { href: "/settings/models", label: "Models", icon: Sparkles, ownerOnly: true },
-  { href: "/misc/training-data", label: "Training Data", icon: DatabaseZap, ownerOnly: true },
+  {
+    href: "/settings/profile",
+    label: "Shared Profile",
+    icon: UserRound,
+    ownerOnly: true,
+  },
+  {
+    href: "/settings/models",
+    label: "Models",
+    icon: Sparkles,
+    ownerOnly: true,
+  },
+  {
+    href: "/misc/training-data",
+    label: "Training Data",
+    icon: DatabaseZap,
+    ownerOnly: true,
+  },
 ] satisfies readonly NavigationItem[];
 
 export const allNavigation: readonly NavigationItem[] = [
@@ -56,4 +71,24 @@ export function visibleNavigation<T extends NavigationItem>(
   user: { isGroupOwner: boolean } | null | undefined,
 ): T[] {
   return items.filter((item) => !item.ownerOnly || user?.isGroupOwner === true);
+}
+
+export function currentNavigation(
+  pathname: string,
+  items: readonly NavigationItem[] = allNavigation,
+) {
+  return items
+    .filter(({ href }) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0];
+}
+
+export function searchNavigation(
+  query: string,
+  user: { isGroupOwner: boolean },
+) {
+  const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  return visibleNavigation(allNavigation, user).filter((item) => {
+    const text = `${item.label} ${item.href}`.toLocaleLowerCase();
+    return words.every((word) => text.includes(word));
+  });
 }
