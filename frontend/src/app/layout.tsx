@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     template: "%s · JEDI",
   },
   description:
-    "An invite-only daily job feed and model-ranked opportunity leaderboard.",
+    "Personal job discovery, resume evidence, and a clearer next move. Built around your preferences.",
 };
 
 export default function RootLayout({

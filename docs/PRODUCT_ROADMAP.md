@@ -1,9 +1,21 @@
 # JEDI product roadmap
 
+## Current delivery checkpoint
+
+- The original shared leaderboard and model tools are preserved in Legacy.
+- Personal preferences, daily shared role pools, and individual preference scoring
+  are implemented and tested. Production migration and scheduler verification are
+  still pending. See the [architecture and rollout checklist](PERSONAL_RECOMMENDATIONS.md).
+- The public landing and dialogs now have the personal JEDI visual identity,
+  motion controls, and responsive keyboard-tested layouts.
+- The next recommendation work is broader role coverage, explicit eligibility
+  constraints, and feedback evaluation before learned clustering. See the
+  [implementation trace](IMPLEMENTATION_TRACE.md) for completed checks and limits.
+
 ## 1. Stabilize the scraper and protect member emails
 
 - Implement the P0 fixes and acceptance tests in the [scraper audit](SCRAPER_RELIABILITY_AUDIT.md), then address source inventory and health checks. Verify the full owner workflow from collection through partial import and ranking handoff.
-- Fix the confirmed roster disclosure in [GET /api/group](../backend/routers/group_access.py#L511). It returns each member's email to any group member, and the [Group screen](../frontend/src/app/settings/group/page.tsx#L139) renders it. Use a names-only roster contract. Add a member-supplied display name with a neutral placeholder for missing names. Avoid deriving the name from the address.
+- The roster now uses member names with private-email regression coverage. Preserve the names-only contract in [GET /api/group](../backend/routers/group_access.py) and keep email addresses in owner-only delivery controls. Avoid deriving display names from addresses.
 - Treat the group owner as the admin for shared email operations, matching the current [email endpoints](../backend/routers/email.py). Keep addresses in owner-only recipient views and restrict group send operations server-side. Preserve members' access to their own account and email preferences. Verify owner, member, and signed-out responses and rendered columns. Inspect related exports, event responses, and cached responses for address exposure. Test against a stub transport.
 
 ## 2. Let a member bring a single job

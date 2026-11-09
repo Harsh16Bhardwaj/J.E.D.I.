@@ -292,3 +292,24 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 
 - Deploy the migration and code to the intended production environment, configure `CRON_SECRET`, and observe an actual scheduled run. Current localhost preview still uses its existing backend configuration; isolated browser QA used a separate API on port 8107.
 - Cohorts are deterministic role buckets. Learned clustering, queued retrieval beyond the current bounds, richer role vocabulary, and authorization/location constraints need the evaluation stages in the architecture document.
+
+## JEDI personal-edition visual refresh
+
+**Working**
+
+- New public landing with an original SVG sentinel, jade lighting, orbital motion, scroll reveals, an interactive role example, and a readable field-guide dialog. Public copy explains personal preferences and resume evidence without presenting the legacy model's metrics as personal accuracy claims.
+- Motion can be paused and follows the system reduced-motion preference. Hydration uses a stable server snapshot; static landing content remains visible when JavaScript is disabled.
+- Shared dialogs now have a stronger backdrop, clearer headings and actions, bounded mobile height, internal scrolling, and initial focus at the top of the content. Sidebar content can scroll on shorter screens.
+- Existing authentication and invite access remain in place. The field guide is explanatory and does not record legal consent or imply third-party sponsorship.
+
+**Verified**
+
+- Browser checks at 320, 390, 768, and 1440 pixels passed dialog bounds, initial scroll position, keyboard focus containment, Escape dismissal, focus restoration, and horizontal-overflow checks.
+- Desktop/mobile visual review, role-example switching, motion pause, and reduced-motion reload passed with zero browser page errors. Fixed a reduced-motion hydration mismatch found during this verification.
+- Frontend lint and TypeScript passed. The production build and the 35 frontend unit tests passed for the refreshed application.
+- Earlier personal-feed verification covered 204 backend tests and navigation across 15 existing workspace pages. No production migration, deployment, mail send, or employer scrape was part of this UI verification.
+
+**Open**
+
+- Production rollout of the personal feed remains subject to the deployment checklist in `docs/PERSONAL_RECOMMENDATIONS.md`.
+- Real-device animation performance, assistive-technology review, and broader usability testing remain follow-ups. Browser navigation checks do not establish exhaustive coverage of every existing workflow.
