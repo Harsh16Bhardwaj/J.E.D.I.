@@ -8,6 +8,7 @@ from uuid import uuid4
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import InterfaceError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
@@ -65,7 +66,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                 type(exception).__name__,
             )
             database_unavailable = isinstance(
-                exception, (OperationalError, SQLAlchemyTimeoutError)
+                exception, (OperationalError, InterfaceError, SQLAlchemyTimeoutError)
             )
             response = JSONResponse(
                 status_code=503 if database_unavailable else 500,
@@ -77,8 +78,8 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                             else "INTERNAL_ERROR"
                         ),
                         "message": (
-                            "The database is temporarily busy. "
-                            "Please retry this action."
+                            "JEDI cannot reach its data store right now. "
+                            "Retry in a moment; your session was not signed out."
                             if database_unavailable
                             else "Unexpected server error."
                         ),
