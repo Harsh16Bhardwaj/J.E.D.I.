@@ -1,5 +1,12 @@
 # Implementation trace
 
+## Fix local dashboard session loop and theme startup
+
+- Root cause: the local frontend was changed from localhost to a 127.0.0.1 API URL. Strict session cookies cannot cross those sites. Local development now proxies `/svc/ml` through Next to the IPv4 API, preserving the browser origin and cookie site. Production routing is unchanged.
+- Theme persistence now uses a hydration-safe external store, avoiding startup writes that replaced the saved selection. Toasts consume the same theme context.
+- Verified using an isolated Edge browser context with an existing user's signed session: actual API session HTTP 200, dashboard retained after reload, no page runtime errors. This checks session transport and the route guard; the user's password was not used or changed.
+- Windows API readiness is HTTP 200 using `backend/run_local.py`. The earlier localhost/IPv6 diagnosis was unverified; changing browser hosts introduced the cookie problem corrected here.
+
 Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION_TRACE.md` to find the matching commits.
 
 ## Protect group member emails and dispatch controls
