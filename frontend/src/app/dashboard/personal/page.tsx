@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { CompanyMark } from "@/components/company-mark";
 import { ShortlistDistribution } from "@/components/feed-insights";
 import useSWR from "swr";
 import { ArrowUpRight, FileSearch, RefreshCw, Settings2 } from "lucide-react";
@@ -162,9 +163,12 @@ export default function PersonalDashboard() {
                     {String(index + 1).padStart(2, "0")}
                   </span>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-purple">
-                      {job.companyName}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <CompanyMark name={job.companyName} />
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {job.companyName}
+                      </p>
+                    </div>
                     <h3 className="mt-1 text-xl font-semibold leading-snug tracking-tight">
                       <Link
                         href={`/jobs/${job.id}`}
@@ -182,21 +186,21 @@ export default function PersonalDashboard() {
                         : ""}
                     </p>
                     <ul
-                      className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-primary"
+                      className="match-reasons mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs"
                       aria-label="Match reasons"
                     >
                       {job.reasons.map((reason) => (
                         <li key={reason} className="flex items-center gap-1.5">
                           <span
                             aria-hidden="true"
-                            className="size-1 rounded-full bg-primary"
+                            className="size-1 rounded-full bg-[var(--success)]"
                           />
                           {reason}
                         </li>
                       ))}
                     </ul>
                     {job.unknowns.length > 0 && (
-                      <details className="mt-3 text-xs text-muted-foreground">
+                      <details className="review-unknowns mt-3 text-xs">
                         <summary className="w-fit cursor-pointer underline decoration-dotted underline-offset-4">
                           {job.unknowns.length}{" "}
                           {job.unknowns.length === 1 ? "detail" : "details"} to

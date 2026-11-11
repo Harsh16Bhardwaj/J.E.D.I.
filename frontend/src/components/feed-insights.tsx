@@ -9,12 +9,21 @@ export function ShortlistDistribution({
       score !== null && Number.isFinite(score) && score >= 0 && score <= 100,
   );
   const bands = [
-    { label: "80–100", count: valid.filter((score) => score >= 80).length },
+    {
+      label: "80–100",
+      color: "var(--info)",
+      count: valid.filter((score) => score >= 80).length,
+    },
     {
       label: "60–79",
+      color: "var(--purple)",
       count: valid.filter((score) => score >= 60 && score < 80).length,
     },
-    { label: "Below 60", count: valid.filter((score) => score < 60).length },
+    {
+      label: "Below 60",
+      color: "var(--warning)",
+      count: valid.filter((score) => score < 60).length,
+    },
   ];
   const max = Math.max(1, ...bands.map((band) => band.count));
   return (
@@ -36,12 +45,15 @@ export function ShortlistDistribution({
           >
             <span>{band.label}</span>
             <span
-              className="h-3 overflow-hidden rounded-sm bg-primary/10"
+              className="h-3 overflow-hidden rounded-sm bg-muted"
               aria-hidden="true"
             >
               <span
-                className="block h-full rounded-sm bg-primary"
-                style={{ width: `${(band.count / max) * 100}%` }}
+                className="block h-full rounded-sm"
+                style={{
+                  width: `${(band.count / max) * 100}%`,
+                  background: band.color,
+                }}
               />
             </span>
             <strong className="text-right font-mono">{band.count}</strong>
@@ -83,16 +95,16 @@ export function ApplicationPipeline({
   const total = stages.reduce((sum, [, count]) => sum + count, 0);
   if (!total) return null;
   const colors: Record<string, string> = {
-    NOT_STARTED: "#827e6a",
+    NOT_STARTED: "var(--muted-foreground)",
     PREPARING: "var(--purple)",
-    APPLIED: "#547578",
-    SCREENING: "#647c46",
-    ASSESSMENT: "#95712b",
-    INTERVIEW: "#476779",
-    OFFER: "var(--primary)",
-    ACCEPTED: "#294019",
+    APPLIED: "var(--info)",
+    SCREENING: "var(--chart-3)",
+    ASSESSMENT: "var(--warning)",
+    INTERVIEW: "var(--chart-5)",
+    OFFER: "var(--success)",
+    ACCEPTED: "var(--success)",
     REJECTED: "var(--coral)",
-    WITHDRAWN: "#827e6a",
+    WITHDRAWN: "var(--muted-foreground)",
   };
   return (
     <div className="rounded-lg border border-border bg-card p-4">

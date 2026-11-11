@@ -40,7 +40,7 @@ function NavigationGroup({
 
   return (
     <div>
-      <p className="mb-2 px-3 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+      <p className="mb-2 px-3 text-[10px] font-medium uppercase tracking-widest text-[var(--sidebar-muted)]">
         {label}
       </p>
       <nav className="space-y-1" aria-label={label}>
@@ -58,14 +58,14 @@ function NavigationGroup({
               aria-label={tutorialIsNew ? `${itemLabel}, new` : undefined}
               className={cn(
                 "flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                "text-muted-foreground hover:bg-muted hover:text-foreground",
+                "text-[var(--sidebar-muted)] hover:bg-sidebar-accent hover:text-sidebar-foreground",
                 active && "bg-sidebar-accent text-sidebar-accent-foreground",
               )}
             >
               <Icon className="size-4" aria-hidden="true" />
               <span>{itemLabel}</span>
               {tutorialIsNew && (
-                <span className="ml-auto size-1.5 rounded-full bg-purple">
+                <span className="ml-auto size-1.5 rounded-full bg-[var(--sidebar-indicator)]">
                   <span className="sr-only">New</span>
                 </span>
               )}
@@ -126,7 +126,7 @@ export function Sidebar({
   }
 
   return (
-    <div className="flex min-h-full flex-col bg-sidebar px-4 py-6">
+    <div className="flex min-h-full flex-col bg-sidebar px-4 py-6 text-sidebar-foreground [&_:focus-visible]:outline-sidebar-ring">
       <Link
         href="/dashboard"
         className="mb-7 block px-2 pt-1"
@@ -143,7 +143,7 @@ export function Sidebar({
           />
           <span className="text-3xl font-black tracking-[-0.08em]">JEDI/</span>
         </span>
-        <span className="mt-1 block font-mono text-[9px] uppercase tracking-[0.24em] text-muted-foreground">
+        <span className="mt-1 block font-mono text-[9px] uppercase tracking-[0.24em] text-[var(--sidebar-muted)]">
           Job intelligence
         </span>
       </Link>
@@ -175,7 +175,7 @@ export function Sidebar({
             open={Boolean(currentNavigation(pathname, miscNavigation))}
             className="group"
           >
-            <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between px-3 text-[10px] font-medium uppercase tracking-widest text-muted-foreground [&::-webkit-details-marker]:hidden">
+            <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between px-3 text-[10px] font-medium uppercase tracking-widest text-[var(--sidebar-muted)] [&::-webkit-details-marker]:hidden">
               Legacy{" "}
               <ChevronDown
                 className="size-3 transition-transform group-open:rotate-180"
@@ -192,17 +192,17 @@ export function Sidebar({
         )}
       </div>
 
-      <div className="mt-auto flex items-center gap-3 border-t border-border pt-4">
+      <div className="mt-auto flex items-center gap-3 border-t border-sidebar-border pt-4">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{groupName}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-[var(--sidebar-muted)]">
             {user.isGroupOwner ? "Admin" : role}
           </p>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="shrink-0 text-muted-foreground hover:text-coral"
+          className="shrink-0 text-[var(--sidebar-muted)] hover:text-[var(--sidebar-danger)]"
           disabled={loggingOut}
           aria-label={loggingOut ? "Logging out" : "Logout"}
           title={loggingOut ? "Logging out" : "Logout"}

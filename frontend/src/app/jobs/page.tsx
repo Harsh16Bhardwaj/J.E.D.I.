@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 
+import { CompanyMark } from "@/components/company-mark";
 import { BrutalCard } from "@/components/brutal-card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -105,15 +106,15 @@ function JobCard({
   return (
     <article className={`catalog-job ${isBookmarked ? "is-saved" : ""}`}>
       <div className="catalog-job-main">
-        <span className="company-stamp" aria-hidden="true">
-          {job.companyName.trim().charAt(0).toUpperCase()}
-        </span>
+        <CompanyMark name={job.companyName} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-            <p className="font-semibold text-purple">{job.companyName}</p>
+            <p className="font-medium text-muted-foreground">
+              {job.companyName}
+            </p>
             {!isViewed && (
-              <span className="inline-flex items-center gap-1 text-coral">
-                <span className="size-1.5 rounded-full bg-coral" />
+              <span className="inline-flex items-center gap-1 text-[var(--info)]">
+                <span className="size-1.5 rounded-full bg-[var(--info)]" />
                 Unseen
               </span>
             )}
@@ -135,7 +136,9 @@ function JobCard({
               ? ` · ${label(job.workMode)}`
               : ""}
           </p>
-          <p className="mt-3 text-sm font-semibold text-primary">
+          <p
+            className={`mt-3 text-sm font-semibold ${job.salaryMin == null && job.salaryMax == null ? "text-muted-foreground" : "text-[var(--success)]"}`}
+          >
             {formatCompensationLpa(job)}
           </p>
         </div>

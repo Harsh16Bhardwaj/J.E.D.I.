@@ -1,86 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "../styles/themes.css";
 
 @custom-variant dark (&:is(.dark *));
-
-:root {
-  --background: #f4f1e8;
-  --foreground: #272720;
-  --card: #fffdf7;
-  --card-foreground: #272720;
-  --popover: #fffdf7;
-  --popover-foreground: #272720;
-  --primary: #405b22;
-  --primary-foreground: #fffdf7;
-  --secondary: #e8e4d8;
-  --secondary-foreground: #272720;
-  --muted: #ece8dd;
-  --muted-foreground: #686457;
-  --accent: #665183;
-  --accent-foreground: #fffdf7;
-  --destructive: #a23f30;
-  --border: #cbc6b8;
-  --input: #aaa394;
-  --ring: #405b22;
-  --acid: #405b22;
-  --purple: #665183;
-  --coral: #a23f30;
-  --raised: #ece8dd;
-  --chart-1: #405b22;
-  --chart-2: #665183;
-  --chart-3: #a23f30;
-  --chart-4: #476779;
-  --chart-5: #8b661e;
-  --radius: 0.25rem;
-  --sidebar: #eae7dc;
-  --sidebar-foreground: #272720;
-  --sidebar-primary: #405b22;
-  --sidebar-primary-foreground: #fffdf7;
-  --sidebar-accent: #dce3ce;
-  --sidebar-accent-foreground: #294019;
-  --sidebar-border: #c8c4b6;
-  --sidebar-ring: #405b22;
-}
-
-/* All workspace surfaces derive from these palettes, including custom cards. */
-:root {
-  --surface-tint: #e8eddf;
-  --surface-accent: #ece6f0;
-  --surface-subtle: #efebdf;
-  --surface-shadow: #e0dacb;
-  --error-surface: #f6e9e1;
-}
-html[data-theme="studio"] {
-  --background: #f4f6fa; --foreground: #192335; --card: #ffffff; --card-foreground: #192335;
-  --popover: #ffffff; --popover-foreground: #192335; --primary: #315bba; --primary-foreground: #ffffff;
-  --secondary: #e8edf6; --secondary-foreground: #192335; --muted: #e9edf4; --muted-foreground: #58657a;
-  --accent: #7654a1; --accent-foreground: #ffffff; --destructive: #ae3636; --coral: #ae3636;
-  --border: #cbd3df; --input: #9aa9bd; --ring: #315bba; --acid: #315bba; --purple: #7654a1; --raised: #e9edf4;
-  --sidebar: #e9edf5; --sidebar-foreground: #192335; --sidebar-primary: #315bba; --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #dce5f7; --sidebar-accent-foreground: #244890; --sidebar-border: #cbd3df; --sidebar-ring: #315bba;
-  --surface-tint: #e6edf9; --surface-accent: #efe9f7; --surface-subtle: #edf1f7; --surface-shadow: #dce3ee; --error-surface: #faeaea;
-}
-html[data-theme="midnight"], html[data-theme="forest"] {
-  color-scheme: dark;
-  --background: #111317; --foreground: #e8ecf1; --card: #1b1e24; --card-foreground: #e8ecf1;
-  --popover: #232730; --popover-foreground: #e8ecf1; --primary: #b8d78a; --primary-foreground: #16200d;
-  --secondary: #272c34; --secondary-foreground: #e8ecf1; --muted: #272c34; --muted-foreground: #a6afbd;
-  --accent: #bdabeb; --accent-foreground: #201b2d; --destructive: #f19583; --coral: #f19583;
-  --border: #3d4450; --input: #657082; --ring: #b8d78a; --acid: #b8d78a; --purple: #bdabeb; --raised: #272c34;
-  --sidebar: #171a20; --sidebar-foreground: #e8ecf1; --sidebar-primary: #b8d78a; --sidebar-primary-foreground: #16200d;
-  --sidebar-accent: #303c26; --sidebar-accent-foreground: #d4e8b4; --sidebar-border: #3d4450; --sidebar-ring: #b8d78a;
-  --surface-tint: #293323; --surface-accent: #302b3e; --surface-subtle: #222730; --surface-shadow: #090b0e; --error-surface: #3c2724;
-}
-html[data-theme="forest"] {
-  --background: #101c19; --card: #192a24; --card-foreground: #e8ecf1; --popover: #23382f;
-  --primary: #99d5b2; --primary-foreground: #10271c; --acid: #99d5b2; --ring: #99d5b2;
-  --muted: #243b31; --raised: #243b31; --secondary: #243b31; --muted-foreground: #abbeb4;
-  --border: #405b4d; --input: #6b8d7a; --purple: #d0bbec; --accent: #d0bbec;
-  --sidebar: #14221c; --sidebar-primary: #99d5b2; --sidebar-primary-foreground: #10271c;
-  --sidebar-accent: #2c493a; --sidebar-accent-foreground: #ceeedb; --sidebar-border: #405b4d; --sidebar-ring: #99d5b2;
-  --surface-tint: #263e30; --surface-accent: #363243; --surface-subtle: #1f342a; --surface-shadow: #08110d;
-}
-html[data-theme] { --chart-1: var(--primary); --chart-2: var(--purple); --chart-3: var(--coral); }
 
 @theme inline {
   --color-background: var(--background);
@@ -126,7 +48,6 @@ html[data-theme] { --chart-1: var(--primary); --chart-2: var(--purple); --chart-
 
 html {
   background: var(--background);
-  color-scheme: light;
 }
 
 body {
@@ -408,11 +329,11 @@ select, input[type=checkbox] { accent-color: var(--primary); }
 
 /* Career desk hierarchy: distinct paper pieces, ink rules, restrained color. */
 .desk-eyebrow { font: 700 10px var(--font-mono); letter-spacing: .15em; text-transform: uppercase; color: var(--primary); }
-.score-ring { position: relative; width: 68px; height: 68px; flex-shrink: 0; color: var(--primary); }
+.score-ring { position: relative; width: 68px; height: 68px; flex-shrink: 0; color: var(--info); }
 .score-ring svg { display: block; width: 100%; height: 100%; }
 .score-ring strong { position: absolute; inset: 0; display: grid; place-items: center; font: 700 14px var(--font-mono); color: var(--foreground); }
 /* Three information layouts: overview cards, evidence shortlist, searchable catalog. */
-.company-stamp { display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-accent); color: var(--purple); font: 700 19px Georgia,serif; }
+.company-stamp { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border: 1px solid color-mix(in srgb,var(--identity-ink,var(--purple)) 22%,transparent); border-radius: 10px; background: var(--identity-bg,var(--surface-accent)); color: var(--identity-ink,var(--purple)); font: 700 17px/1 Arial,Helvetica,sans-serif; }
 .feed-card { display: flex; flex-direction: column; min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 9px; background: var(--card); box-shadow: 0 3px 0 var(--surface-shadow); transition: border-color .18s, box-shadow .18s; }
 .feed-card:hover { border-color: var(--primary); box-shadow: 0 4px 0 var(--surface-shadow); }
 .feed-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
@@ -427,15 +348,15 @@ select, input[type=checkbox] { accent-color: var(--primary); }
 .shortlist-row:hover { background: var(--surface-subtle); }
 .shortlist-rank { font: italic 27px/1.3 Georgia,serif; color: var(--muted-foreground); }
 .shortlist-score { align-self: start; display: flex; flex-direction: column; align-items: end; padding-top: 16px; }
-.shortlist-score strong { font: 500 27px/1 Georgia,serif; color: var(--primary); }
+.shortlist-score strong { font: 500 27px/1 Georgia,serif; color: var(--info); }
 .shortlist-score > span { font: 10px var(--font-mono); margin-top: 5px; color: var(--muted-foreground); }
-.shortlist-insight { border: 1px solid var(--border); border-radius: 9px; background: var(--surface-tint); padding: 20px; }
+.shortlist-insight { border: 1px solid var(--border); border-radius: 9px; background: var(--card); padding: 20px; }
 .jobs-listing-stack { display: grid; gap: 18px; }
 .catalog-job { overflow: hidden; border: 1px solid var(--border); border-radius: 9px; background: var(--card); box-shadow: 0 3px 0 var(--surface-shadow); }
 .catalog-job.is-saved { border-left: 3px solid var(--purple); }
 .catalog-job-main { display: flex; align-items: start; gap: 16px; padding: 22px; }
 .catalog-score { display: flex; flex-direction: column; align-items: end; flex-shrink: 0; padding-left: 20px; border-left: 1px solid var(--border); }
-.catalog-score > strong { color: var(--primary); font: 500 30px/1.2 Georgia,serif; }
+.catalog-score > strong { color: var(--info); font: 500 30px/1.2 Georgia,serif; }
 .catalog-score > span { font-size: 10px; color: var(--muted-foreground); }
 .catalog-job-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border-top: 1px solid var(--border); padding: 9px 16px; background: var(--surface-subtle); }
 @media (min-width: 1280px) { .shortlist-layout { grid-template-columns: minmax(0,1fr) 250px; } }
@@ -471,7 +392,7 @@ select, input[type=checkbox] { accent-color: var(--primary); }
 .intake-helper { margin-top: 16px; color: var(--muted-foreground); font-size: 12px; }
 .intake-helper button { cursor: pointer; color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
 .intake-privacy { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; background: var(--surface-subtle); border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 11px; }
-.intake-processing { display: flex; align-items: center; gap: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-tint); padding: 20px; }
+.intake-processing { display: flex; align-items: center; gap: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 20px; }
 .intake-processing-mark { color: var(--primary); }
 .intake-processing h2 { font-size: 15px; font-weight: 600; }
 .intake-processing p { margin: 5px 0; font-size: 12px; line-height: 1.6; color: var(--muted-foreground); }
@@ -498,3 +419,13 @@ html[data-theme] .newspaper-login-cover { background-color: var(--surface-subtle
 html[data-theme] .briefing-shell, html[data-theme] .score-section { background: var(--surface-accent); color: var(--foreground); }
 html[data-theme] .briefing-lead-copy > p, html[data-theme] .briefing-footer, html[data-theme] .briefing-row > div span, html[data-theme] .briefing-note, html[data-theme] .score-heading .landing-index, html[data-theme] .score-ledger dt span { color: var(--muted-foreground); }
 html[data-theme] .openjedi-field { background: var(--surface-tint); }
+
+/* Accents have separate jobs: action, evidence, review, and employer identity. */
+.match-reasons { color: var(--success); }
+.match-reasons li { padding: 4px 7px; border-radius: 5px; background: var(--success-surface); }
+.review-unknowns { color: var(--warning); }
+.review-unknowns summary { border-radius: 4px; padding: 4px 6px; background: var(--warning-surface); }
+.shortlist-row .company-stamp { width: 24px; height: 24px; border-radius: 7px; font-size: 12px; }
+.feed-card, .catalog-job { box-shadow: 0 1px 2px color-mix(in srgb,var(--foreground) 5%,transparent); }
+.feed-card:hover { box-shadow: 0 3px 12px color-mix(in srgb,var(--foreground) 8%,transparent); }
+.shortlist-insight { border-top: 3px solid var(--info); }

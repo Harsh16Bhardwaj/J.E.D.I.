@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { CompanyMark } from "@/components/company-mark";
 import { ScoreRing } from "@/components/score-ring";
 import { ApplicationPipeline } from "@/components/feed-insights";
 import {
@@ -105,10 +106,8 @@ function JobCard({ job }: { job: DashboardJob }) {
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="company-stamp" aria-hidden="true">
-            {job.companyName.trim().charAt(0).toUpperCase() || "J"}
-          </span>
-          <p className="truncate text-sm font-semibold text-purple">
+          <CompanyMark name={job.companyName} />
+          <p className="truncate text-sm font-medium text-muted-foreground">
             {job.companyName}
           </p>
         </div>
@@ -123,7 +122,9 @@ function JobCard({ job }: { job: DashboardJob }) {
       </p>
       <div className="mt-4 flex items-end justify-between gap-3 border-t border-border pt-4">
         <div className="min-w-0">
-          <p className="text-lg font-semibold text-primary">
+          <p
+            className={`text-lg font-semibold ${job.salaryMin == null && job.salaryMax == null ? "text-muted-foreground" : "text-[var(--success)]"}`}
+          >
             {formatCompensationLpa(job)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -537,7 +538,7 @@ export default function DashboardPage() {
                       #{index + 1}
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-purple">
+                      <p className="truncate text-sm font-medium text-muted-foreground">
                         {job.companyName}
                       </p>
                       <p className="mt-1 truncate font-medium transition group-hover:text-acid">
