@@ -1,7 +1,13 @@
 "use client";
 
-import { ThemeProvider, useTheme } from "next-themes";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 const themes = [
   "workspace",
@@ -86,29 +92,36 @@ const themeMeta = {
   },
 } as const;
 const subscribe = () => () => {};
+type ThemeId = (typeof themes)[number];
+const ThemeContext = createContext<{
+  theme: ThemeId;
+  setTheme: (theme: string) => void;
+}>({ theme: "workspace", setTheme: () => {} });
+const useTheme = () => useContext(ThemeContext);
 
 export function SiteTheme({ children }: { children: React.ReactNode }) {
-  return (
-    <ThemeProvider
-      attribute="data-theme"
-      storageKey="jedi:theme"
-      defaultTheme="workspace"
-      enableSystem={false}
-      themes={themes}
-      disableTransitionOnChange
-    >
-      <ThemeMigration />
-      {children}
-    </ThemeProvider>
-  );
-}
-
-function ThemeMigration() {
-  const { theme, setTheme } = useTheme();
+  const [theme, setThemeState] = useState<ThemeId>("workspace");
   useEffect(() => {
-    if (theme && !themes.includes(theme)) setTheme("workspace");
-  }, [theme, setTheme]);
-  return null;
+    const stored = window.localStorage.getItem("jedi:theme");
+    setThemeState(
+      stored && themes.includes(stored as ThemeId)
+        ? (stored as ThemeId)
+        : "workspace",
+    );
+  }, []);
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    window.localStorage.setItem("jedi:theme", theme);
+  }, [theme]);
+  const setTheme = (next: string) =>
+    setThemeState(
+      themes.includes(next as ThemeId) ? (next as ThemeId) : "workspace",
+    );
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function ThemeSelector() {
