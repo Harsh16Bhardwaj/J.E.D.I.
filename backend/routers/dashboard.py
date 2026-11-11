@@ -5,8 +5,9 @@ from typing import Annotated
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Load
 
 from backend.auth import CurrentUser
 from backend.database import (
@@ -35,11 +36,6 @@ def _boundaries() -> tuple[datetime, datetime, datetime]:
         (today + timedelta(days=1)).astimezone(UTC),
         (today - timedelta(days=6)).astimezone(UTC),
     )
-
-
-def _in_window(value: datetime, start: datetime, end: datetime | None = None) -> bool:
-    aware = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
-    return aware >= start and (end is None or aware < end)
 
 
 def _visibility(fresh: bool, not_applied: bool) -> list:
@@ -138,6 +134,17 @@ async def dashboard_feed(
     visibility = _visibility(fresh, not_applied)
     feed_query = (
         select(Job, Batch, JobState, Application)
+        .options(
+            Load(Batch).load_only(
+                Batch.id,
+                Batch.external_batch_id,
+                Batch.generated_at,
+                Batch.created_at,
+                raiseload=True,
+            ),
+            Load(JobState).load_only(JobState.review_status, raiseload=True),
+            Load(Application).load_only(Application.status, raiseload=True),
+        )
         .join(Batch, Batch.id == Job.batch_id)
         .outerjoin(
             JobState,
@@ -182,61 +189,79 @@ async def dashboard_feed(
         ).all()
         job_feed_scope = "latest"
 
-    ranked_query = (
-        select(JobPrediction, Job, Batch, JobState, Application)
-        .join(Job, Job.id == JobPrediction.job_id)
-        .join(Batch, Batch.id == JobPrediction.batch_id)
-        .outerjoin(
-            JobState,
-            and_(
-                JobState.job_id == Job.id,
-                JobState.group_member_id == member_id,
-            ),
+    # Pick one current prediction per job in SQL before joining job/batch data.
+    # Loading rawEnvelope for every historical prediction inflated this read by
+    # hundreds of copies of the same imported batch.
+    latest = select(
+        JobPrediction.id.label("prediction_id"),
+        func.row_number()
+        .over(
+            partition_by=JobPrediction.job_id,
+            order_by=(JobPrediction.created_at.desc(), JobPrediction.id.desc()),
         )
-        .outerjoin(
-            Application,
-            and_(
-                Application.job_id == Job.id,
-                Application.group_member_id == member_id,
-            ),
-        )
-        .where(*visibility)
-        .order_by(JobPrediction.created_at.desc(), JobPrediction.id.desc())
+        .label("position"),
+    ).subquery()
+    latest_ids = select(latest.c.prediction_id).where(latest.c.position == 1)
+    feed_predictions = (
+        (
+            await session.scalars(
+                select(JobPrediction).where(
+                    JobPrediction.id.in_(latest_ids),
+                    JobPrediction.job_id.in_([row[0].id for row in feed_rows]),
+                )
+            )
+        ).all()
+        if feed_rows
+        else []
     )
-    ranked_rows = (await session.execute(ranked_query)).all()
-    latest_ranked: dict[
-        str, tuple[JobPrediction, Job, Batch, JobState | None, Application | None]
-    ] = {}
-    for prediction, job, batch, state, application in ranked_rows:
-        latest_ranked.setdefault(job.id, (prediction, job, batch, state, application))
-
-    latest_predictions = {job_id: row[0] for job_id, row in latest_ranked.items()}
+    latest_predictions = {
+        prediction.job_id: prediction for prediction in feed_predictions
+    }
     displayed_feed_rows = sorted(
         feed_rows,
         key=lambda row: _feed_order(row, latest_predictions),
         reverse=True,
     )[:FEED_DISPLAY_LIMIT]
 
-    eligible_rows = list(latest_ranked.values())
+    ranked_query = (
+        select(JobPrediction, Job, Batch, JobState, Application)
+        .options(
+            Load(Batch).load_only(
+                Batch.id, Batch.external_batch_id, Batch.created_at, raiseload=True
+            ),
+            Load(JobState).load_only(JobState.review_status, raiseload=True),
+            Load(Application).load_only(Application.status, raiseload=True),
+        )
+        .join(Job, Job.id == JobPrediction.job_id)
+        .join(Batch, Batch.id == JobPrediction.batch_id)
+        .outerjoin(
+            JobState,
+            and_(JobState.job_id == Job.id, JobState.group_member_id == member_id),
+        )
+        .outerjoin(
+            Application,
+            and_(
+                Application.job_id == Job.id, Application.group_member_id == member_id
+            ),
+        )
+        .where(JobPrediction.id.in_(latest_ids), *visibility)
+    )
     if leaderboard_period == LeaderboardPeriod.DAILY:
-        eligible_rows = [
-            row
-            for row in eligible_rows
-            if _in_window(row[0].created_at, today_start, tomorrow_start)
-        ]
+        ranked_query = ranked_query.where(
+            JobPrediction.created_at >= today_start,
+            JobPrediction.created_at < tomorrow_start,
+        )
     elif leaderboard_period == LeaderboardPeriod.WEEKLY:
-        eligible_rows = [
-            row for row in eligible_rows if _in_window(row[0].created_at, week_start)
-        ]
-    leaders = sorted(
-        eligible_rows,
-        key=lambda row: (
-            row[0].jedi_preference_score,
-            row[0].apply_preference_probability,
-            row[1].id,
-        ),
-        reverse=True,
-    )[:10]
+        ranked_query = ranked_query.where(JobPrediction.created_at >= week_start)
+    leaders = (
+        await session.execute(
+            ranked_query.order_by(
+                JobPrediction.jedi_preference_score.desc(),
+                JobPrediction.apply_preference_probability.desc(),
+                Job.id.desc(),
+            ).limit(10)
+        )
+    ).all()
     return DashboardFeed(
         today_jobs=[
             _job(job, batch, state, application, latest_predictions.get(job.id))

@@ -6,6 +6,7 @@ import { MotionConfig } from "motion/react";
 import useSWR, { type Cache, type State, SWRConfig, useSWRConfig } from "swr";
 
 import { isAdminRoute } from "@/lib/navigation";
+import { ThemeSelector } from "@/components/theme-controls";
 import { Sidebar } from "@/components/sidebar";
 import { MobileNavigation } from "@/components/top-bar";
 import { Button } from "@/components/ui/button";
@@ -213,6 +214,9 @@ function ProtectedShell({ children }: { children: React.ReactNode }) {
           tabIndex={-1}
           className="min-h-screen min-w-0 px-4 pb-8 pt-20 sm:px-6 lg:px-10 lg:py-7"
         >
+          <div className="mb-3 flex justify-end">
+            <ThemeSelector />
+          </div>
           {children}
         </main>
       </div>

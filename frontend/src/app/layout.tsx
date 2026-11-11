@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { SiteTheme } from "@/components/theme-controls";
 import { AppShell } from "@/components/app-shell";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,12 +20,14 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="paper">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <TooltipProvider>
-          <AppShell>{children}</AppShell>
-          <Toaster richColors closeButton />
-        </TooltipProvider>
+        <SiteTheme>
+          <TooltipProvider>
+            <AppShell>{children}</AppShell>
+            <Toaster richColors closeButton />
+          </TooltipProvider>
+        </SiteTheme>
       </body>
     </html>
   );

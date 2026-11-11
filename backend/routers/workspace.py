@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import Load, aliased
 
 from backend.auth import CurrentUser
 from backend.database import (
@@ -507,6 +507,7 @@ async def list_jobs(
     ranked, prediction = latest_prediction_alias()
     joins = (
         select(Job, Batch, JobState, JobAnnotation, Application, prediction)
+        .options(Load(Batch).load_only(Batch.created_at, raiseload=True))
         .join(Batch, Batch.id == Job.batch_id)
         .outerjoin(
             JobState,
@@ -846,6 +847,7 @@ async def list_applications(
     ranked, prediction = latest_prediction_alias()
     statement = (
         select(Job, Batch, JobState, JobAnnotation, Application, prediction)
+        .options(Load(Batch).load_only(Batch.created_at, raiseload=True))
         .join(Batch, Batch.id == Job.batch_id)
         .outerjoin(
             JobState,

@@ -182,7 +182,10 @@ export default function DashboardPage() {
   const query = new URLSearchParams({ leaderboardPeriod: period });
   if (fresh) query.set("fresh", "true");
   const feed = useSWR<DashboardFeed>(`/api/dashboard?${query}`, {
-    refreshInterval: 10_000,
+    fetcher: (path) =>
+      apiRequest<DashboardFeed>(path, { signal: AbortSignal.timeout(20_000) }),
+    refreshInterval: 60_000,
+    shouldRetryOnError: false,
     revalidateOnFocus: true,
   });
 

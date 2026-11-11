@@ -7,6 +7,8 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -382,7 +384,23 @@ def test_dashboard_falls_back_to_latest_jobs(product_client: TestClient) -> None
         },
     ).status_code == 200
 
-    dashboard = product_client.get("/api/dashboard")
+    statements: list[str] = []
+
+    def capture(_connection, _cursor, statement, _parameters, _context, _many):
+        statements.append(statement)
+
+    event.listen(Engine, "before_cursor_execute", capture)
+    try:
+        dashboard = product_client.get("/api/dashboard")
+    finally:
+        event.remove(Engine, "before_cursor_execute", capture)
+    # The list endpoint must not multiply a large imported batch envelope by
+    # every job or fetch application notes that are absent from its contract.
+    assert statements
+    assert all('"rawEnvelope"' not in sql for sql in statements)
+    assert all('"validationReport"' not in sql for sql in statements)
+    assert any("row_number() OVER" in sql for sql in statements)
+
     assert dashboard.status_code == 200
     assert dashboard.json()["jobFeedScope"] == "latest"
     assert len(dashboard.json()["todayJobs"]) == 1
