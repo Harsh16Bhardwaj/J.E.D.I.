@@ -340,3 +340,11 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 - Removed the dashboard hero and oversized summary cards. The shortlist, update time, and preference controls now take priority.
 - Moved search, sorting, bookmarks, and results into one Jobs toolbar. Secondary filters collapse with an active count. Existing URL filters, including custom minimum scores, still work.
 - Verified 37 frontend tests, lint, TypeScript, and mobile browser checks with fixture data for the logo, preferences dialog, and job filters. The personal-feed database migration remains pending on the configured local connection.
+
+## Simplify the application pipeline
+
+- Replaced the wide seven-column board with responsive stage groups. Empty stages are omitted, and a selected stage gets its own results view.
+- Consolidated search, stage, deadline, and sorting controls. Added clear-filter actions and accurate matching-result counts.
+- Shortened the page heading and privacy copy, tightened application cards, and made status choices readable. Search follows URL navigation through a keyed form input.
+- Checked correction-reason requirements and saved move payloads with controlled browser fixtures. Filtering, clearing, and widths of 320, 390, and 768 pixels passed without page overflow. Desktop rendering was visually inspected.
+- Frontend lint, TypeScript, 37 unit tests, and the production build passed. Browser mutation checks used fixtures.
