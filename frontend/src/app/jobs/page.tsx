@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 
+import { ScoreRing } from "@/components/score-ring";
 import { BrutalCard } from "@/components/brutal-card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -96,10 +97,11 @@ function JobCard({
   const score = prediction?.rankingScore ?? prediction?.jediPreferenceScore ?? null;
 
   return (
-    <BrutalCard className={`group overflow-hidden border-l-4 p-0 transition hover:-translate-y-0.5 hover:shadow-[5px_5px_0_var(--foreground)] ${hasApplied ? "border-l-acid" : isViewed ? "border-l-purple" : "border-l-coral"}`}>
-      <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_12rem]">
+    <BrutalCard className={`jobs-listing-card group overflow-hidden border-l-4 p-0 transition ${hasApplied ? "border-l-acid" : isViewed ? "border-l-purple" : "border-l-coral"}`}>
+      <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_12rem]">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="listing-identity"><span aria-hidden="true">{job.companyName.trim().charAt(0).toUpperCase()}</span><p>{job.companyName}</p></div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             {isBookmarked ? (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-purple/40 bg-purple/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-purple">
                 <BookmarkCheck className="size-3" /> Bookmarked
@@ -112,18 +114,17 @@ function JobCard({
             <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${hasApplied ? "border-acid/35 bg-acid/10 text-acid" : job.applicationStatus === "PREPARING" ? "border-purple/35 bg-purple/10 text-purple" : "border-border bg-raised text-muted-foreground"}`}>
               {hasApplied ? `Applied · ${label(job.applicationStatus)}` : label(job.applicationStatus)}
             </span>
-            {prediction ? <span className="ops-label text-muted-foreground">Persisted rank #{prediction.rank}</span> : null}
+            {prediction ? <span className="ops-label text-muted-foreground">Rank #{prediction.rank}</span> : null}
           </div>
 
           <Link href={`/jobs/${job.id}`} className="mt-4 block w-fit max-w-full">
-            <h2 className="truncate text-xl font-black uppercase tracking-tight transition-colors group-hover:text-acid sm:text-2xl">
+            <h2 className="line-clamp-2 break-words text-xl font-black uppercase tracking-tight transition-colors group-hover:text-acid sm:text-2xl">
               {job.roleTitle}
             </h2>
           </Link>
           <p className="mt-1 text-sm text-muted-foreground">
-            <span className="font-bold text-foreground">{job.companyName}</span>
-            {job.location ? ` · ${job.location}` : ""}
-            {job.workMode ? ` · ${label(job.workMode)}` : ""}
+            {job.location || "Location not listed"}
+            {job.workMode && job.location?.toLowerCase() !== job.workMode.toLowerCase() ? ` · ${label(job.workMode)}` : ""}
           </p>
 
           <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
@@ -137,13 +138,11 @@ function JobCard({
           {prediction ? (
             <>
               <div>
-                <p className="ops-label text-muted-foreground">Preference</p>
-                <p className="mt-1 text-4xl font-black tracking-[-0.06em]">
-                  {score?.toFixed(1)}
-                </p>
+                <p className="ops-label text-muted-foreground">Legacy preference</p>
+                <ScoreRing score={score} />
               </div>
               <div className="text-right lg:mt-5 lg:text-left">
-                <p className="ops-label text-muted-foreground">Apply probability</p>
+                <p className="ops-label text-muted-foreground">Apply signal</p>
                 <p className="mt-1 font-mono text-sm">
                   {probability(prediction.applyPreferenceProbability)}
                 </p>
@@ -158,7 +157,7 @@ function JobCard({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-raised/40 px-5 py-3">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="ghost"
             size="sm"
@@ -373,7 +372,7 @@ function JobsWorkspace() {
           <div>
             <h1 className="text-4xl font-black uppercase tracking-[-0.05em] sm:text-6xl">Jobs</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Find the strongest matches, see what you have reviewed, and move promising work into your private application pipeline.
+              Find your next opportunity. Keep the ones worth a closer look.
             </p>
           </div>
           <div className="flex gap-2">
@@ -389,8 +388,7 @@ function JobsWorkspace() {
         </div>
       </header>
 
-      <Link href="/jobs/intake" className={buttonVariants({ variant: "outline" })}>Bring a job</Link>
-
+      <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="inline-flex w-fit gap-1 rounded-xl border border-border bg-card p-1.5 shadow-sm">
         <button
           type="button"
@@ -406,6 +404,9 @@ function JobsWorkspace() {
         >
           <BookmarkCheck className="size-4" /> Bookmarked
         </button>
+      </div>
+
+      <Link href="/jobs/intake" className={buttonVariants({ variant: "outline", className: "min-h-10 border-primary px-4 text-primary" })}>Bring a job <ArrowUpRight className="size-4" /></Link>
       </div>
 
       <BrutalCard className="space-y-5 border-purple/25 bg-gradient-to-r from-card to-purple/5">
@@ -490,7 +491,7 @@ function JobsWorkspace() {
           </Button>
         </BrutalCard>
       ) : jobs.data?.items.length ? (
-        <section className="space-y-3" aria-busy={jobs.isValidating}>
+        <section className="jobs-listing-stack" aria-busy={jobs.isValidating}>
           {jobs.isValidating && (
             <p className="ops-label text-muted-foreground">Refreshing jobs...</p>
           )}

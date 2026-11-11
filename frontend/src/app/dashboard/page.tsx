@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { CareerEngraving } from "@/components/career-engraving";
 import {
   ArrowUpRight,
   Boxes,
@@ -272,13 +273,14 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-12">
-      <header className="border-b border-border pb-6">
-        <h1 className="text-4xl font-semibold leading-none tracking-[-0.05em] sm:text-5xl">
-          <span suppressHydrationWarning>{greeting}</span>, {userName}
-        </h1>
-        <p className="mt-3 text-sm text-muted-foreground">
-          Shared leaderboard and your application activity.
-        </p>
+      <header className="desk-dashboard-header">
+        <div>
+          <p className="desk-eyebrow">Your career desk</p>
+          <h1><span suppressHydrationWarning>{greeting}</span>, {userName}<span className="text-primary">.</span></h1>
+          <p className="desk-dashboard-caption">Good work deserves a closer look.</p>
+          <div className="desk-header-links"><Link href="/dashboard/personal">Your personal picks <ArrowUpRight className="size-3.5" /></Link><Link href="/applications">Application tracker <ArrowUpRight className="size-3.5" /></Link></div>
+        </div>
+        <CareerEngraving className="desk-dashboard-art" />
       </header>
 
       <section>

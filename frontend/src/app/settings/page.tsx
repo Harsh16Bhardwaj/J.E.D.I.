@@ -20,7 +20,7 @@ export default function SettingsPage() {
         eyebrow="Configuration"
         title="Settings"
         path="/settings"
-        description="Manage the invited group, optional delivery, and the owner-controlled systems behind the shared daily signal."
+        description="Manage the invited group, optional delivery, and the owner-controlled systems behind the shared job workspace."
       />
       <PageGrid>
         {items.map(({ href, label, icon: Icon }) => (

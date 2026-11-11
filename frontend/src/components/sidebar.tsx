@@ -150,7 +150,7 @@ export function Sidebar({
 
       <div className="space-y-6">
         <NavigationGroup
-          label="Daily signal"
+          label="Workspace"
           items={primaryItems}
           onNavigate={onNavigate}
           tutorialViewed={tutorialViewed}

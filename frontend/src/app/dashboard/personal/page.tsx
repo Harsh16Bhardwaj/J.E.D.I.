@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ScoreRing } from "@/components/score-ring";
+import { CareerEngraving } from "@/components/career-engraving";
 import useSWR from "swr";
 import { ArrowUpRight, FileSearch, RefreshCw, Settings2 } from "lucide-react";
 import { apiRequest, errorSummary } from "@/lib/api";
@@ -59,10 +61,12 @@ export default function PersonalDashboard() {
 
   return (
     <div className="personal-space space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
+      <header className="personal-desk-header">
+        <CareerEngraving className="personal-desk-art" />
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Daily Feed
+          <p className="desk-eyebrow">Selected around your preferences</p>
+          <h1 className="personal-desk-title">
+            Your next chapter<span>.</span>
           </h1>
           {feed.data?.generatedAt && (
             <p className="mt-2 text-sm text-muted-foreground">
@@ -168,26 +172,29 @@ export default function PersonalDashboard() {
               pool.
             </p>
           )}
-          <div className="grid gap-4 lg:grid-cols-2">
-            {feed.data.jobs.map((job) => (
-              <article
-                key={job.id}
-                className="group rounded-xl border border-border bg-card p-4 transition-colors sm:p-5 hover:border-acid/40"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <p className="font-mono text-xs text-muted-foreground">
-                    {job.companyName}
-                  </p>
-                  <div className="text-right">
-                    <strong className="text-2xl font-medium text-acid">
-                      {job.score ?? "—"}
-                    </strong>
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      Preference / 100
+          <div className="grid gap-6 xl:grid-cols-2">
+            {feed.data.jobs.map((job, index) => (
+              <article key={job.id} className="personal-pick group">
+                <div className="personal-pick-byline">
+                  <span className="personal-pick-number">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-purple">
+                      {job.companyName}
+                    </p>
+                    <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Personal pick
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <ScoreRing score={job.score} />
+                    <p className="text-[10px] text-muted-foreground">
+                      Preference
                     </p>
                   </div>
                 </div>
-                <h3 className="mt-2 text-xl font-semibold">
+                <h3 className="mt-4 text-xl font-black uppercase tracking-tight sm:text-2xl">
                   <Link href={`/jobs/${job.id}`} className="hover:text-acid">
                     {job.roleTitle}
                     <ArrowUpRight className="ml-2 inline size-4" />
@@ -195,7 +202,10 @@ export default function PersonalDashboard() {
                 </h3>
                 <p className="mt-2 text-xs text-muted-foreground">
                   {job.location || "Location not listed"}
-                  {job.workMode ? ` · ${job.workMode}` : ""}
+                  {job.workMode &&
+                  job.location?.toLowerCase() !== job.workMode.toLowerCase()
+                    ? ` · ${job.workMode.toLowerCase().replaceAll("_", " ")}`
+                    : ""}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {job.reasons.map((reason) => (
@@ -208,9 +218,18 @@ export default function PersonalDashboard() {
                   ))}
                 </div>
                 {job.unknowns.length > 0 && (
-                  <p className="mt-4 text-xs leading-5 text-muted-foreground">
-                    To verify · {job.unknowns.join(" · ")}
-                  </p>
+                  <details className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
+                    <summary className="cursor-pointer">
+                      {job.unknowns.length}{" "}
+                      {job.unknowns.length === 1 ? "detail" : "details"} to
+                      verify
+                    </summary>
+                    <ul className="mt-2 space-y-1">
+                      {job.unknowns.map((detail) => (
+                        <li key={detail}>{detail}</li>
+                      ))}
+                    </ul>
+                  </details>
                 )}
               </article>
             ))}
@@ -218,6 +237,11 @@ export default function PersonalDashboard() {
           {feed.data.jobs.length === 0 && (
             <div className="rounded-xl border border-dashed border-border p-10 text-center">
               <FileSearch className="mx-auto size-9 text-acid" />
+              {feed.data.status === "NEEDS_PREFERENCES" && (
+                <Button className="mt-5" onClick={() => setEditing(true)}>
+                  Choose your preferences
+                </Button>
+              )}
               <p className="mt-4 text-lg">{state?.title}</p>
               <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted-foreground">
                 {state?.copy}

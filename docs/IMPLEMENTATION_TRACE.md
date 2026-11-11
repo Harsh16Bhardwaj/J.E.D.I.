@@ -390,3 +390,13 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 - Preserved the login request, validation, password-reset link, and invitation entry points. The mobile layout reduces the cover to a compact masthead.
 - All 39 frontend tests, lint, TypeScript, and the production build passed. Browser checks covered API connectivity, login fields, landing, reduced motion, and 320/390/768/1440px layouts. Login and landing screenshots were visually inspected.
 - The API runs as a local development process. Hosted deployment and machine-startup service configuration are separate operations.
+
+## Give the feeds and job intake clearer hierarchy and recovery states
+
+- Removed The Daily Signal wording from the public pages, login, sidebar, and settings copy.
+- Added an illustrated career-desk header to the shared dashboard and distinct numbered cards, score rings, and expandable review notes to the personal feed.
+- Separated Jobs listings with stronger borders, paper shadows, larger gaps, employer identities, score rings, and shaded action footers. Grouped the intake action beside the result tabs.
+- Reworked Bring a Job into link and paste modes with an explicit bring/review/compare sequence. Showed extracted role and skill summaries before optional field edits.
+- Added actual elapsed time, bounded 15-second preview requests, cancel controls, preserved input on cancellation/error, retry actions, and an unsupported-link paste fallback. Successful extraction scrolls to the review, respecting reduced motion.
+- All 39 frontend tests, lint, TypeScript, and the production build passed. Scripted browser fixtures verified unsupported URL handling, paste fallback, processing, cancellation, retained input, edited save payloads, and four pages at 320/390/768/1440px. Personal-feed, Jobs, and intake renders were visually inspected.
+- Preview-state verification used controlled API responses. Live employer fetching remains a separate verification step.

@@ -171,7 +171,7 @@ export default function LandingPage() {
             <span>JEDI</span>
           </Link>
           <div className="landing-edition hidden sm:block">
-            <span>THE DAILY SIGNAL</span>
+            <span>JEDI / CAREER DESK</span>
             <span>INVITED EDITION / V1</span>
           </div>
           <nav className="hidden items-center gap-6 xl:flex" aria-label="Public navigation">
