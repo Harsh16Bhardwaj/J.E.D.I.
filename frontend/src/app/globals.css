@@ -316,16 +316,8 @@ select {
   }
 }
 
-/* Paper sidebar keeps its approved selection treatment. */
-.sidebar-surface[data-sidebar-style=paper] nav a { font-family: inherit; font-weight: 500; text-transform: none; letter-spacing: 0; border-color: transparent; border-radius: 8px; }
-.sidebar-surface[data-sidebar-style=paper] { background: #eae7dc; color: #25251f; --border: #c8c4b6; --muted-foreground: #656355; --foreground: #25251f; --background: #eae7dc; --color-acid: var(--acid); --color-purple: var(--purple); }
-.sidebar-surface[data-sidebar-style=paper] nav a[aria-current=page] { background: #d5dcc7; color: #294019; border-color: #bbc8a7; }
-.sidebar-surface[data-sidebar-style=paper] nav a:hover { background: #dedbcc; }
-.sidebar-surface[data-sidebar-style=paper] [class*="text-acid"] { color: #405b22; }
-.sidebar-surface[data-sidebar-style=paper] [class*="text-purple"] { color: #665b86; }
 
 /* Paper surfaces keep the original hierarchy and card geometry. */
-.sidebar-surface[data-sidebar-style=paper] { --sidebar: #eae7dc; }
 .signal-ticker { background: var(--primary); color: var(--primary-foreground); }
 .router-core { color: #dce3ce; }
 select, input[type=checkbox] { accent-color: var(--primary); }

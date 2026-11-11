@@ -487,10 +487,7 @@ def test_long_owner_code_reports_missing_deployment_configuration(
         },
     )
     assert response.status_code == 503
-    assert (
-        response.json()["error"]["code"]
-        == "OWNER_REGISTRATION_NOT_CONFIGURED"
-    )
+    assert response.json()["error"]["code"] == "OWNER_REGISTRATION_NOT_CONFIGURED"
     assert response.json()["error"]["requestId"]
 
 
@@ -543,3 +540,31 @@ def test_registration_database_errors_are_specific(
     assert error.status_code == 503
     assert error.detail["code"] == expected_code
     assert "postgres" not in error.detail["message"].casefold()
+
+
+def test_batches_are_admin_only_including_direct_api_requests(group_client) -> None:
+    client, _ = group_client
+    assert client.get("/api/batches").status_code == 401
+    login_owner(client)
+    assert client.get("/api/batches").status_code == 200
+    invitation = create_invite(client)
+    client.post("/api/auth/logout")
+    registered = client.post(
+        "/api/auth/register",
+        json={
+            "inviteCode": invitation["code"],
+            "email": "batch-member@example.com",
+            "password": "member-password",
+        },
+    )
+    assert registered.status_code == 201
+    for path in [
+        "/api/batches",
+        "/api/batches/missing",
+        "/api/batches/all",
+        "/api/batches/missing/metrics",
+        "/api/scraper/sources",
+    ]:
+        assert client.get(path).status_code == 403, path
+    assert client.delete("/api/batches/missing").status_code == 403
+    assert client.post("/api/batches", json={}).status_code == 403

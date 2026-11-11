@@ -3,29 +3,35 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { MotionConfig } from "motion/react";
-import useSWR, {
-  type Cache,
-  type State,
-  SWRConfig,
-  useSWRConfig,
-} from "swr";
+import useSWR, { type Cache, type State, SWRConfig, useSWRConfig } from "swr";
 
+import { isAdminRoute } from "@/lib/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { MobileNavigation } from "@/components/top-bar";
 import { Button } from "@/components/ui/button";
 import { apiGet, apiRequest, ApiError, type User } from "@/lib/api";
 import { onboardingRedirect } from "@/lib/public-session";
 
-const publicRoutes = new Set(["/", "/login", "/register", "/forgot-password", "/reset-password"]);
+const publicRoutes = new Set([
+  "/",
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+]);
 const refreshCacheKey = "jedi:swr-refresh-cache:v2";
 const refreshCacheTtlMs = 5 * 60 * 1_000;
 
 function canPersistRefreshKey(key: string) {
-  return key !== "/api/preferences" && key !== "/api/recommendations" && !key.startsWith("/api/email/") &&
+  return (
+    key !== "/api/preferences" &&
+    key !== "/api/recommendations" &&
+    !key.startsWith("/api/email/") &&
     !key.startsWith("/api/job-drafts") &&
     !key.endsWith("/email-deliveries") &&
     key !== "/api/resume" &&
-    !key.endsWith("/skill-gap");
+    !key.endsWith("/skill-gap")
+  );
 }
 
 type StoredRefreshCache = {
@@ -83,16 +89,23 @@ class RefreshPersistentCache implements Cache<unknown> {
 
   private persist() {
     const entries = Array.from(this.values.entries())
-      .filter(([key, value]) =>
-        canPersistRefreshKey(key) &&
-        value.data !== undefined &&
-        value.error === undefined
+      .filter(
+        ([key, value]) =>
+          canPersistRefreshKey(key) &&
+          value.data !== undefined &&
+          value.error === undefined,
       )
-      .map(([key, value]) => [key, { data: value.data }] as [string, State<unknown>]);
+      .map(
+        ([key, value]) =>
+          [key, { data: value.data }] as [string, State<unknown>],
+      );
     try {
       window.sessionStorage.setItem(
         refreshCacheKey,
-        JSON.stringify({ savedAt: Date.now(), entries } satisfies StoredRefreshCache),
+        JSON.stringify({
+          savedAt: Date.now(),
+          entries,
+        } satisfies StoredRefreshCache),
       );
     } catch {
       window.sessionStorage.removeItem(refreshCacheKey);
@@ -104,10 +117,15 @@ function ProtectedShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { cache } = useSWRConfig();
-  const { data: user, error, isLoading, mutate } = useSWR<User>(
-    "/api/auth/session",
-    { fetcher: (path: string) => apiRequest<User>(path, { signal: AbortSignal.timeout(15_000) }) },
-  );
+  const {
+    data: user,
+    error,
+    isLoading,
+    mutate,
+  } = useSWR<User>("/api/auth/session", {
+    fetcher: (path: string) =>
+      apiRequest<User>(path, { signal: AbortSignal.timeout(15_000) }),
+  });
 
   useEffect(() => {
     if (error instanceof ApiError && error.status === 401) {
@@ -164,6 +182,25 @@ function ProtectedShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (isAdminRoute(pathname) && !user?.isGroupOwner) {
+    return (
+      <main className="grid min-h-screen place-items-center p-6">
+        <section className="max-w-sm space-y-4">
+          <h1 className="text-2xl font-semibold">Admin access required</h1>
+          <p className="text-sm text-muted-foreground">
+            This page is available to the group admin.
+          </p>
+          <a
+            href="/dashboard"
+            className="inline-block text-sm font-medium text-primary underline"
+          >
+            Back to dashboard
+          </a>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 hidden w-72 overflow-y-auto border-r border-border lg:block">
@@ -171,11 +208,26 @@ function ProtectedShell({ children }: { children: React.ReactNode }) {
       </aside>
       <div className="lg:pl-72">
         <MobileNavigation user={user!} />
-        <main id="workspace-content" tabIndex={-1} className="min-h-screen min-w-0 px-4 pb-8 pt-20 sm:px-6 lg:px-10 lg:py-12">
+        <main
+          id="workspace-content"
+          tabIndex={-1}
+          className="min-h-screen min-w-0 px-4 pb-8 pt-20 sm:px-6 lg:px-10 lg:py-12"
+        >
           {pathname === "/dashboard" && (
             <div className="mb-6 flex flex-wrap gap-3 text-sm">
-              <a href="/dashboard" aria-current="page" className="font-semibold text-acid">Shared dashboard</a>
-              <a href="/dashboard/personal" className="text-muted-foreground underline underline-offset-4">Personal feed</a>
+              <a
+                href="/dashboard"
+                aria-current="page"
+                className="font-semibold text-acid"
+              >
+                Shared dashboard
+              </a>
+              <a
+                href="/dashboard/personal"
+                className="text-muted-foreground underline underline-offset-4"
+              >
+                Personal feed
+              </a>
             </div>
           )}
           {children}

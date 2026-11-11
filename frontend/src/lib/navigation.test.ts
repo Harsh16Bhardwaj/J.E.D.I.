@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   allNavigation,
+  adminNavigation,
+  isAdminRoute,
   currentNavigation,
   searchNavigation,
   settingsNavigation,
@@ -31,10 +33,10 @@ test("chapter progress preserves the legacy core guide without completing new gu
   );
 });
 
-test("members see the shared daily workflow without owner controls", () => {
+test("members see everyday tools without admin navigation", () => {
   assert.deepEqual(
     visibleNavigation(allNavigation, { isGroupOwner: false }).map(
-      ({ label }) => label,
+      (item) => item.label,
     ),
     [
       "Daily Feed",
@@ -44,42 +46,44 @@ test("members see the shared daily workflow without owner controls", () => {
       "Applications",
       "Learning",
       "Tutorial",
-      "Batches",
       "Group",
       "Shared leaderboard",
     ],
+  );
+  assert.deepEqual(
+    visibleNavigation(adminNavigation, { isGroupOwner: false }),
+    [],
   );
 });
 
-test("owners see scraper, shared profile, model, and training controls", () => {
+test("owners see scraper and batches together under Admin", () => {
   assert.deepEqual(
-    visibleNavigation(allNavigation, { isGroupOwner: true }).map(
-      ({ label }) => label,
-    ),
-    [
-      "Daily Feed",
-      "Personal feed",
-      "Jobs",
-      "Resume fit",
-      "Applications",
-      "Learning",
-      "Tutorial",
-      "Batches",
-      "Scraper",
-      "Group",
-      "Email",
-      "Shared leaderboard",
-      "Shared Profile",
-      "Models",
-      "Training Data",
-    ],
+    adminNavigation.map((item) => item.label),
+    ["Scraper", "Batches"],
+  );
+  assert.ok(adminNavigation.every((item) => item.ownerOnly));
+  assert.equal(
+    visibleNavigation(adminNavigation, { isGroupOwner: true }).length,
+    2,
   );
   assert.deepEqual(
     visibleNavigation(settingsNavigation, { isGroupOwner: false }).map(
-      ({ label }) => label,
+      (item) => item.label,
     ),
     ["Group"],
   );
+});
+
+test("admin routes include nested pages and exclude similarly named paths", () => {
+  for (const path of [
+    "/batches",
+    "/batches/example",
+    "/scraper",
+    "/scraper/run",
+  ])
+    assert.equal(isAdminRoute(path), true);
+  for (const path of ["/jobs", "/batches-other", "/scrapers", "/dashboard"])
+    assert.equal(isAdminRoute(path), false);
 });
 
 test("the tutorial remains new until completion is explicitly persisted", () => {

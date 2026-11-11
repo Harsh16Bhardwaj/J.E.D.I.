@@ -372,3 +372,12 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 - Adapted the existing landing palette, model code blocks, chart colors, and scraper checkboxes. The landing uses a hydration-safe reduced-motion check.
 - All 38 frontend tests, lint, TypeScript, and the production build passed. Browser fixtures verified landing, login, both dashboards, preference dialogs, dense job cards, and 320/390/768px layouts, including a dark operating-system preference.
 - Desktop landing and job-card rendering were visually inspected. Broader assistive-technology and real-device review remain follow-ups.
+
+## Minimal sidebar and admin-only collection tools
+
+- Moved Scraper and Batches into an Admin navigation group, visible only to the group owner. Admin maps to the existing isGroupOwner authorization model.
+- Simplified sidebar rows, section labels, branding scale, tutorial indicator, and footer directly in the component. Removed sidebar-specific stylesheet overrides and collapsed Legacy tools.
+- Added a direct-page guard for /scraper and /batches, including nested routes. Added an owner dependency to every /api/batches endpoint; existing scraper ownership checks continue to apply.
+- Member dashboards, including Legacy, no longer request batch inventory or display import/operations controls. Normal job browsing and private application tools retain their entry points.
+- 39 frontend tests passed. Backend group/access tests passed (16), and the product API suite passed (32). Frontend build, TypeScript, lint, and targeted backend Ruff passed.
+- Browser fixtures verified owner Admin navigation, absence of member admin links, direct-route denial, zero member batch requests, and mobile overflow checks. The rendered sidebar was visually inspected.

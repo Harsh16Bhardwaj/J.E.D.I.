@@ -41,10 +41,20 @@ from backend.schemas.product import (
     RelevanceLabel,
 )
 from backend.services.batch_ingestion import ingest_batch
-from backend.services.group_access import require_group_context
+from backend.services.group_access import require_group_context, require_group_owner
 
-router = APIRouter(prefix="/api/batches", tags=["batches"])
 DatabaseSession = Annotated[AsyncSession, Depends(get_session)]
+
+
+async def require_batch_admin(user: CurrentUser, session: DatabaseSession) -> None:
+    await require_group_owner(session, user.id)
+
+
+router = APIRouter(
+    prefix="/api/batches",
+    tags=["batches"],
+    dependencies=[Depends(require_batch_admin)],
+)
 
 ANNOTATION_FIELDS = (
     "apply_label",

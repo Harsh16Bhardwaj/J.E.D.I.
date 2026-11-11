@@ -30,9 +30,18 @@ export const primaryNavigation = [
   { href: "/applications", label: "Applications", icon: ClipboardCheck },
   { href: "/learning", label: "Learning", icon: GraduationCap },
   { href: "/tutorial", label: "Tutorial", icon: BookOpenCheck, tutorial: true },
-  { href: "/batches", label: "Batches", icon: Boxes },
-  { href: "/scraper", label: "Scraper", icon: Radar, ownerOnly: true },
 ] satisfies readonly NavigationItem[];
+
+export const adminNavigation = [
+  { href: "/scraper", label: "Scraper", icon: Radar, ownerOnly: true },
+  { href: "/batches", label: "Batches", icon: Boxes, ownerOnly: true },
+] satisfies readonly NavigationItem[];
+
+export function isAdminRoute(pathname: string) {
+  return adminNavigation.some(
+    ({ href }) => pathname === href || pathname.startsWith(href + "/"),
+  );
+}
 
 export const settingsNavigation = [
   { href: "/settings/group", label: "Group", icon: UsersRound },
@@ -64,6 +73,7 @@ export const miscNavigation = [
 export const allNavigation: readonly NavigationItem[] = [
   ...primaryNavigation,
   ...settingsNavigation,
+  ...adminNavigation,
   ...miscNavigation,
 ];
 

@@ -217,13 +217,13 @@ export default function DashboardPage() {
   const [completingActionId, setCompletingActionId] = useState<string>();
   const { mutate: mutateGlobal } = useSWRConfig();
   const session = useSWR<User>("/api/auth/session");
-  const live = useSWR<TimedResult<Health>>("/health/live", timedGet, {
+  const live = useSWR<TimedResult<Health>>(session.data?.isGroupOwner ? "/health/live" : null, timedGet, {
     refreshInterval: 30_000,
   });
-  const ready = useSWR<TimedResult<Health>>("/health/ready", timedGet, {
+  const ready = useSWR<TimedResult<Health>>(session.data?.isGroupOwner ? "/health/ready" : null, timedGet, {
     refreshInterval: 30_000,
   });
-  const batches = useSWR<BatchPage>("/api/batches?page=1&pageSize=5", {
+  const batches = useSWR<BatchPage>(session.data?.isGroupOwner ? "/api/batches?page=1&pageSize=5" : null, {
     refreshInterval: 10_000,
     revalidateOnFocus: true,
   });
@@ -348,12 +348,12 @@ export default function DashboardPage() {
           <BrutalCard className="mt-5 flex items-center justify-between gap-4">
             <div>
               <p className="font-medium">{fresh ? "All available jobs have been viewed." : "No jobs are available yet."}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{fresh ? "Clear the unseen filter to see them again." : "Import a recent batch to start ranking opportunities."}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{fresh ? "Clear the unseen filter to see them again." : "Check back for new opportunities or compare a job description."}</p>
             </div>
             {fresh ? (
               <Button variant="ghost" className="shrink-0" onClick={() => setFresh(false)}>Clear filter</Button>
             ) : (
-              <Link href="/batches?import=1" className="shrink-0 text-sm font-medium hover:text-acid">Import batch</Link>
+              <Link href={session.data?.isGroupOwner ? "/batches?import=1" : "/jobs/intake"} className="shrink-0 text-sm font-medium hover:text-acid">{session.data?.isGroupOwner ? "Import batch" : "Compare a job"}</Link>
             )}
           </BrutalCard>
         )}
@@ -508,6 +508,7 @@ export default function DashboardPage() {
         )}
       </section>
 
+      {session.data?.isGroupOwner && <>
       <section>
         <SectionHeading
           eyebrow="Recent intake"
@@ -588,6 +589,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+      </>}
     </div>
   );
 }
