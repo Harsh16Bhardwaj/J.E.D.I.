@@ -824,7 +824,7 @@ export async function apiRequest<T>(
       );
     }
     throw new ApiError(
-      `Could not connect to the JEDI API at ${apiBase()}. Check the API process and local site address.`,
+      `JEDI API is offline. Start the local API on http://localhost:8000, then retry this request.`,
       0,
       "NETWORK_ERROR",
     );
