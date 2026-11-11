@@ -211,25 +211,8 @@ function ProtectedShell({ children }: { children: React.ReactNode }) {
         <main
           id="workspace-content"
           tabIndex={-1}
-          className="min-h-screen min-w-0 px-4 pb-8 pt-20 sm:px-6 lg:px-10 lg:py-12"
+          className="min-h-screen min-w-0 px-4 pb-8 pt-20 sm:px-6 lg:px-10 lg:py-7"
         >
-          {pathname === "/dashboard" && (
-            <div className="mb-6 flex flex-wrap gap-3 text-sm">
-              <a
-                href="/dashboard"
-                aria-current="page"
-                className="font-semibold text-acid"
-              >
-                Shared dashboard
-              </a>
-              <a
-                href="/dashboard/personal"
-                className="text-muted-foreground underline underline-offset-4"
-              >
-                Personal feed
-              </a>
-            </div>
-          )}
           {children}
         </main>
       </div>

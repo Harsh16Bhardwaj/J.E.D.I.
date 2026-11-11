@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { featureGuide } from "@/lib/feature-guide";
 
 type RouteHeaderProps = {
@@ -9,38 +8,26 @@ type RouteHeaderProps = {
   path: string;
 };
 
-export function RouteHeader({
-  eyebrow,
-  title,
-  description,
-  path,
-}: RouteHeaderProps) {
+export function RouteHeader({ title, description, path }: RouteHeaderProps) {
   const guides = featureGuide.filter((feature) => feature.route === path);
   return (
-    <header className="max-w-4xl">
-      <div className="mb-5 flex flex-wrap items-center gap-3">
-        <Badge className="rounded-full border border-acid/30 bg-acid/10 px-3 font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-acid">
-          {eyebrow}
-        </Badge>
-        <code className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-          {path}
-        </code>
-      </div>
-      <h1 className="max-w-4xl text-4xl font-semibold leading-[0.96] tracking-[-0.05em] sm:text-6xl">
-        {title}
-      </h1>
-      <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-        {description}
-      </p>
-      {guides.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
-          {guides.map((feature) => (
-            <Link key={feature.id} href={`/tutorial#${feature.id}`} className="text-sm text-muted-foreground underline hover:text-foreground">
-              Guide for {feature.title}
-            </Link>
-          ))}
-        </div>
-      )}
+    <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
+      <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+      <details className="max-w-lg text-sm text-muted-foreground">
+        <summary className="cursor-pointer py-2 text-right underline underline-offset-4">
+          Help
+        </summary>
+        <p className="mt-3 leading-6">{description}</p>
+        {guides.map((feature) => (
+          <Link
+            key={feature.id}
+            href={`/tutorial#${feature.id}`}
+            className="mt-2 block underline"
+          >
+            {feature.title}
+          </Link>
+        ))}
+      </details>
     </header>
   );
 }

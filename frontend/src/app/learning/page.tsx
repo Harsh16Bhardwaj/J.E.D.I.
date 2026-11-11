@@ -173,7 +173,7 @@ function LearningPageContent() {
       <RouteHeader
         eyebrow="Interview preparation"
         path="/learning"
-        title="Close the skill gap."
+        title="Learning"
         description="Compare your resume with a role, then practise the skills you need through focused, timed sprints."
       />
       {active ? (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, BrainCircuit, Check, Database, UserRound } from "lucide-react";
+import { ArrowRight, Check, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 
@@ -141,28 +141,9 @@ export default function OnboardingPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 lg:py-12">
-      <header className="grid gap-8 border-b border-border pb-9 lg:grid-cols-[1fr_.75fr] lg:items-end">
-        <div>
-          <p className="ops-label text-acid">Member setup / {onboarding.data.group.name}</p>
-          <h1 className="mt-4 max-w-3xl text-5xl font-black uppercase tracking-[-0.055em] sm:text-7xl">
-            Add your context.
-          </h1>
-          <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-            Your preferences shape your personal daily feed. Review your resume evidence separately to understand your fit for a specific role.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <BrutalCard className="p-4">
-            <BrainCircuit className="size-5 text-purple" />
-            <p className="mt-5 ops-label text-muted-foreground">Legacy</p>
-            <p className="mt-2 text-sm font-semibold">Shared group profile</p>
-          </BrutalCard>
-          <BrutalCard className="p-4">
-            <Database className="size-5 text-muted-foreground" />
-            <p className="mt-5 ops-label text-muted-foreground">Personal feed</p>
-            <p className="mt-2 text-sm font-semibold">Your member profile</p>
-          </BrutalCard>
-        </div>
+      <header className="border-b border-border pb-5">
+        <h1 className="text-3xl font-semibold tracking-tight">Your profile</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Set your preferences and upload a resume to compare your fit.</p>
       </header>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[.7fr_1.3fr]">

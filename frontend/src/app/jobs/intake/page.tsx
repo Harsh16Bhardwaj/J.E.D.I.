@@ -462,11 +462,7 @@ function JobIntakeWorkspace({ linkedDraft }: { linkedDraft: string | null }) {
         <Link href="/jobs" className="desk-back-link">
           <ArrowLeft className="size-3.5" /> Jobs
         </Link>
-        <p className="desk-eyebrow">Your private workspace</p>
-        <h1>
-          Found something <em>interesting?</em>
-        </h1>
-        <p>Bring the listing. We’ll help you read between the lines.</p>
+        <h1>Bring a job</h1>
       </header>
       <ol className="intake-steps" aria-label="Job intake progress">
         {["Bring a job", "Review the details", "Compare your fit"].map(
@@ -523,7 +519,7 @@ function JobIntakeWorkspace({ linkedDraft }: { linkedDraft: string | null }) {
                   <div className="intake-input-icon">
                     <Link2 className="size-7" strokeWidth={1.4} />
                   </div>
-                  <h2>One link. A clearer picture.</h2>
+                  <h2>Paste a job link</h2>
                   <p id="job-link-help">
                     Greenhouse, Lever, Ashby, and SmartRecruiters posting links
                     work here.
@@ -577,7 +573,7 @@ function JobIntakeWorkspace({ linkedDraft }: { linkedDraft: string | null }) {
                   <div className="intake-input-icon">
                     <FileText className="size-7" strokeWidth={1.4} />
                   </div>
-                  <h2>The details make the difference.</h2>
+                  <h2>Paste a description</h2>
                   <p id="job-paste-help">
                     Copy the title, company, and requirements from the listing.
                   </p>

@@ -138,7 +138,7 @@ export default function BatchesPage() {
     <div className="space-y-9">
       <RouteHeader
         eyebrow="Batch workspace"
-        title="Control the daily intake."
+        title="Batches"
         path="/batches"
         description="Imports are validated, limited to verified postings from the last 30 days, and deterministically deduplicated."
       />

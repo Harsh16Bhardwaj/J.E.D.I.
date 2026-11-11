@@ -11,7 +11,6 @@ import {
   BriefcaseBusiness,
   Check,
   Eye,
-  EyeOff,
   RefreshCw,
   Search,
   SlidersHorizontal,
@@ -20,7 +19,6 @@ import {
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 
-import { ScoreRing } from "@/components/score-ring";
 import { BrutalCard } from "@/components/brutal-card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -43,7 +41,10 @@ import {
   type JobStateResult,
 } from "@/lib/api";
 import { formatCompensationLpa, postedDaysAgo } from "@/lib/job-display";
-import { prepareApplicationMove, type ApplicationMoveAttempt } from "@/lib/application-move";
+import {
+  prepareApplicationMove,
+  type ApplicationMoveAttempt,
+} from "@/lib/application-move";
 
 const PAGE_SIZE = 20;
 
@@ -58,14 +59,19 @@ function probability(value: number) {
 
 function ErrorDetails({ error }: { error: unknown }) {
   return (
-    <div role="alert" className="mt-4 rounded-lg border border-coral/40 bg-coral/5 p-4">
+    <div
+      role="alert"
+      className="mt-4 rounded-lg border border-coral/40 bg-coral/5 p-4"
+    >
       <p className="text-sm font-bold text-coral">{errorSummary(error)}</p>
       {isApiError(error) && error.requestId && (
         <details className="mt-3 text-xs text-muted-foreground">
           <summary className="cursor-pointer font-mono uppercase tracking-wider">
             Technical details
           </summary>
-          <p className="mt-2 break-all font-mono">Request ID: {error.requestId}</p>
+          <p className="mt-2 break-all font-mono">
+            Request ID: {error.requestId}
+          </p>
         </details>
       )}
     </div>
@@ -93,107 +99,103 @@ function JobCard({
   const canStart = job.applicationStatus === "NOT_STARTED";
   const isViewed = job.reviewStatus !== "NEW";
   const isBookmarked = job.reviewStatus === "SAVED";
-  const hasApplied = !["NOT_STARTED", "PREPARING"].includes(job.applicationStatus);
-  const score = prediction?.rankingScore ?? prediction?.jediPreferenceScore ?? null;
+  const score =
+    prediction?.rankingScore ?? prediction?.jediPreferenceScore ?? null;
 
   return (
-    <BrutalCard className={`jobs-listing-card group overflow-hidden border-l-4 p-0 transition ${hasApplied ? "border-l-acid" : isViewed ? "border-l-purple" : "border-l-coral"}`}>
-      <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_12rem]">
-        <div className="min-w-0">
-          <div className="listing-identity"><span aria-hidden="true">{job.companyName.trim().charAt(0).toUpperCase()}</span><p>{job.companyName}</p></div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {isBookmarked ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-purple/40 bg-purple/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-purple">
-                <BookmarkCheck className="size-3" /> Bookmarked
+    <article className={`catalog-job ${isBookmarked ? "is-saved" : ""}`}>
+      <div className="catalog-job-main">
+        <span className="company-stamp" aria-hidden="true">
+          {job.companyName.trim().charAt(0).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <p className="font-semibold text-purple">{job.companyName}</p>
+            {!isViewed && (
+              <span className="inline-flex items-center gap-1 text-coral">
+                <span className="size-1.5 rounded-full bg-coral" />
+                Unseen
               </span>
-            ) : null}
-            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${isViewed ? "border-purple/35 bg-purple/10 text-purple" : "border-coral/35 bg-coral/10 text-coral"}`}>
-              {isViewed ? <Eye className="size-3" /> : <EyeOff className="size-3" />}
-              {isViewed ? "Viewed" : "Unseen"}
-            </span>
-            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${hasApplied ? "border-acid/35 bg-acid/10 text-acid" : job.applicationStatus === "PREPARING" ? "border-purple/35 bg-purple/10 text-purple" : "border-border bg-raised text-muted-foreground"}`}>
-              {hasApplied ? `Applied · ${label(job.applicationStatus)}` : label(job.applicationStatus)}
-            </span>
-            {prediction ? <span className="ops-label text-muted-foreground">Rank #{prediction.rank}</span> : null}
+            )}
+            {job.applicationStatus !== "NOT_STARTED" && (
+              <span className="text-primary">
+                {label(job.applicationStatus)}
+              </span>
+            )}
           </div>
-
-          <Link href={`/jobs/${job.id}`} className="mt-4 block w-fit max-w-full">
-            <h2 className="line-clamp-2 break-words text-xl font-black uppercase tracking-tight transition-colors group-hover:text-acid sm:text-2xl">
+          <Link href={`/jobs/${job.id}`} className="mt-1.5 block w-fit">
+            <h2 className="text-xl font-semibold leading-snug tracking-tight hover:text-primary">
               {job.roleTitle}
             </h2>
           </Link>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-2 text-xs text-muted-foreground">
             {job.location || "Location not listed"}
-            {job.workMode && job.location?.toLowerCase() !== job.workMode.toLowerCase() ? ` · ${label(job.workMode)}` : ""}
+            {job.workMode &&
+            job.location?.toLowerCase() !== job.workMode.toLowerCase()
+              ? ` · ${label(job.workMode)}`
+              : ""}
           </p>
-
-          <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span>{postedDaysAgo(job.batchCreatedAt)}</span>
-            <span className="font-semibold text-acid">{formatCompensationLpa(job)}</span>
-            {job.relevanceLabel ? <span>Preference: {label(job.relevanceLabel)}</span> : null}
-          </div>
+          <p className="mt-3 text-sm font-semibold text-primary">
+            {formatCompensationLpa(job)}
+          </p>
         </div>
-
-        <div className="flex items-center justify-between border-t border-border pt-4 lg:block lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+        <div className="catalog-score">
           {prediction ? (
             <>
-              <div>
-                <p className="ops-label text-muted-foreground">Legacy preference</p>
-                <ScoreRing score={score} />
-              </div>
-              <div className="text-right lg:mt-5 lg:text-left">
-                <p className="ops-label text-muted-foreground">Apply signal</p>
-                <p className="mt-1 font-mono text-sm">
-                  {probability(prediction.applyPreferenceProbability)}
-                </p>
-              </div>
+              <strong>{score === null ? "—" : score.toFixed(1)}</strong>
+              <span>Legacy score /100</span>
+              <span className="mt-2">
+                {probability(prediction.applyPreferenceProbability)} apply
+                signal
+              </span>
             </>
           ) : (
-            <p className="max-w-40 text-xs leading-5 text-muted-foreground">
-              No successful ranking run has scored this job yet.
-            </p>
+            <span>Unscored</span>
           )}
         </div>
       </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-raised/40 px-5 py-3">
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="cursor-pointer"
-            disabled={marking || isViewed}
-            onClick={onViewed}
-          >
-            {isViewed ? <Check /> : <Eye />}
-            {marking ? "Saving..." : isViewed ? "Viewed" : "Mark viewed"}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`cursor-pointer ${isBookmarked ? "text-purple" : ""}`}
-            disabled={bookmarking}
-            onClick={onBookmark}
-          >
-            <BookmarkCheck />
-            {bookmarking ? "Saving..." : isBookmarked ? "Bookmarked" : "Bookmark"}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="cursor-pointer hover:border-acid/40 hover:bg-acid/10"
-            disabled={!canStart || starting}
-            onClick={onStart}
-          >
-            <BriefcaseBusiness />
-            {canStart ? "Start application" : label(job.applicationStatus)}
-          </Button>
-        </div>
-        <Link href={`/jobs/${job.id}`} className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium hover:bg-raised hover:text-acid">
-          Open detail <ArrowUpRight className="size-4" />
+      <footer className="catalog-job-actions">
+        <span className="mr-auto text-[11px] text-muted-foreground">
+          {postedDaysAgo(job.batchCreatedAt).replace("Posted", "Imported")}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={marking || isViewed}
+          onClick={onViewed}
+        >
+          {isViewed ? <Check /> : <Eye />}
+          {marking ? "Saving…" : isViewed ? "Viewed" : "Mark viewed"}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-pressed={isBookmarked}
+          disabled={bookmarking}
+          onClick={onBookmark}
+          className={isBookmarked ? "text-purple" : ""}
+        >
+          <BookmarkCheck />
+          {bookmarking ? "Saving…" : isBookmarked ? "Bookmarked" : "Bookmark"}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!canStart || starting}
+          onClick={onStart}
+        >
+          <BriefcaseBusiness />
+          {canStart ? "Start application" : label(job.applicationStatus)}
+        </Button>
+        <Link
+          href={`/jobs/${job.id}`}
+          aria-label={`Open ${job.roleTitle} at ${job.companyName}`}
+          className="grid size-9 place-items-center rounded-md hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary"
+        >
+          <ArrowUpRight className="size-4" />
         </Link>
-      </div>
-    </BrutalCard>
+      </footer>
+    </article>
   );
 }
 
@@ -270,10 +272,15 @@ function JobsWorkspace() {
     setMarkingId(job.id);
     const previous = jobs.data;
     await jobs.mutate(
-      (current) => current ? {
-        ...current,
-        items: current.items.map((item) => item.id === job.id ? { ...item, reviewStatus: "VIEWED" } : item),
-      } : current,
+      (current) =>
+        current
+          ? {
+              ...current,
+              items: current.items.map((item) =>
+                item.id === job.id ? { ...item, reviewStatus: "VIEWED" } : item,
+              ),
+            }
+          : current,
       { revalidate: false },
     );
     try {
@@ -302,13 +309,21 @@ function JobsWorkspace() {
     await jobs.mutate(
       (current) => {
         if (!current) return current;
-        const items = bookmarkedOnly && bookmarked
-          ? current.items.filter((item) => item.id !== job.id)
-          : current.items.map((item) => item.id === job.id ? { ...item, reviewStatus: bookmarked ? "VIEWED" : "SAVED" } : item);
+        const items =
+          bookmarkedOnly && bookmarked
+            ? current.items.filter((item) => item.id !== job.id)
+            : current.items.map((item) =>
+                item.id === job.id
+                  ? { ...item, reviewStatus: bookmarked ? "VIEWED" : "SAVED" }
+                  : item,
+              );
         return {
           ...current,
           items,
-          total: bookmarkedOnly && bookmarked ? Math.max(0, current.total - 1) : current.total,
+          total:
+            bookmarkedOnly && bookmarked
+              ? Math.max(0, current.total - 1)
+              : current.total,
         };
       },
       { revalidate: false },
@@ -365,122 +380,169 @@ function JobsWorkspace() {
 
   return (
     <div className="space-y-8">
-      <header className="relative overflow-hidden rounded-xl border border-acid/25 bg-gradient-to-br from-acid/15 via-card to-purple/10 p-6 sm:p-8">
-        <div className="absolute -right-12 -top-16 size-48 rounded-full bg-acid/10 blur-3xl" />
-        <p className="ops-label text-acid">Opportunity workspace</p>
-        <div className="relative mt-3 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-          <div>
-            <h1 className="text-4xl font-black uppercase tracking-[-0.05em] sm:text-6xl">Jobs</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Find your next opportunity. Keep the ones worth a closer look.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <div className="min-w-24 rounded-lg border border-border bg-background/70 px-4 py-3">
-              <p className="text-2xl font-black">{jobs.data?.total ?? "--"}</p>
-              <p className="ops-label mt-1 text-muted-foreground">Results</p>
-            </div>
-            <div className="min-w-24 rounded-lg border border-border bg-background/70 px-4 py-3">
-              <p className="text-2xl font-black">{page}/{pages}</p>
-              <p className="ops-label mt-1 text-muted-foreground">Page</p>
-            </div>
-          </div>
-        </div>
+      <header className="flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Jobs{" "}
+          <span className="ml-2 align-middle font-mono text-sm font-normal text-muted-foreground">
+            {jobs.data?.total ?? "—"}
+          </span>
+        </h1>
+        <Link
+          href="/jobs/intake"
+          className={buttonVariants({ variant: "outline" })}
+        >
+          Bring a job <ArrowUpRight className="size-4" />
+        </Link>
       </header>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="inline-flex w-fit gap-1 rounded-xl border border-border bg-card p-1.5 shadow-sm">
-        <button
-          type="button"
-          className={`min-h-10 cursor-pointer rounded-lg border px-5 text-sm font-bold transition ${!bookmarkedOnly ? "border-acid bg-acid text-background shadow-[3px_3px_0_var(--foreground)]" : "border-transparent text-muted-foreground hover:bg-raised hover:text-foreground"}`}
-          onClick={() => updateParams({ reviewStatus: null, page: 1 })}
-        >
-          All jobs
-        </button>
-        <button
-          type="button"
-          className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-5 text-sm font-bold transition ${bookmarkedOnly ? "border-purple bg-purple text-background shadow-[3px_3px_0_var(--foreground)]" : "border-transparent text-muted-foreground hover:bg-raised hover:text-foreground"}`}
-          onClick={() => updateParams({ reviewStatus: "SAVED", viewed: null, page: 1 })}
-        >
-          <BookmarkCheck className="size-4" /> Bookmarked
-        </button>
+        <div className="inline-flex w-fit gap-1 rounded-xl border border-border bg-card p-1.5 shadow-sm">
+          <button
+            type="button"
+            className={`min-h-10 cursor-pointer rounded-lg border px-5 text-sm font-bold transition ${!bookmarkedOnly ? "border-acid bg-acid text-background shadow-[3px_3px_0_var(--foreground)]" : "border-transparent text-muted-foreground hover:bg-raised hover:text-foreground"}`}
+            aria-pressed={!bookmarkedOnly}
+            onClick={() => updateParams({ reviewStatus: null, page: 1 })}
+          >
+            All jobs
+          </button>
+          <button
+            type="button"
+            aria-pressed={bookmarkedOnly}
+            className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border px-5 text-sm font-bold transition ${bookmarkedOnly ? "border-purple bg-purple text-background shadow-[3px_3px_0_var(--foreground)]" : "border-transparent text-muted-foreground hover:bg-raised hover:text-foreground"}`}
+            onClick={() =>
+              updateParams({ reviewStatus: "SAVED", viewed: null, page: 1 })
+            }
+          >
+            <BookmarkCheck className="size-4" /> Bookmarked
+          </button>
+        </div>
       </div>
 
-      <Link href="/jobs/intake" className={buttonVariants({ variant: "outline", className: "min-h-10 border-primary px-4 text-primary" })}>Bring a job <ArrowUpRight className="size-4" /></Link>
-      </div>
-
-      <BrutalCard className="space-y-5 border-purple/25 bg-gradient-to-r from-card to-purple/5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="size-4 text-purple" />
-            <p className="ops-label">Find the right jobs</p>
+      <div className="rounded-lg border border-border bg-card p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-0 flex-[1_1_16rem]">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label="Search jobs"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Company or job title"
+              className="pl-10"
+            />
           </div>
-          {hasFilters ? (
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            Sort
+            <select
+              className="min-h-10 rounded-md border border-border bg-background px-3 text-foreground"
+              value={searchParams.get("sort") ?? "recent"}
+              onChange={(event) =>
+                updateParams({ sort: event.target.value, page: 1 })
+              }
+            >
+              <option value="recent">Newest</option>
+              <option value="score">Best match</option>
+            </select>
+          </label>
+          {hasFilters && (
             <Button
               variant="ghost"
               size="sm"
-              className="cursor-pointer text-muted-foreground hover:text-coral"
               onClick={() => {
                 setSearch("");
                 router.replace(pathname, { scroll: false });
               }}
             >
-              <X className="size-4" /> Clear
+              <X className="size-4" />
+              Clear
             </Button>
-          ) : null}
+          )}
         </div>
-
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search company or job title..."
-            className="min-h-12 border-2 bg-background pl-10 pr-24"
-          />
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-            Auto search
-          </span>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: "Order", key: "sort", choices: [["recent", "Newest"], ["score", "Best match"]] },
-            { label: "Minimum score", key: "minScore", choices: [["", "Any"], ["60", "60+"], ["75", "75+"]] },
-            { label: "Review", key: "viewed", choices: [["", "All"], ["false", "Unseen"], ["true", "Viewed"]] },
-            { label: "Application", key: "applied", choices: [["", "All"], ["false", "Not applied"], ["true", "Applied"]] },
-          ].map((group) => (
-            <div key={group.key}>
-              <p className="ops-label mb-2 text-muted-foreground">{group.label}</p>
-              <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-background/70 p-1">
-                {group.choices.map(([value, choiceLabel]) => {
-                  const current = searchParams.get(group.key) ?? (group.key === "sort" ? "recent" : "");
-                  const active = current === value;
-                  return (
-                    <button
-                      key={value || "all"}
-                      type="button"
-                      aria-pressed={active}
-                      className={`min-h-9 flex-1 cursor-pointer rounded-md px-2 text-xs font-medium transition ${active ? "bg-foreground text-background shadow-sm" : "text-muted-foreground hover:bg-raised hover:text-foreground"}`}
-                      onClick={() => updateParams({
-                        [group.key]: value,
-                        ...(group.key === "viewed" ? { reviewStatus: null } : {}),
+        <details
+          className="mt-3 border-t border-border pt-3"
+          open={
+            Boolean(
+              searchParams.get("minScore") ||
+                searchParams.get("viewed") ||
+                searchParams.get("applied"),
+            ) || undefined
+          }
+        >
+          <summary className="flex w-fit cursor-pointer items-center gap-2 text-xs font-medium">
+            <SlidersHorizontal className="size-3.5" />
+            Filters
+          </summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {[
+              {
+                label: "Minimum score",
+                key: "minScore",
+                choices: [
+                  ["", "Any score"],
+                  ["60", "60+"],
+                  ["75", "75+"],
+                ],
+              },
+              {
+                label: "Review",
+                key: "viewed",
+                choices: [
+                  ["", "All jobs"],
+                  ["false", "Unseen"],
+                  ["true", "Viewed"],
+                ],
+              },
+              {
+                label: "Application",
+                key: "applied",
+                choices: [
+                  ["", "All stages"],
+                  ["false", "Not applied"],
+                  ["true", "Applied"],
+                ],
+              },
+            ].map((group) => {
+              const current = searchParams.get(group.key) ?? "";
+              return (
+                <label
+                  key={group.key}
+                  className="flex flex-col gap-1.5 text-xs text-muted-foreground"
+                >
+                  {group.label}
+                  <select
+                    className="min-h-10 min-w-0 rounded-md border border-border bg-background px-3 text-foreground"
+                    aria-label={group.label}
+                    value={current}
+                    onChange={(event) =>
+                      updateParams({
+                        [group.key]: event.target.value,
+                        ...(group.key === "viewed"
+                          ? { reviewStatus: null }
+                          : {}),
                         page: 1,
-                      })}
-                    >
-                      {choiceLabel}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </BrutalCard>
+                      })
+                    }
+                  >
+                    {!group.choices.some(([value]) => value === current) && (
+                      <option value={current}>{current}</option>
+                    )}
+                    {group.choices.map(([value, text]) => (
+                      <option key={value} value={value}>
+                        {text}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              );
+            })}
+          </div>
+        </details>
+      </div>
 
       {jobs.isLoading ? (
         <div className="space-y-3">
-          {[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-64 rounded-xl bg-raised" />)}
+          {[0, 1, 2, 3].map((item) => (
+            <Skeleton key={item} className="h-44 rounded-xl bg-raised" />
+          ))}
         </div>
       ) : jobs.error ? (
         <BrutalCard className="border-coral/40 py-10 text-center">
@@ -493,7 +555,9 @@ function JobsWorkspace() {
       ) : jobs.data?.items.length ? (
         <section className="jobs-listing-stack" aria-busy={jobs.isValidating}>
           {jobs.isValidating && (
-            <p className="ops-label text-muted-foreground">Refreshing jobs...</p>
+            <p className="ops-label text-muted-foreground">
+              Refreshing jobs...
+            </p>
           )}
           {jobs.data.items.map((job) => (
             <JobCard
@@ -515,19 +579,31 @@ function JobsWorkspace() {
       ) : (
         <BrutalCard className="py-16 text-center">
           <Search className="mx-auto size-8 text-muted-foreground" />
-          <h2 className="mt-5 text-2xl font-black uppercase">No matching jobs</h2>
+          <h2 className="mt-5 text-2xl font-black uppercase">
+            No matching jobs
+          </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Adjust the filters, or import and rank another batch.
+            Try another search or clear your filters.
           </p>
         </BrutalCard>
       )}
 
       <div className="flex items-center justify-between">
-        <Button variant="outline" disabled={page <= 1} onClick={() => updateParams({ page: page - 1 })}>
+        <Button
+          variant="outline"
+          disabled={page <= 1}
+          onClick={() => updateParams({ page: page - 1 })}
+        >
           <ArrowLeft /> Previous
         </Button>
-        <p className="ops-label text-muted-foreground">Page {page} of {pages}</p>
-        <Button variant="outline" disabled={page >= pages} onClick={() => updateParams({ page: page + 1 })}>
+        <p className="ops-label text-muted-foreground">
+          Page {page} of {pages}
+        </p>
+        <Button
+          variant="outline"
+          disabled={page >= pages}
+          onClick={() => updateParams({ page: page + 1 })}
+        >
           Next <ArrowRight />
         </Button>
       </div>
@@ -538,9 +614,14 @@ function JobsWorkspace() {
           if (!open && !starting) setSelectedJob(undefined);
         }}
       >
-        <DialogContent showCloseButton={!starting} className="border border-border sm:max-w-lg">
+        <DialogContent
+          showCloseButton={!starting}
+          className="border border-border sm:max-w-lg"
+        >
           <DialogHeader>
-            <DialogTitle className="text-xl font-black uppercase">Start preparing?</DialogTitle>
+            <DialogTitle className="text-xl font-black uppercase">
+              Start preparing?
+            </DialogTitle>
             <DialogDescription>
               {selectedJob
                 ? `${selectedJob.roleTitle} at ${selectedJob.companyName} will move into your Preparing stage.`
@@ -548,11 +629,18 @@ function JobsWorkspace() {
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border border-border bg-raised/50 p-4 text-sm leading-6 text-muted-foreground">
-            This records a private status event for your member account. It does not submit an application to the employer.
+            This records a private status event for your member account. It does
+            not submit an application to the employer.
           </div>
           {Boolean(actionError) && <ErrorDetails error={actionError} />}
           <DialogFooter>
-            <Button variant="outline" disabled={starting} onClick={() => setSelectedJob(undefined)}>Cancel</Button>
+            <Button
+              variant="outline"
+              disabled={starting}
+              onClick={() => setSelectedJob(undefined)}
+            >
+              Cancel
+            </Button>
             <Button disabled={starting} onClick={() => void startApplication()}>
               <BriefcaseBusiness /> {starting ? "Saving…" : "Move to preparing"}
             </Button>

@@ -78,7 +78,7 @@ export default function LoginPage() {
             <Image src="/logo.png" alt="" width={30} height={34} />
             JEDI/
           </Link>
-          <span>JEDI / CAREER DESK</span>
+
         </div>
         <div className="newspaper-login-story">
           <p className="newspaper-kicker">CAREERS / YOUR PERSONAL EDITION</p>

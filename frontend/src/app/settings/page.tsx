@@ -25,14 +25,13 @@ export default function SettingsPage() {
       <PageGrid>
         {items.map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href} className="group">
-            <BrutalCard className="flex min-h-48 flex-col justify-between transition-transform group-hover:-translate-y-1 group-hover:bg-raised">
+            <BrutalCard className="flex min-h-32 flex-col justify-between transition-transform group-hover:-translate-y-1 group-hover:bg-raised">
               <div className="flex items-center justify-between">
                 <Icon className="size-7 text-purple" aria-hidden="true" />
                 <ArrowUpRight className="size-5" aria-hidden="true" />
               </div>
               <div>
-                <h2 className="text-2xl font-black uppercase">{label}</h2>
-                <code className="text-xs text-muted-foreground">{href}</code>
+                <h2 className="text-xl font-semibold">{label}</h2>
               </div>
             </BrutalCard>
           </Link>

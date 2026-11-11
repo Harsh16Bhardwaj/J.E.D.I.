@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ScoreRing } from "@/components/score-ring";
-import { CareerEngraving } from "@/components/career-engraving";
+import { ShortlistDistribution } from "@/components/feed-insights";
 import useSWR from "swr";
 import { ArrowUpRight, FileSearch, RefreshCw, Settings2 } from "lucide-react";
 import { apiRequest, errorSummary } from "@/lib/api";
@@ -61,37 +60,17 @@ export default function PersonalDashboard() {
 
   return (
     <div className="personal-space space-y-8">
-      <header className="personal-desk-header">
-        <CareerEngraving className="personal-desk-art" />
-        <div>
-          <p className="desk-eyebrow">Selected around your preferences</p>
-          <h1 className="personal-desk-title">
-            Your next chapter<span>.</span>
-          </h1>
-          {feed.data?.generatedAt && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              Updated {new Date(feed.data.generatedAt).toLocaleString()}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            className="min-h-10"
-            onClick={() => {
-              setSaveError(undefined);
-              setEditing(true);
-            }}
-          >
-            <Settings2 className="size-4" /> Preferences
-          </Button>
-          <Link
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm hover:bg-muted"
-            href="/jobs/intake"
-          >
-            Compare a job <ArrowUpRight className="size-4" />
-          </Link>
-        </div>
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+        <h1 className="text-3xl font-semibold tracking-tight">Personal feed</h1>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSaveError(undefined);
+            setEditing(true);
+          }}
+        >
+          <Settings2 className="size-4" /> Preferences
+        </Button>
       </header>
       {feed.error && (
         <div
@@ -113,11 +92,11 @@ export default function PersonalDashboard() {
         </div>
       )}
       {feed.isLoading && (
-        <div role="status" className="grid gap-4 md:grid-cols-2">
+        <div role="status" className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="h-48 animate-pulse rounded-xl border border-border bg-card"
+              className="h-32 animate-pulse rounded-xl border border-border bg-card"
             />
           ))}
           <span className="sr-only">Loading recommendations</span>
@@ -172,67 +151,118 @@ export default function PersonalDashboard() {
               pool.
             </p>
           )}
-          <div className="grid gap-6 xl:grid-cols-2">
-            {feed.data.jobs.map((job, index) => (
-              <article key={job.id} className="personal-pick group">
-                <div className="personal-pick-byline">
-                  <span className="personal-pick-number">
+          <div className="shortlist-layout">
+            <div className="shortlist-rows">
+              {feed.data.jobs.map((job, index) => (
+                <article key={job.id} className="shortlist-row group">
+                  <span
+                    className="shortlist-rank"
+                    aria-label={`Recommendation ${index + 1}`}
+                  >
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-purple">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-purple">
                       {job.companyName}
                     </p>
-                    <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Personal pick
+                    <h3 className="mt-1 text-xl font-semibold leading-snug tracking-tight">
+                      <Link
+                        href={`/jobs/${job.id}`}
+                        className="hover:text-primary"
+                      >
+                        {job.roleTitle}
+                        <ArrowUpRight className="ml-1 inline size-4" />
+                      </Link>
+                    </h3>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {job.location || "Location not listed"}
+                      {job.workMode &&
+                      job.location?.toLowerCase() !== job.workMode.toLowerCase()
+                        ? ` · ${job.workMode.toLowerCase().replaceAll("_", " ")}`
+                        : ""}
                     </p>
-                  </div>
-                  <div className="text-center">
-                    <ScoreRing score={job.score} />
-                    <p className="text-[10px] text-muted-foreground">
-                      Preference
-                    </p>
-                  </div>
-                </div>
-                <h3 className="mt-4 text-xl font-black uppercase tracking-tight sm:text-2xl">
-                  <Link href={`/jobs/${job.id}`} className="hover:text-acid">
-                    {job.roleTitle}
-                    <ArrowUpRight className="ml-2 inline size-4" />
-                  </Link>
-                </h3>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {job.location || "Location not listed"}
-                  {job.workMode &&
-                  job.location?.toLowerCase() !== job.workMode.toLowerCase()
-                    ? ` · ${job.workMode.toLowerCase().replaceAll("_", " ")}`
-                    : ""}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {job.reasons.map((reason) => (
-                    <span
-                      key={reason}
-                      className="rounded-md bg-acid/8 px-2 py-1 text-[11px] text-acid"
+                    <ul
+                      className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-primary"
+                      aria-label="Match reasons"
                     >
-                      {reason}
-                    </span>
-                  ))}
-                </div>
-                {job.unknowns.length > 0 && (
-                  <details className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
-                    <summary className="cursor-pointer">
-                      {job.unknowns.length}{" "}
-                      {job.unknowns.length === 1 ? "detail" : "details"} to
-                      verify
-                    </summary>
-                    <ul className="mt-2 space-y-1">
-                      {job.unknowns.map((detail) => (
-                        <li key={detail}>{detail}</li>
+                      {job.reasons.map((reason) => (
+                        <li key={reason} className="flex items-center gap-1.5">
+                          <span
+                            aria-hidden="true"
+                            className="size-1 rounded-full bg-primary"
+                          />
+                          {reason}
+                        </li>
                       ))}
                     </ul>
-                  </details>
-                )}
-              </article>
-            ))}
+                    {job.unknowns.length > 0 && (
+                      <details className="mt-3 text-xs text-muted-foreground">
+                        <summary className="w-fit cursor-pointer underline decoration-dotted underline-offset-4">
+                          {job.unknowns.length}{" "}
+                          {job.unknowns.length === 1 ? "detail" : "details"} to
+                          verify
+                        </summary>
+                        <ul className="mt-2 space-y-1">
+                          {job.unknowns.map((detail) => (
+                            <li key={detail}>{detail}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </div>
+                  <div
+                    className="shortlist-score"
+                    aria-label={`Preference score ${job.score ?? "unavailable"} out of 100`}
+                  >
+                    <strong>
+                      {job.score !== null && Number.isFinite(job.score)
+                        ? job.score.toFixed(1)
+                        : "—"}
+                    </strong>
+                    <span>/100</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+            {feed.data.jobs.length > 0 && (
+              <aside className="space-y-4">
+                <ShortlistDistribution
+                  scores={feed.data.jobs.map((job) => job.score)}
+                />
+                <section className="rounded-lg border border-border p-5">
+                  <h2 className="text-sm font-semibold">Your preferences</h2>
+                  {preferences.error ? (
+                    <p className="mt-3 text-xs text-coral">
+                      Preferences could not load.
+                    </p>
+                  ) : preferences.isLoading ? (
+                    <p role="status" className="mt-3 text-xs">
+                      Loading…
+                    </p>
+                  ) : (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {[
+                        ...(preferences.data?.preferredTitles ?? []),
+                        ...(preferences.data?.preferredSkills ?? []),
+                        ...(preferences.data?.preferredLocations ?? []),
+                      ].map((item, index) => (
+                        <span
+                          key={`${item}-${index}`}
+                          className="rounded border border-border bg-card px-2 py-1 text-xs"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {feed.data.generatedAt && (
+                    <p className="mt-5 border-t border-border pt-3 text-[11px] text-muted-foreground">
+                      Updated {new Date(feed.data.generatedAt).toLocaleString()}
+                    </p>
+                  )}
+                </section>
+              </aside>
+            )}
           </div>
           {feed.data.jobs.length === 0 && (
             <div className="rounded-xl border border-dashed border-border p-10 text-center">
@@ -275,10 +305,7 @@ export default function PersonalDashboard() {
       >
         <DialogContent className="sm:max-w-xl" showCloseButton={!saving}>
           <DialogHeader>
-            <p className="ops-label text-acid">
-              Personal signal / Configuration
-            </p>
-            <DialogTitle>Your direction. Your preferences.</DialogTitle>
+            <DialogTitle>Preferences</DialogTitle>
             <DialogDescription>
               These choices change your feed immediately using the latest daily
               pool. Separate multiple values with commas.

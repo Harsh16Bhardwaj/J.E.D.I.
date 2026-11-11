@@ -200,7 +200,7 @@ export default function TutorialPage() {
     <div className="mx-auto max-w-7xl space-y-14 pb-10">
       <RouteHeader
         eyebrow="Product field guide"
-        title="How JEDI turns job noise into action"
+        title="Guide"
         path="/tutorial"
         description="Follow a job from daily collection to a ranked recommendation, a personalized email, and your private application board."
       />

@@ -458,14 +458,13 @@ export default function JobDetailPage() {
     <div className="space-y-8">
       <Link href="/jobs" className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-acid"><ArrowLeft className="size-4" />Back to jobs</Link>
 
-      <header className="relative overflow-hidden rounded-xl border border-purple/30 bg-gradient-to-br from-purple/15 via-card to-acid/10 p-6 sm:p-8">
-        <div className="absolute -right-16 -top-20 size-64 rounded-full bg-purple/10 blur-3xl" />
+      <header className="rounded-xl border border-border bg-card p-5">
         <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
           <div className="flex min-w-0 gap-4">
             <div className="grid size-14 shrink-0 place-items-center rounded-xl border-2 border-purple/40 bg-purple/10 text-2xl font-black text-purple">{data.job.companyName.trim().charAt(0).toUpperCase() || "J"}</div>
             <div className="min-w-0">
               <p className="font-semibold text-purple">{data.job.companyName}</p>
-              <h1 className="mt-2 max-w-4xl text-3xl font-black uppercase leading-tight tracking-[-0.04em] sm:text-5xl">{data.job.roleTitle}</h1>
+              <h1 className="mt-2 max-w-4xl text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{data.job.roleTitle}</h1>
               <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5"><MapPin className="size-3.5" />{fallback(data.job.location)}</span>
                 <span>·</span><span className="capitalize">{fallback(data.job.employmentType)}</span>
