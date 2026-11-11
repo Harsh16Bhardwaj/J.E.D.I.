@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { CareerEngraving } from "@/components/career-engraving";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -48,7 +49,9 @@ export default function LoginPage() {
       });
       await mutate("/api/auth/session", user, { revalidate: false });
       toast.success("Welcome back.", { description: user.email });
-      const requestedPath = new URLSearchParams(window.location.search).get("next");
+      const requestedPath = new URLSearchParams(window.location.search).get(
+        "next",
+      );
       router.replace(
         user.onboardingComplete ? safeNext(requestedPath) : "/onboarding",
       );
@@ -65,33 +68,45 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen overflow-hidden lg:grid-cols-[1.15fr_.85fr]">
-      <section className="hidden border-r-2 border-foreground bg-acid p-10 text-background lg:flex lg:flex-col lg:justify-between">
-        <Link href="/" className="flex items-center gap-3 font-mono text-sm font-black tracking-[0.28em]">
-          <Image src="/logo.png" alt="" width={45} height={50} className="h-[50px] w-[45px] object-contain" priority />
-          JEDI/
-        </Link>
-        <motion.div
-          initial={{ opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45 }}
-        >
-          <p className="font-mono text-xs font-bold uppercase tracking-[0.25em]">
-            Private access only
-          </p>
-          <h1 className="mt-5 text-[clamp(4rem,8vw,8rem)] font-black uppercase leading-[0.78] tracking-[-0.08em]">
-            Less noise.
+    <main className="newspaper-login">
+      <section className="newspaper-login-cover">
+        <div className="newspaper-login-masthead">
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-black tracking-tight"
+          >
+            <Image src="/logo.png" alt="" width={30} height={34} />
+            JEDI/
+          </Link>
+          <span>THE DAILY SIGNAL</span>
+        </div>
+        <div className="newspaper-login-story">
+          <p className="newspaper-kicker">CAREERS / YOUR PERSONAL EDITION</p>
+          <h2>
+            A new chapter.
             <br />
-            Better bets.
-          </h1>
-        </motion.div>
-        <p className="max-w-md text-sm font-bold leading-6">
-          Your session lives in a signed HttpOnly cookie. The browser never
-          stores your password or exposes the token to JavaScript.
-        </p>
+            <em>A clearer direction.</em>
+          </h2>
+          <figure>
+            <CareerEngraving />
+            <figcaption>
+              FIELD NOTES / OPPORTUNITIES WORTH A CLOSER LOOK
+            </figcaption>
+          </figure>
+          <p>
+            Find your next opportunity.
+            <br />
+            Give your experience a place to go.
+          </p>
+        </div>
+        <div className="newspaper-login-foot">
+          <span>Discover</span>
+          <span>Compare</span>
+          <span>Make your move ↗</span>
+        </div>
       </section>
 
-      <section className="flex items-center justify-center p-5 sm:p-10">
+      <section className="newspaper-login-form">
         <motion.div
           initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
@@ -102,15 +117,13 @@ export default function LoginPage() {
             className="mb-10 inline-flex min-h-11 items-center gap-2 font-mono text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-acid"
           >
             <ArrowLeft className="size-4" />
-            Back to system
+            Back to JEDI
           </Link>
           <LockKeyhole className="size-9 text-acid" />
           <p className="mt-7 font-mono text-xs font-bold uppercase tracking-[0.22em] text-acid">
-            Authenticate
+            MEMBER SIGN-IN
           </p>
-          <h2 className="mt-3 text-5xl font-black uppercase tracking-[-0.05em]">
-            Enter JEDI.
-          </h2>
+          <h1 className="newspaper-login-title">Welcome back.</h1>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
             Use your JEDI account, or create one with a group invitation code.
           </p>
@@ -124,12 +137,14 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 autoComplete="email"
-                className="mt-2 min-h-12 border-2 bg-card"
+                className="mt-2 min-h-12 bg-card"
                 aria-invalid={Boolean(errors.email)}
                 {...register("email")}
               />
               {errors.email && (
-                <p className="mt-2 text-sm text-coral">{errors.email.message}</p>
+                <p className="mt-2 text-sm text-coral">
+                  {errors.email.message}
+                </p>
               )}
             </div>
             <div>
@@ -140,7 +155,7 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 autoComplete="current-password"
-                className="mt-2 min-h-12 border-2 bg-card"
+                className="mt-2 min-h-12 bg-card"
                 aria-invalid={Boolean(errors.password)}
                 {...register("password")}
               />
@@ -163,16 +178,22 @@ export default function LoginPage() {
               disabled={isSubmitting}
               className="min-h-12 w-full rounded-lg border border-border bg-foreground font-mono font-black uppercase text-background hover:bg-acid"
             >
-              {isSubmitting ? "Checking credentials…" : "Open command center"}
+              {isSubmitting ? "Checking credentials…" : "Sign in"}
               {!isSubmitting && <ArrowRight className="size-4" />}
             </Button>
-            <Link href="/forgot-password" className="block text-center text-sm font-semibold text-foreground hover:text-acid">
+            <Link
+              href="/forgot-password"
+              className="block text-center text-sm font-semibold text-foreground hover:text-acid"
+            >
               Forgot password?
             </Link>
           </form>
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Have an invitation?{" "}
-            <Link href="/register" className="font-semibold text-foreground hover:text-acid">
+            <Link
+              href="/register"
+              className="font-semibold text-foreground hover:text-acid"
+            >
               Create an account
             </Link>
           </p>

@@ -381,3 +381,12 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 - Member dashboards, including Legacy, no longer request batch inventory or display import/operations controls. Normal job browsing and private application tools retain their entry points.
 - 39 frontend tests passed. Backend group/access tests passed (16), and the product API suite passed (32). Frontend build, TypeScript, lint, and targeted backend Ruff passed.
 - Browser fixtures verified owner Admin navigation, absence of member admin links, direct-route denial, zero member batch requests, and mobile overflow checks. The rendered sidebar was visually inspected.
+
+## Restore the local API and extend the newspaper public pages
+
+- Found no API process listening on localhost:8000. Started the existing FastAPI development entry point as a hidden background process using the configured database. Live and ready checks returned HTTP 200; a credentialed browser readiness request also returned 200.
+- Replaced the login's solid accent panel and technical intro with a Paper newspaper cover, serif headline, restrained rules, and an original SVG desk engraving.
+- Added The Daily Signal masthead and an illustrated lead figure to the existing landing layout. Updated stale shared/private workspace copy.
+- Preserved the login request, validation, password-reset link, and invitation entry points. The mobile layout reduces the cover to a compact masthead.
+- All 39 frontend tests, lint, TypeScript, and the production build passed. Browser checks covered API connectivity, login fields, landing, reduced motion, and 320/390/768/1440px layouts. Login and landing screenshots were visually inspected.
+- The API runs as a local development process. Hosted deployment and machine-startup service configuration are separate operations.

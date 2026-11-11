@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 
+import { CareerEngraving } from "@/components/career-engraving";
 import { PublicAuthActions } from "@/components/public-auth-actions";
 
 const briefingJobs = [
@@ -50,7 +51,7 @@ const signalSteps = [
     number: "01",
     verb: "Curate",
     title: "A human-sized pool, not an infinite feed.",
-    copy: "Relevant openings are gathered for one focused profile. JEDI is intentionally narrow: it is built to produce a useful daily read, not the largest database.",
+    copy: "Browse a focused pool of openings and keep the ones worth your attention.",
   },
   {
     number: "02",
@@ -62,7 +63,7 @@ const signalSteps = [
     number: "03",
     verb: "Rank",
     title: "The strongest fit earns the first look.",
-    copy: "One versioned model scores the surviving jobs against the shared profile. The result is a leaderboard designed for choosing what to review first.",
+    copy: "Set your preferences to prioritize roles, skills, and locations. Explore the original shared ranking in Legacy.",
   },
 ];
 
@@ -186,6 +187,7 @@ export default function LandingPage() {
         </div>
       </header>
 
+      <div className="newspaper-issue"><span>CAREERS & OPPORTUNITY</span><strong>The Daily Signal</strong><span>THE INVITED EDITION</span></div>
       <section className="landing-opening">
         <div className="landing-coordinate landing-coordinate-left" aria-hidden="true">01 / SIGNAL</div>
         <div className="landing-coordinate landing-coordinate-right" aria-hidden="true">ISSUE / DAILY</div>
@@ -214,9 +216,8 @@ export default function LandingPage() {
             <p className="landing-aside-lead">
               The internet already has enough jobs. What it lacks is a good first page.
             </p>
-            <p>
-              JEDI curates, verifies, deduplicates, and ranks a focused set of openings every day—so invited members begin with the strongest fit instead of another empty search box.
-            </p>
+            <figure className="newspaper-hero-figure"><CareerEngraving /><figcaption>FIG. 01 / THE ART OF FINDING YOUR NEXT CHAPTER</figcaption></figure>
+            <p>A focused place to discover work, compare your experience, and plan the next step.</p>
             <PublicAuthActions className="mt-8" />
             <a href="#brief" className="landing-text-link">
               Open the daily brief <ArrowDown className="size-4" aria-hidden="true" />
@@ -246,7 +247,7 @@ export default function LandingPage() {
           <p className="landing-index">01 / THE DAILY BRIEF</p>
           <h2>Twenty tabs become one decision.</h2>
           <p>
-            JEDI does not ask members to build a feed. The feed is the service: a controlled daily intake, narrowed for one shared job-seeker profile and ordered by one focused model.
+            Start with a short list. Read the details, check the fit, and spend your attention where it matters.
           </p>
         </div>
         <div className="signal-steps">
@@ -291,11 +292,11 @@ export default function LandingPage() {
             <p className="landing-index">03 / USING JEDI TODAY</p>
             <h2>Read together.<br />Improve the signal.</h2>
             <p>
-              V1 is a deliberately small room. Invited members review the same leaderboard, annotate the same jobs, and leave evidence that can sharpen the shared model.
+              Browse the shared market, then follow the opportunities that fit your direction. Your preferences and resume comparisons live in your personal workspace.
             </p>
             <div className="member-boundary">
               <LockKeyhole aria-hidden="true" />
-              <p><strong>Shared today, not private.</strong> Current job state and application events are attached to the job. Personal member-only logs and response analytics belong to v2.</p>
+              <p><strong>A shared market. A personal workspace.</strong> Your resume, fit reports, and application progress are private to your account.</p>
             </div>
           </div>
           <ol className="member-sequence">

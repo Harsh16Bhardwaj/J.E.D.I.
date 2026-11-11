@@ -321,3 +321,47 @@ select {
 .signal-ticker { background: var(--primary); color: var(--primary-foreground); }
 .router-core { color: #dce3ce; }
 select, input[type=checkbox] { accent-color: var(--primary); }
+
+/* The public pages share the Paper edition's editorial desk. */
+.newspaper-issue { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 0 auto; max-width: 96rem; padding: 22px 20px 18px; border-bottom: 3px double var(--foreground); }
+.newspaper-issue > span { font: 9px var(--font-mono); letter-spacing: .12em; color: var(--muted-foreground); }
+.newspaper-issue > strong { font: 600 clamp(2rem,4vw,3.6rem)/1 Georgia,serif; letter-spacing: -.055em; }
+.landing-opening::after { display: none; }
+.landing-opening { padding-top: clamp(3rem,5vw,5rem); }
+.newspaper-hero-figure { margin: 20px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 8px 0 12px; }
+.newspaper-hero-figure svg { width: 100%; }
+.newspaper-hero-figure figcaption, .newspaper-login-story figcaption { color: var(--muted-foreground); font: 8px/1.7 var(--font-mono); letter-spacing: .1em; }
+.newspaper-login { display: grid; grid-template-columns: 1fr 1fr; min-height: 100dvh; }
+.newspaper-login-cover { display: flex; flex-direction: column; justify-content: space-between; gap: 36px; padding: 30px clamp(28px,4vw,64px); border-right: 1px solid var(--border); background: #ece8dc; background-image: radial-gradient(#8b806414 .65px,transparent .65px); background-size: 5px 5px; }
+.newspaper-login-masthead { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 18px; border-bottom: 3px double var(--foreground); }
+.newspaper-login-masthead > span { color: var(--muted-foreground); font: 8px var(--font-mono); letter-spacing: .15em; }
+.newspaper-login-story { margin: auto 0; }
+.newspaper-kicker { font: 9px var(--font-mono); letter-spacing: .14em; color: var(--primary); }
+.newspaper-login-story h2 { margin-top: 20px; font: 500 clamp(2.8rem,4.5vw,5rem)/1.02 Georgia,serif; letter-spacing: -.055em; }
+.newspaper-login-story h2 em { color: var(--primary); font-weight: 400; }
+.newspaper-login-story figure { max-width: 540px; margin: 20px auto; }
+.newspaper-login-story figure svg { display: block; width: 100%; }
+.newspaper-login-story figcaption { text-align: center; }
+.newspaper-login-story > p:last-child { max-width: 30rem; padding-top: 18px; margin-top: 20px; border-top: 1px solid var(--border); font: 400 17px/1.5 Georgia,serif; color: var(--muted-foreground); }
+.newspaper-login-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding-top: 16px; border-top: 1px solid var(--border); font: 9px var(--font-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted-foreground); }
+.newspaper-login-form { display: flex; align-items: center; justify-content: center; padding: 48px clamp(24px,6vw,90px); }
+.newspaper-login-title { margin-top: 12px; font: 500 clamp(2.5rem,4vw,3.6rem)/1.08 Georgia,serif; letter-spacing: -.05em; }
+@media (max-width: 900px) {
+  .newspaper-login { grid-template-columns: .85fr 1fr; }
+  .newspaper-login-cover { padding: 24px; }
+  .newspaper-login-masthead > span { display: none; }
+  .newspaper-login-story h2 { font-size: 2.8rem; }
+  .newspaper-hero-figure { max-width: 400px; }
+}
+@media (max-width: 680px) {
+  .newspaper-login { display: block; }
+  .newspaper-login-cover { gap: 20px; padding: 18px 24px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .newspaper-login-masthead { padding-bottom: 12px; }
+  .newspaper-login-masthead > span { display: block; }
+  .newspaper-login-story, .newspaper-login-foot { display: none; }
+  .newspaper-login-form { padding: 28px 24px 44px; }
+  .newspaper-login-form a.mb-10 { margin-bottom: 24px; }
+  .newspaper-issue { flex-wrap: wrap; justify-content: center; gap: 10px; padding: 16px; text-align: center; }
+  .newspaper-issue > strong { width: 100%; order: -1; }
+  .newspaper-issue > span { font-size: 8px; }
+}
