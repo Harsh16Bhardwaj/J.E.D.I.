@@ -13,52 +13,76 @@ const themes = [
   "rosewood",
   "arctic",
   "terminal",
+  "nebula",
+  "nightshift",
+  "afterglow",
+  "synthwave",
 ];
 const themeMeta = {
   workspace: {
-    label: "Workspace",
+    label: "Command Center",
     note: "Plum + cobalt",
     swatches: ["#321A38", "#1559C5", "#147D52"],
   },
   editorial: {
-    label: "Editorial",
+    label: "Sunday Paper",
     note: "Paper + ink",
     swatches: ["#EEE8DD", "#1B4DA3", "#B14C32"],
   },
   spectrum: {
-    label: "Spectrum",
+    label: "Prism",
     note: "Violet + teal",
     swatches: ["#6246CA", "#087365", "#B53D70"],
   },
   carbon: {
-    label: "Carbon",
+    label: "Black Tie",
     note: "Dark + electric",
     swatches: ["#111215", "#B3A2FF", "#82DAB2"],
   },
   ocean: {
-    label: "Ocean",
+    label: "Tidepool",
     note: "Navy + aqua",
     swatches: ["#102A43", "#087E8B", "#F28F3B"],
   },
   citrus: {
-    label: "Citrus",
+    label: "Fresh Press",
     note: "Graphite + lime",
     swatches: ["#202A25", "#D97706", "#65A30D"],
   },
   rosewood: {
-    label: "Rosewood",
+    label: "Velvet Hour",
     note: "Burgundy + gold",
     swatches: ["#3B1725", "#9F1239", "#B7791F"],
   },
   arctic: {
-    label: "Arctic",
+    label: "Cold Front",
     note: "Slate + cyan",
     swatches: ["#E8F1F5", "#2563EB", "#0F766E"],
   },
   terminal: {
-    label: "Terminal",
+    label: "Green Room",
     note: "Ink + phosphor",
     swatches: ["#0B1210", "#39FF88", "#F5C451"],
+  },
+  nebula: {
+    label: "Nebula",
+    note: "Indigo + coral",
+    swatches: ["#15132B", "#A78BFA", "#FB7185"],
+  },
+  nightshift: {
+    label: "Nightshift",
+    note: "Navy + amber",
+    swatches: ["#0F1B2D", "#60A5FA", "#FBBF24"],
+  },
+  afterglow: {
+    label: "Afterglow",
+    note: "Plum + peach",
+    swatches: ["#241522", "#F0A6CA", "#FDBA74"],
+  },
+  synthwave: {
+    label: "Synthwave",
+    note: "Violet + neon",
+    swatches: ["#180D2E", "#E879F9", "#2DD4BF"],
   },
 } as const;
 const subscribe = () => () => {};
