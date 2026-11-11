@@ -793,7 +793,9 @@ function apiBase(): string {
     typeof window !== "undefined" &&
     ["localhost", "127.0.0.1"].includes(window.location.hostname)
   ) {
-    return `http://${window.location.hostname}:8000`;
+    // Keep local development on IPv4. Windows may resolve `localhost` to ::1
+    // first while uvicorn is intentionally bound to 127.0.0.1.
+    return "http://127.0.0.1:8000";
   }
   return "/svc/ml";
 }
