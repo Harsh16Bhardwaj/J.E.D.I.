@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { formatCompensationLpa, postedDaysAgo } from "./job-display";
+import { descriptionPreview, formatCompensationLpa, postedDaysAgo } from "./job-display";
+
+test("card previews remove Markdown formatting while preserving skill names", () => {
+  assert.equal(descriptionPreview("**Role:** Full Stack Developer\n**Location:** Delhi\n- React.js, C++, C#, .NET and `TypeScript`"),
+    "Role: Full Stack Developer Location: Delhi React.js, C++, C#, .NET and TypeScript");
+  assert.equal(descriptionPreview("## Responsibilities\nBuild [APIs](https://example.com) with __Python__."), "Responsibilities Build APIs with Python.");
+  assert.equal(descriptionPreview(""), "");
+});
 
 test("formats annual INR compensation in LPA", () => {
   assert.equal(

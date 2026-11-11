@@ -82,12 +82,7 @@ export function useSidebarStyle() {
 
 export function SidebarStylePicker() {
   const { style, saved, preview, setPreview } = useContext(StyleContext);
-  const [open, setOpen] = useState<boolean | null>(null);
-  const hasSaved = useSyncExternalStore(subscribe, () => {
-    try { return styles.some(option => option.id === localStorage.getItem(key)); }
-    catch { return false; }
-  }, () => false);
-  const expanded = open ?? !hasSaved;
+  const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   return (
     <section
@@ -98,18 +93,18 @@ export function SidebarStylePicker() {
         <div>
           <h2 className="text-sm font-semibold">Sidebar styles</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            {expanded
+            {open
               ? "Preview an option, then keep your favourite."
               : `${styles.find((option) => option.id === saved)?.name} selected`}
           </p>
         </div>
-        {!expanded && (
+        {!open && (
           <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
             Change style
           </Button>
         )}
       </div>
-      {expanded && (
+      {open && (
         <>
           <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
             {styles.map((option) => (

@@ -357,3 +357,10 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 - Applied the additive 20261107000000_daily_recommendations migration to the configured Supabase database and generated its first daily pool. Verified the real authenticated recommendations endpoint returned HTTP 200, READY, and 12 jobs.
 - Frontend lint, TypeScript, 37 unit tests, and the production build passed. Controlled browser checks passed all four previews, save/reload persistence, discard, and mobile navigation.
 - Sidebar selection currently persists per browser. Production scheduler deployment verification remains separate from this manually generated daily pool.
+
+## Refine the approved dark card dashboard
+
+- Used the user's screenshot as the visual reference: original boxed sidebar and logo, dark cards, lime score rings and salary values, purple company names, and compact tags.
+- Cleaned Markdown markers from description previews while preserving technical skill names. Posting age now uses the supplied posting date; a batch-date fallback is explicitly labelled Imported.
+- Tightened card headers on small screens and kept the appearance picker collapsed until opened. Hover emphasizes the existing card border.
+- Added a regression test for Markdown previews and skill punctuation. All 38 frontend tests passed, along with lint and TypeScript. Desktop and 320/390/768px browser checks used fixture data, and the rendered dashboard was visually inspected.

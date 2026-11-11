@@ -39,7 +39,7 @@ import {
   type TimedResult,
   type User,
 } from "@/lib/api";
-import { formatCompensationLpa, postedDaysAgo } from "@/lib/job-display";
+import { descriptionPreview, formatCompensationLpa, postedDaysAgo } from "@/lib/job-display";
 
 type Period = "daily" | "weekly" | "overall";
 
@@ -100,7 +100,7 @@ function SectionHeading({
 function PreferenceGauge({ score }: { score: number | null }) {
   if (score === null) {
     return (
-      <div className="grid size-20 shrink-0 place-items-center rounded-full border-4 border-muted text-muted-foreground">
+      <div className="grid size-16 shrink-0 sm:size-20 place-items-center rounded-full border-4 border-muted text-muted-foreground">
         <span className="font-mono text-sm">--</span>
       </div>
     );
@@ -108,7 +108,7 @@ function PreferenceGauge({ score }: { score: number | null }) {
   const value = Math.max(0, Math.min(100, score));
   return (
     <div
-      className="relative size-20 shrink-0"
+      className="relative size-16 shrink-0 sm:size-20"
       aria-label={`Preference score ${value.toFixed(1)} out of 100`}
     >
       <ResponsiveContainer width="100%" height="100%">
@@ -154,15 +154,15 @@ function JobCard({ job }: { job: DashboardJob }) {
     <Link
       href={`/jobs/${job.id}`}
       aria-label={`Open ${job.roleTitle} at ${job.companyName}`}
-      className="group flex min-h-[22rem] min-w-0 flex-col rounded-xl border border-border bg-card p-5 transition hover:-translate-y-1 hover:border-acid/55 hover:shadow-[6px_6px_0_var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acid"
+      className="dashboard-job-card group flex min-h-[22rem] min-w-0 flex-col rounded-xl border border-border bg-card p-5 transition-[border-color,box-shadow] hover:border-acid/55 hover:shadow-[0_0_0_1px_var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-acid"
     >
-      <div className="flex items-start gap-4">
-        <div className="grid size-12 shrink-0 place-items-center rounded-lg border-2 border-purple/30 bg-purple/10 text-xl font-black text-purple">
+      <div className="flex items-start gap-3 sm:gap-4">
+        <div className="grid size-10 shrink-0 sm:size-12 place-items-center rounded-lg border-2 border-purple/30 bg-purple/10 text-xl font-black text-purple">
           {job.companyName.trim().charAt(0).toUpperCase() || "J"}
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-purple">{job.companyName}</p>
-          <h3 className="mt-1 line-clamp-2 text-lg font-black uppercase leading-tight transition group-hover:text-acid">
+          <h3 className="mt-1 line-clamp-2 break-words text-base font-black sm:text-lg uppercase leading-tight transition group-hover:text-acid">
             {job.roleTitle}
           </h3>
         </div>
@@ -189,18 +189,18 @@ function JobCard({ job }: { job: DashboardJob }) {
       <div className="mt-3 flex flex-wrap gap-2">
         {[job.employmentType, job.seniority, job.workMode].filter(Boolean).map((value) => (
           <span key={value} className="rounded-full border border-border px-2 py-1 text-[10px] font-bold uppercase text-muted-foreground">
-            {value}
+            {readableStatus(value ?? "")}
           </span>
         ))}
       </div>
       <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted-foreground">
-        {job.description || "No description was supplied for this job."}
+        {descriptionPreview(job.description || "") || "Description unavailable."}
       </p>
       <div className="mt-auto flex items-end justify-between gap-4 border-t border-border pt-4">
         <div className="min-w-0">
           <p className="truncate text-xs font-medium">{job.location || "Location unspecified"}</p>
           <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-            {postedDaysAgo(job.batchCreatedAt)} · {readableStatus(job.applicationStatus)}
+            {job.postedAt ? postedDaysAgo(job.postedAt) : postedDaysAgo(job.batchCreatedAt).replace("Posted", "Imported")} · {readableStatus(job.applicationStatus)}
           </p>
         </div>
         <span className="flex shrink-0 items-center gap-1 text-xs font-semibold transition group-hover:text-acid">
@@ -286,8 +286,8 @@ export default function DashboardPage() {
           eyebrow="New opportunities"
           title={feed.data?.jobFeedScope === "latest" ? "Latest jobs" : "Today's jobs"}
           description={feed.data?.jobFeedScope === "latest"
-            ? "No jobs were generated today, so this shows the latest available jobs ordered by JEDI preference when ranked."
-            : "Today's jobs ordered by JEDI preference when ranked; apply probability remains a review signal."}
+            ? "Latest available jobs, ordered by shared preference score."
+            : "Today's jobs, ordered by shared preference score."}
           action={
             <div className="flex flex-wrap gap-2">
               <Button

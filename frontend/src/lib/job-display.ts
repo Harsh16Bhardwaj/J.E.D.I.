@@ -1,5 +1,16 @@
 export type SalaryPeriod = "YEARLY" | "MONTHLY" | null;
 
+export function descriptionPreview(value: string) {
+  return value
+    .replace(/\[([^\]\n]+)\]\([^\n]*?\)/g, "$1")
+    .replace(/(\*\*|__)([\s\S]+?)\1/g, "$2")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 type Compensation = {
   salaryMin: number | null;
   salaryMax: number | null;
