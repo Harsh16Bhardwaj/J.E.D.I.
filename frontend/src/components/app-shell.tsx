@@ -10,7 +10,6 @@ import useSWR, {
   useSWRConfig,
 } from "swr";
 
-import { SidebarStyleProvider, SidebarStylePicker } from "@/components/sidebar-style-picker";
 import { Sidebar } from "@/components/sidebar";
 import { MobileNavigation } from "@/components/top-bar";
 import { Button } from "@/components/ui/button";
@@ -173,7 +172,12 @@ function ProtectedShell({ children }: { children: React.ReactNode }) {
       <div className="lg:pl-72">
         <MobileNavigation user={user!} />
         <main id="workspace-content" tabIndex={-1} className="min-h-screen min-w-0 px-4 pb-8 pt-20 sm:px-6 lg:px-10 lg:py-12">
-          {pathname === "/dashboard" && <div className="mb-6"><SidebarStylePicker /><div className="mt-4 flex flex-wrap gap-3 text-sm"><a href="/dashboard" aria-current="page" className="font-semibold text-acid">Shared dashboard</a><a href="/dashboard/personal" className="text-muted-foreground underline underline-offset-4">Personal feed</a></div></div>}
+          {pathname === "/dashboard" && (
+            <div className="mb-6 flex flex-wrap gap-3 text-sm">
+              <a href="/dashboard" aria-current="page" className="font-semibold text-acid">Shared dashboard</a>
+              <a href="/dashboard/personal" className="text-muted-foreground underline underline-offset-4">Personal feed</a>
+            </div>
+          )}
           {children}
         </main>
       </div>
@@ -205,7 +209,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {publicRoutes.has(pathname) ? (
           <div className="min-h-screen bg-background">{children}</div>
         ) : (
-          <SidebarStyleProvider><ProtectedShell>{children}</ProtectedShell></SidebarStyleProvider>
+          <ProtectedShell>{children}</ProtectedShell>
         )}
       </SWRConfig>
     </MotionConfig>

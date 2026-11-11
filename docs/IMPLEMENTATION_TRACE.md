@@ -364,3 +364,11 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 - Cleaned Markdown markers from description previews while preserving technical skill names. Posting age now uses the supplied posting date; a batch-date fallback is explicitly labelled Imported.
 - Tightened card headers on small screens and kept the appearance picker collapsed until opened. Hover emphasizes the existing card border.
 - Added a regression test for Markdown previews and skill punctuation. All 38 frontend tests passed, along with lint and TypeScript. Desktop and 320/390/768px browser checks used fixture data, and the rendered dashboard was visually inspected.
+
+## Apply the selected Paper theme sitewide
+
+- Made Paper the global theme, with warm backgrounds, cream cards, dark text, forest-green preference signals, muted violet accents, and stronger error colors.
+- Removed the sidebar preview controls after the user's selection. Shared color tokens now cover workspace pages, inputs, popovers, dialogs, native controls, and toast notifications.
+- Adapted the existing landing palette, model code blocks, chart colors, and scraper checkboxes. The landing uses a hydration-safe reduced-motion check.
+- All 38 frontend tests, lint, TypeScript, and the production build passed. Browser fixtures verified landing, login, both dashboards, preference dialogs, dense job cards, and 320/390/768px layouts, including a dark operating-system preference.
+- Desktop landing and job-card rendering were visually inspected. Broader assistive-technology and real-device review remain follow-ups.

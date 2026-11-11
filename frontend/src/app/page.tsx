@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -153,7 +154,9 @@ function RouterDiagram() {
 }
 
 export default function LandingPage() {
-  const reduceMotion = useReducedMotion();
+  const reducedMotion = useReducedMotion();
+  const hydrated = useSyncExternalStore(() => () => undefined, () => true, () => false);
+  const reduceMotion = hydrated && reducedMotion;
 
   return (
     <main className="jedi-landing overflow-hidden">

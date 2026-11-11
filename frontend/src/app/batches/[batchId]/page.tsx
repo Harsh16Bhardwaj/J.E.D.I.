@@ -266,13 +266,13 @@ function BatchMetricsPanel({
   if (!data) return null;
 
   const recommendationData = [
-    { label: "Recommended", count: data.recommendedCount, color: "#a8c67a" },
-    { label: "Below threshold", count: Math.max(0, data.rankedCount - data.recommendedCount), color: "#c76f62" },
+    { label: "Recommended", count: data.recommendedCount, color: "var(--primary)" },
+    { label: "Below threshold", count: Math.max(0, data.rankedCount - data.recommendedCount), color: "var(--destructive)" },
   ];
   const engagementData = [
-    { label: "Viewed", count: data.viewedCount, color: "#6f8fa3" },
-    { label: "Bookmarked", count: data.bookmarkedCount, color: "#8f84b6" },
-    { label: "Applied", count: data.appliedCount, color: "#a8c67a" },
+    { label: "Viewed", count: data.viewedCount, color: "var(--chart-4)" },
+    { label: "Bookmarked", count: data.bookmarkedCount, color: "var(--accent)" },
+    { label: "Applied", count: data.appliedCount, color: "var(--primary)" },
   ];
   const components = Object.entries(data.componentAverages)
     .map(([name, value]) => ({ label: componentLabels[name] ?? name.replaceAll("_", " "), value }))
@@ -313,7 +313,7 @@ function BatchMetricsPanel({
                 <XAxis dataKey="label" tickLine={false} axisLine={false} />
                 <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--muted)" }} />
-                <Bar dataKey="count" fill="#8f84b6" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="count" fill="var(--accent)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -368,7 +368,7 @@ function BatchMetricsPanel({
                   <XAxis type="number" domain={[0, 8]} axisLine={false} tickLine={false} />
                   <YAxis type="category" dataKey="label" width={110} axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
                   <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--muted)" }} />
-                  <Bar dataKey="value" fill="#6f8fa3" radius={[0, 6, 6, 0]} />
+                  <Bar dataKey="value" fill="var(--chart-4)" radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

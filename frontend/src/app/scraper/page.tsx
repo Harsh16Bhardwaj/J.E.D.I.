@@ -998,7 +998,7 @@ export default function ScraperPage() {
                       checked={partialConfirmed}
                       disabled={changingRun || collecting}
                       onChange={(event) => setPartialConfirmed(event.target.checked)}
-                      className="mt-0.5 size-4 accent-[#b7ff2a]"
+                      className="mt-0.5 size-4 accent-primary"
                     />
                     This is a partial collection. Import the selected jobs without waiting for
                     the remaining sources.
@@ -1103,7 +1103,7 @@ export default function ScraperPage() {
                           onChange={(event) =>
                             void updateSelection(candidate.id, event.target.checked)
                           }
-                          className="size-4 accent-[#b7ff2a]"
+                          className="size-4 accent-primary"
                         />
                       </TableCell>
                       <TableCell>

@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { useSidebarStyle } from "@/components/sidebar-style-picker";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -86,7 +85,6 @@ export function Sidebar({
   user: User;
   onNavigate?: () => void;
 }) {
-  const sidebarStyle = useSidebarStyle();
   const [tutorialViewed, setTutorialViewed] = useState<boolean | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const router = useRouter();
@@ -127,7 +125,7 @@ export function Sidebar({
   }
 
   return (
-    <div data-sidebar-style={sidebarStyle} className="sidebar-surface flex min-h-full flex-col bg-sidebar p-4">
+    <div data-sidebar-style="paper" className="sidebar-surface flex min-h-full flex-col bg-sidebar p-4">
       <Link href="/dashboard" className="mb-7 block px-2 pt-1" onClick={onNavigate}>
         <span className="flex items-center gap-2">
           <Image

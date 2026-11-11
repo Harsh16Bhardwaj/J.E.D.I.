@@ -85,7 +85,7 @@ function JsonView({
   return (
     <div>
       <p className="ops-label text-muted-foreground">{label}</p>
-      <pre className="mt-3 max-h-72 overflow-auto rounded-xl border border-border bg-[#0d0d0f] p-4 text-xs leading-6 text-muted-foreground">
+      <pre className="mt-3 max-h-72 overflow-auto rounded-xl border border-border bg-muted p-4 text-xs leading-6 text-muted-foreground">
         {JSON.stringify(value ?? {}, null, 2)}
       </pre>
     </div>
