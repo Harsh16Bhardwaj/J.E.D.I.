@@ -348,3 +348,12 @@ Each entry ships in the commit it describes. Use `git log -- docs/IMPLEMENTATION
 - Shortened the page heading and privacy copy, tightened application cards, and made status choices readable. Search follows URL navigation through a keyed form input.
 - Checked correction-reason requirements and saved move payloads with controlled browser fixtures. Filtering, clearing, and widths of 320, 390, and 768 pixels passed without page overflow. Desktop rendering was visually inspected.
 - Frontend lint, TypeScript, 37 unit tests, and the production build passed. Browser mutation checks used fixtures.
+
+## Restore the pre-redesign baseline and offer sidebar choices
+
+- Restored the landing, shared dashboard, Jobs, Applications, sidebar structure, mobile navigation, route headings, and dialogs from the pre-redesign baseline at 6f07c19.
+- Kept the personal feed at /dashboard/personal, linked from the dashboard and navigation. Its preferences and private scoring remain available.
+- Added four sidebar previews on /dashboard: Original, Minimal, Indigo, and Paper. Preview updates the sidebar immediately. Keep saves one choice in this browser and collapses the picker; Discard restores the saved choice. Change style reopens the picker.
+- Applied the additive 20261107000000_daily_recommendations migration to the configured Supabase database and generated its first daily pool. Verified the real authenticated recommendations endpoint returned HTTP 200, READY, and 12 jobs.
+- Frontend lint, TypeScript, 37 unit tests, and the production build passed. Controlled browser checks passed all four previews, save/reload persistence, discard, and mobile navigation.
+- Sidebar selection currently persists per browser. Production scheduler deployment verification remains separate from this manually generated daily pool.

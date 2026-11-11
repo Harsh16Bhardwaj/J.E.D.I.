@@ -13,7 +13,7 @@ import {
   MoveRight,
   Route,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 
 import { PublicAuthActions } from "@/components/public-auth-actions";
 
@@ -49,7 +49,7 @@ const signalSteps = [
     number: "01",
     verb: "Curate",
     title: "A human-sized pool, not an infinite feed.",
-    copy: "JEDI gathers openings into a shortlist you can review in one sitting.",
+    copy: "Relevant openings are gathered for one focused profile. JEDI is intentionally narrow: it is built to produce a useful daily read, not the largest database.",
   },
   {
     number: "02",
@@ -61,7 +61,7 @@ const signalSteps = [
     number: "03",
     verb: "Rank",
     title: "The strongest fit earns the first look.",
-    copy: "Set your preferences to prioritize jobs, or open Legacy to see the original shared ranking.",
+    copy: "One versioned model scores the surviving jobs against the shared profile. The result is a leaderboard designed for choosing what to review first.",
   },
 ];
 
@@ -119,7 +119,7 @@ function DailyBriefing() {
       </div>
 
       <div className="briefing-footer">
-        <span>Example from the original shared leaderboard.</span>
+        <span>One profile. One comparable ranking.</span>
         <span>Score = preference evidence, not outcome probability.</span>
       </div>
       <span className="briefing-stamp" aria-hidden="true">INVITE<br />ONLY</span>
@@ -153,6 +153,7 @@ function RouterDiagram() {
 }
 
 export default function LandingPage() {
+  const reduceMotion = useReducedMotion();
 
   return (
     <main className="jedi-landing overflow-hidden">
@@ -187,7 +188,7 @@ export default function LandingPage() {
         <div className="landing-coordinate landing-coordinate-right" aria-hidden="true">ISSUE / DAILY</div>
         <div className="landing-opening-grid">
           <motion.div
-            initial={{ opacity: 0, y: 28 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 28 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
             className="landing-opening-copy"
@@ -201,7 +202,7 @@ export default function LandingPage() {
           </motion.div>
 
           <motion.aside
-            initial={{ opacity: 0, x: 24 }}
+            initial={reduceMotion ? false : { opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.65, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
             className="landing-opening-aside"
@@ -221,7 +222,7 @@ export default function LandingPage() {
         </div>
 
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={reduceMotion ? false : { opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
           className="landing-brief-wrap"
@@ -242,7 +243,7 @@ export default function LandingPage() {
           <p className="landing-index">01 / THE DAILY BRIEF</p>
           <h2>Twenty tabs become one decision.</h2>
           <p>
-            Browse the shared catalog, or set your preferences to see a personal shortlist in Daily Feed.
+            JEDI does not ask members to build a feed. The feed is the service: a controlled daily intake, narrowed for one shared job-seeker profile and ordered by one focused model.
           </p>
         </div>
         <div className="signal-steps">
@@ -259,7 +260,7 @@ export default function LandingPage() {
 
       <section id="score" className="score-section">
         <div className="score-heading">
-          <p className="landing-index">02 / LEGACY SCORING</p>
+          <p className="landing-index">02 / READ THE SCORE</p>
           <h2>A ranking,<br /><em>not a prophecy.</em></h2>
           <p>
             A 94.2 JEDI score does not mean a 94.2% chance of an interview. It means the job expresses stronger learned preference fit than the other jobs in that briefing.
@@ -287,11 +288,11 @@ export default function LandingPage() {
             <p className="landing-index">03 / USING JEDI TODAY</p>
             <h2>Read together.<br />Improve the signal.</h2>
             <p>
-              Invited members can browse shared jobs, compare their resumes, and track applications. The shared leaderboard is still available in Legacy.
+              V1 is a deliberately small room. Invited members review the same leaderboard, annotate the same jobs, and leave evidence that can sharpen the shared model.
             </p>
             <div className="member-boundary">
               <LockKeyhole aria-hidden="true" />
-              <p><strong>Your workspace is private.</strong> Your resume, preferences, and applications are tied to your account.</p>
+              <p><strong>Shared today, not private.</strong> Current job state and application events are attached to the job. Personal member-only logs and response analytics belong to v2.</p>
             </div>
           </div>
           <ol className="member-sequence">

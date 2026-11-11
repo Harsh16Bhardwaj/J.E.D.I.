@@ -38,6 +38,7 @@ test("members see the shared daily workflow without owner controls", () => {
     ),
     [
       "Daily Feed",
+      "Personal feed",
       "Jobs",
       "Resume fit",
       "Applications",
@@ -57,6 +58,7 @@ test("owners see scraper, shared profile, model, and training controls", () => {
     ),
     [
       "Daily Feed",
+      "Personal feed",
       "Jobs",
       "Resume fit",
       "Applications",
