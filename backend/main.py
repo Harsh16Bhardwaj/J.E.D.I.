@@ -1,7 +1,13 @@
+import asyncio
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+if sys.platform == "win32":
+    # psycopg's async driver cannot run on Windows' default Proactor loop.
+    # Set this before FastAPI/SQLAlchemy create their event-loop-bound state.
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

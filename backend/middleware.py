@@ -7,8 +7,7 @@ from uuid import uuid4
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import OperationalError
-from sqlalchemy.exc import InterfaceError
+from sqlalchemy.exc import InterfaceError, OperationalError
 from sqlalchemy.exc import TimeoutError as SQLAlchemyTimeoutError
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
@@ -59,11 +58,12 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
         except Exception as exception:
             logger.error(
-                "request_failed method=%s path=%s request_id=%s error_type=%s",
+                "request_failed method=%s path=%s request_id=%s error_type=%s error=%s",
                 request.method,
                 request.url.path,
                 request_id,
                 type(exception).__name__,
+                str(exception)[:240],
             )
             database_unavailable = isinstance(
                 exception, (OperationalError, InterfaceError, SQLAlchemyTimeoutError)
