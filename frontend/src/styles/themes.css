@@ -1,6 +1,72 @@
 /* Research and source attribution: docs/DESIGN_PALETTES.md.
    Semantic roles stay stable across themes; category colors carry no job-fit claim. */
 :root,
+html[data-theme="signal"] {
+  color-scheme: dark;
+  --background: #090909;
+  --foreground: #e8e8e2;
+  --card: #141416;
+  --card-foreground: #e8e8e2;
+  --popover: #1b1b1e;
+  --popover-foreground: #e8e8e2;
+  --primary: #a8c67a;
+  --primary-foreground: #090909;
+  --secondary: #202023;
+  --secondary-foreground: #e8e8e2;
+  --muted: #1c1c1f;
+  --muted-foreground: #a9a9ad;
+  --accent: #a8c67a;
+  --accent-foreground: #090909;
+  --destructive: #ef8f82;
+  --coral: #ef8f82;
+  --border: #343438;
+  --input: #66666b;
+  --ring: #a8c67a;
+  --acid: #a8c67a;
+  --purple: #c2a8dc;
+  --raised: #1c1c1f;
+  --radius: 0.375rem;
+  --sidebar: #0b0b0c;
+  --sidebar-foreground: #e8e8e2;
+  --sidebar-muted: #9a9a9f;
+  --sidebar-primary: #a8c67a;
+  --sidebar-primary-foreground: #090909;
+  --sidebar-accent: #20241b;
+  --sidebar-accent-foreground: #dceabf;
+  --sidebar-border: #343438;
+  --sidebar-ring: #a8c67a;
+  --sidebar-indicator: #a8c67a;
+  --sidebar-danger: #ef8f82;
+  --surface-tint: #1d2218;
+  --surface-accent: #22271d;
+  --surface-subtle: #101011;
+  --surface-shadow: #000000;
+  --error-surface: #351d1b;
+  --success: #a8c67a;
+  --success-surface: #202a18;
+  --info: #b9d68e;
+  --info-surface: #20271b;
+  --warning: #e3c16f;
+  --warning-surface: #302819;
+  --identity-1-ink: #c7df9e;
+  --identity-1-bg: #26301e;
+  --identity-2-ink: #a8c67a;
+  --identity-2-bg: #202a18;
+  --identity-3-ink: #c2a8dc;
+  --identity-3-bg: #2b2132;
+  --identity-4-ink: #e3c16f;
+  --identity-4-bg: #302819;
+  --identity-5-ink: #d7a58e;
+  --identity-5-bg: #33231d;
+  --identity-6-ink: #a9c8c0;
+  --identity-6-bg: #1e2d2a;
+  --chart-1: #a8c67a;
+  --chart-2: #c2a8dc;
+  --chart-3: #8fb8ad;
+  --chart-4: #e3c16f;
+  --chart-5: #d98f83;
+}
+
 html[data-theme="workspace"] {
   color-scheme: light;
   --background: #f6f7f9;

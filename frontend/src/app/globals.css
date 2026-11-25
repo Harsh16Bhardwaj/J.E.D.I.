@@ -420,6 +420,22 @@ html[data-theme] .briefing-shell, html[data-theme] .score-section { background: 
 html[data-theme] .briefing-lead-copy > p, html[data-theme] .briefing-footer, html[data-theme] .briefing-row > div span, html[data-theme] .briefing-note, html[data-theme] .score-heading .landing-index, html[data-theme] .score-ledger dt span { color: var(--muted-foreground); }
 html[data-theme] .openjedi-field { background: var(--surface-tint); }
 
+/* Preserve the original deployed JEDI editorial surfaces inside the default theme. */
+html[data-theme="signal"] .briefing-shell {
+  border-color: #d1cfc3;
+  background: #e8e6dc;
+  color: #111;
+  box-shadow: 10px 10px 0 #262621;
+}
+html[data-theme="signal"] .briefing-lead-copy > p,
+html[data-theme="signal"] .briefing-footer,
+html[data-theme="signal"] .briefing-row > div span,
+html[data-theme="signal"] .briefing-note { color: #626058; }
+html[data-theme="signal"] .score-section { background: #ede7f1; color: #111; }
+html[data-theme="signal"] .score-heading .landing-index,
+html[data-theme="signal"] .score-ledger dt span { color: #514c59; }
+html[data-theme="signal"] .openjedi-field { background: #a8c67a; color: #0b0b0c; }
+
 /* Accents have separate jobs: action, evidence, review, and employer identity. */
 .match-reasons { color: var(--success); }
 .match-reasons li { padding: 4px 7px; border-radius: 5px; background: var(--success-surface); }

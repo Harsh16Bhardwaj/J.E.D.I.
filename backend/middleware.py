@@ -58,12 +58,11 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
         except Exception as exception:
             logger.error(
-                "request_failed method=%s path=%s request_id=%s error_type=%s error=%s",
+                "request_failed method=%s path=%s request_id=%s error_type=%s",
                 request.method,
                 request.url.path,
                 request_id,
                 type(exception).__name__,
-                str(exception)[:240],
             )
             database_unavailable = isinstance(
                 exception, (OperationalError, InterfaceError, SQLAlchemyTimeoutError)

@@ -10,6 +10,7 @@ import {
 } from "react";
 
 const themes = [
+  "signal",
   "workspace",
   "editorial",
   "spectrum",
@@ -23,8 +24,13 @@ const themes = [
   "nightshift",
   "afterglow",
   "synthwave",
-];
+] as const;
 const themeMeta = {
+  signal: {
+    label: "Original JEDI",
+    note: "Ink + signal green",
+    swatches: ["#090909", "#E8E8E2", "#A8C67A"],
+  },
   workspace: {
     label: "Command Center",
     note: "Plum + cobalt",
@@ -93,17 +99,21 @@ const themeMeta = {
 } as const;
 const subscribe = () => () => {};
 type ThemeId = (typeof themes)[number];
+const defaultTheme: ThemeId = "signal";
+const themeStorageKey = "jedi:theme:v2";
 const ThemeContext = createContext<{
   theme: ThemeId;
   setTheme: (theme: string) => void;
-}>({ theme: "workspace", setTheme: () => {} });
+}>({ theme: defaultTheme, setTheme: () => {} });
 export const useTheme = () => useContext(ThemeContext);
 
 function readTheme(): ThemeId {
   try {
-    const stored = window.localStorage.getItem("jedi:theme");
-    return stored && themes.includes(stored) ? stored : "workspace";
-  } catch { return "workspace"; }
+    const stored = window.localStorage.getItem(themeStorageKey);
+    return stored && themes.includes(stored as ThemeId)
+      ? (stored as ThemeId)
+      : defaultTheme;
+  } catch { return defaultTheme; }
 }
 function subscribeTheme(notify: () => void) {
   window.addEventListener("storage", notify);
@@ -115,12 +125,12 @@ function subscribeTheme(notify: () => void) {
 }
 
 export function SiteTheme({ children }: { children: React.ReactNode }) {
-  const theme = useSyncExternalStore(subscribeTheme, readTheme, () => "workspace");
+  const theme = useSyncExternalStore(subscribeTheme, readTheme, () => defaultTheme);
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
   const setTheme = (next: string) => {
-    try { window.localStorage.setItem("jedi:theme", themes.includes(next) ? next : "workspace"); } catch { return; }
+    try { window.localStorage.setItem(themeStorageKey, themes.includes(next as ThemeId) ? next : defaultTheme); } catch { return; }
     window.dispatchEvent(new Event("jedi:theme-change"));
   };
   return (
@@ -140,9 +150,9 @@ export function ThemeSelector() {
     () => false,
   );
   const active =
-    mounted && themes.includes(theme ?? "")
+    mounted && themes.includes(theme)
       ? (theme as keyof typeof themeMeta)
-      : "workspace";
+      : defaultTheme;
   useEffect(() => {
     const close = (event: MouseEvent) => {
       if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
