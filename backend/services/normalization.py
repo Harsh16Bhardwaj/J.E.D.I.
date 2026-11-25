@@ -16,6 +16,7 @@ async def normalize_batch_service(
     session: AsyncSession,
     batch_id: str,
     *,
+    profile_version_id: str | None = None,
     apply_inr_policy: bool = False,
     trigger: str = "USER",
     commit: bool = True,
@@ -37,10 +38,14 @@ async def normalize_batch_service(
         raise HTTPException(
             status_code=409, detail=f"Batch in {batch.status} cannot be normalized."
         )
-    profile = await session.scalar(
-        select(ProfileVersion)
-        .where(ProfileVersion.active.is_(True))
-        .order_by(ProfileVersion.created_at.desc())
+    profile = (
+        await session.get(ProfileVersion, profile_version_id)
+        if profile_version_id
+        else await session.scalar(
+            select(ProfileVersion)
+            .where(ProfileVersion.active.is_(True))
+            .order_by(ProfileVersion.created_at.desc())
+        )
     )
     if profile is None:
         raise HTTPException(

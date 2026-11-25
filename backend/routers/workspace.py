@@ -883,12 +883,9 @@ async def list_applications(
     )
     if application_status:
         condition = Application.status == application_status.value
-        if application_status == ApplicationStatus.NOT_STARTED:
-            condition = or_(Application.job_id.is_(None), condition)
     else:
-        condition = and_(
-            Application.job_id.is_not(None), Application.status != "NOT_STARTED"
-        )
+        # A saved plan is tracked even before a stage transition is recorded.
+        condition = Application.job_id.is_not(None)
     statement = statement.where(condition)
     count = count.where(condition)
     if search and search.strip():
@@ -936,7 +933,6 @@ async def list_applications(
         .join(Job, Job.id == Application.job_id)
         .where(
             Application.group_member_id == member_id,
-            Application.status != "NOT_STARTED",
             Application.next_action_due_at < now,
         )
     )
@@ -1011,7 +1007,6 @@ async def application_summary(
             select(Application.status, func.count())
             .where(
                 Application.group_member_id == member_id,
-                Application.status != "NOT_STARTED",
             )
             .group_by(Application.status)
         )
@@ -1022,7 +1017,6 @@ async def application_summary(
             .select_from(Application)
             .where(
                 Application.group_member_id == member_id,
-                Application.status != "NOT_STARTED",
                 Application.next_action_due_at < now,
             )
         )
@@ -1034,7 +1028,6 @@ async def application_summary(
             .select_from(Application)
             .where(
                 Application.group_member_id == member_id,
-                Application.status != "NOT_STARTED",
                 Application.next_action_due_at >= today_start,
                 Application.next_action_due_at < tomorrow_start,
             )
@@ -1047,7 +1040,6 @@ async def application_summary(
             .join(Job, Job.id == Application.job_id)
             .where(
                 Application.group_member_id == member_id,
-                Application.status != "NOT_STARTED",
                 Application.next_action.is_not(None),
                 Application.next_action_due_at.is_not(None),
             )

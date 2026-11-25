@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "topicId": "sql-fundamentals",
+  "topicName": "SQL Fundamentals",
+  "questionCount": 3,
+  "difficultyDistribution": {
+    "easy": 1,
+    "medium": 1,
+    "hard": 1
+  },
+  "questions": [
+    {
+      "id": "sql-fundamentals-001",
+      "difficulty": "easy",
+      "question": "Which SQL clause filters individual rows before grouping?",
+      "options": [
+        {
+          "id": "a",
+          "text": "ORDER BY",
+          "explanation": "Incorrect. ORDER BY sorts results."
+        },
+        {
+          "id": "b",
+          "text": "HAVING",
+          "explanation": "Incorrect. HAVING filters groups after aggregation."
+        },
+        {
+          "id": "c",
+          "text": "WHERE",
+          "explanation": "Correct. WHERE filters input rows before grouping."
+        },
+        {
+          "id": "d",
+          "text": "GROUP BY",
+          "explanation": "Incorrect. GROUP BY forms groups rather than filtering individual rows."
+        }
+      ],
+      "answer": {
+        "correctOptionId": "c",
+        "explanation": "Use WHERE for row-level predicates and HAVING for conditions on grouped aggregates."
+      }
+    },
+    {
+      "id": "sql-fundamentals-002",
+      "difficulty": "medium",
+      "question": "What does COUNT(column_name) count compared with COUNT(*)?",
+      "options": [
+        {
+          "id": "a",
+          "text": "All rows, including NULL values in that column.",
+          "explanation": "Incorrect. COUNT(*) counts all rows; COUNT(column_name) skips NULL."
+        },
+        {
+          "id": "b",
+          "text": "Only rows where column_name is not NULL.",
+          "explanation": "Correct. COUNT(column_name) counts non-NULL values."
+        },
+        {
+          "id": "c",
+          "text": "Only distinct non-NULL values.",
+          "explanation": "Incorrect. Distinct counting requires COUNT(DISTINCT column_name)."
+        },
+        {
+          "id": "d",
+          "text": "Only rows where the column is numeric.",
+          "explanation": "Incorrect. COUNT works with nonnumeric columns too."
+        }
+      ],
+      "answer": {
+        "correctOptionId": "b",
+        "explanation": "COUNT(*) counts rows. COUNT(column_name) excludes rows where that expression evaluates to NULL."
+      }
+    },
+    {
+      "id": "sql-fundamentals-003",
+      "difficulty": "hard",
+      "question": "A LEFT JOIN uses WHERE right_table.status = 'active'. What happens to left-side rows with no matching right-side row?",
+      "options": [
+        {
+          "id": "a",
+          "text": "They remain with NULL right-side columns.",
+          "explanation": "Incorrect. The WHERE predicate rejects the NULL-extended unmatched rows."
+        },
+        {
+          "id": "b",
+          "text": "They are removed by the WHERE predicate.",
+          "explanation": "Correct. NULL = active is not true, so WHERE removes unmatched rows."
+        },
+        {
+          "id": "c",
+          "text": "They are duplicated once for every active row.",
+          "explanation": "Incorrect. This predicate does not independently create duplicates."
+        },
+        {
+          "id": "d",
+          "text": "SQL raises an error because WHERE cannot reference the right table.",
+          "explanation": "Incorrect. WHERE may reference columns from the joined table."
+        }
+      ],
+      "answer": {
+        "correctOptionId": "b",
+        "explanation": "To retain unmatched left-side rows while restricting right-side matches, put the status condition in the JOIN ON clause instead of this WHERE clause."
+      }
+    }
+  ]
+}

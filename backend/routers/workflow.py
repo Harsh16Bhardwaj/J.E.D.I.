@@ -101,7 +101,17 @@ async def normalize_batch(
     _user: CurrentUser,
     session: DatabaseSession,
 ) -> BatchNormalizationResponse:
-    return await normalize_batch_service(session, batch_id)
+    context = await require_group_context(session, _user.id)
+    if not context.group.active_profile_version_id:
+        raise HTTPException(
+            status_code=409,
+            detail="Create and activate a ProfileVersion before normalization.",
+        )
+    return await normalize_batch_service(
+        session,
+        batch_id,
+        profile_version_id=context.group.active_profile_version_id,
+    )
 
 
 @router.patch("/api/jobs/{job_id}/annotation", response_model=AnnotationResponse)
@@ -331,11 +341,16 @@ async def queue_ranking(
             status_code=409,
             detail="Normalize this batch before requesting ranking.",
         )
-    profile = await session.scalar(
-        select(ProfileVersion).where(ProfileVersion.active.is_(True))
+    context = await require_group_context(session, _user.id)
+    profile = (
+        await session.get(ProfileVersion, context.group.active_profile_version_id)
+        if context.group.active_profile_version_id
+        else None
     )
-    model = await session.scalar(
-        select(ModelVersion).where(ModelVersion.active.is_(True))
+    model = (
+        await session.get(ModelVersion, context.group.active_model_version_id)
+        if context.group.active_model_version_id
+        else None
     )
     if profile is None or model is None:
         raise HTTPException(

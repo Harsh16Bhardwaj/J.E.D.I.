@@ -2,8 +2,19 @@
 
 The onboarding page accepts a PDF or pasted resume text.
 A member reviews extracted facts and saves them independently of the group ranking
-profile. Job details now offer **Compare skills**. The **Learning** page recommends
+profile. Resume review appears first; saved explicit skills and exact experience
+are reused for onboarding, with manual fields shown only when those facts are
+missing. Inferred skills are not silently promoted to explicit skills. Job details now offer **Compare skills**. The **Learning** page recommends
 available question banks for missing skills and provides a general practice library.
+
+The library includes React Rendering and Keys, Python Fundamentals, FastAPI
+Fundamentals, and SQL Fundamentals. Each bank has three questions: one easy, one
+medium, and one hard, with per-option explanations.
+
+Batch normalization and ranking use the active profile and model referenced by
+the member’s group. Global active flags belonging to another group do not select
+these contracts. After deploying this correction, normalize previously affected
+batches again before requesting ranking.
 
 ## Runtime and deployment
 
@@ -12,8 +23,25 @@ Python 3.12 environment), and build the frontend with Node 22 and `npm ci` / `np
 The PDF dependency is `pypdf>=6.12,<7`.
 
 Prisma and SQLAlchemy define `ResumeEvidence` and `LearningAttempt`, linked to
-`GroupMember`. Apply the checked-in `20260812050000_member_resume_and_learning`
-migration using `prisma migrate deploy`. Existing records need no backfill.
+`GroupMember`. Apply migrations with `prisma migrate deploy`. The original
+`20260812050000_member_resume_and_learning` migration creates the private tables
+idempotently. The later `20261102000000_resume_learning` reconciliation is also
+idempotent, transactional, and safe when those tables already exist; it verifies
+the indexes and ownership foreign keys and reinforces RLS with no direct `anon`,
+`authenticated`, or `PUBLIC` table access. Neither migration rewrites or removes
+existing records, and no data backfill is required.
+
+Before applying it, verify the target database and migration checksums, take a
+protected backup, and test restoration plus migration against a disposable
+PostgreSQL copy. Inspect pending migrations and use `prisma migrate deploy`
+only when the reviewed migration is the intended pending change. Never use
+`prisma migrate dev`, `prisma db push`, or a reset command against production.
+Existing records do not need backfilling.
+
+Four historical scraper migrations are retained unchanged from the existing
+scraper branch because they were already applied to the production database.
+Their restored files reconcile migration history; they are not new scraper
+features and must not be reapplied to an already-migrated database.
 
 Keep the question JSON files in the deployed Python package. `backend/pyproject.toml`
 includes `content/*.json` as package data. PDF extraction runs in a short-lived
@@ -84,3 +112,23 @@ resumed from history with the original deadline.
 All routes require an authenticated group member. Attempt IDs never grant access
 to another member's state. Resume and learning tables are independent of manual
 onboarding and existing ranking models.
+
+## Groq answer tutor
+
+After each successful answer submission, a Groq explanation loads automatically
+without blocking grading or the next question. Follow-up questions are available
+below it. Existing answers reviewed later offer **Ask AI about this answer**
+without automatically repeating provider requests. Grading remains
+entirely based on the question bank. The server loads the owned attempt snapshot
+and selected answer; clients cannot supply a replacement answer key. Only the
+current question, selected answer and up to six recent conversation messages go
+to Groq. Resumes, contact details, job profiles and other questions are excluded.
+Conversations remain in the current view and are not persisted to practice history.
+
+Set `GROQ_API_KEY` in the backend environment (locally in the untracked root `.env`,
+and in Vercel's backend environment for production/preview as needed). Never use
+a `NEXT_PUBLIC_` variable for the key. Redeploy after changing deployment variables.
+`GROQ_MODEL` defaults to `openai/gpt-oss-20b` and can be overridden. This uses
+Groq's [Chat Completions API](https://console.groq.com/docs/api-reference).
+No database migration or new dependency is required. Missing configuration or a
+provider failure leaves the saved answer and built-in explanations available.

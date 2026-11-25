@@ -248,3 +248,92 @@ def test_valid_upload_review_and_dynamic_job_track(group_client):
         },
     )
     assert attempt.json()["jobId"] == "learn-job"
+
+
+def test_new_backend_banks_start_and_grade_sprints(group_client):
+    client, _ = group_client
+    login_owner(client)
+    available = {item["topicId"] for item in client.get("/api/learning/topics").json()}
+    for topic in ("python-fundamentals", "fastapi-fundamentals", "sql-fundamentals"):
+        assert topic in available
+        response = client.post(
+            "/api/learning/attempts",
+            json={
+                "topicId": topic,
+                "questionCount": 3,
+                "durationSeconds": 60,
+            },
+        )
+        assert response.status_code == 201
+        attempt = response.json()
+        assert len(attempt["questions"]) == 3
+        assert all("answer" not in item for item in attempt["questions"])
+        question = attempt["questions"][0]
+        graded = client.post(
+            f"/api/learning/attempts/{attempt['id']}/answers",
+            json={
+                "questionId": question["id"],
+                "optionId": "a",
+            },
+        )
+        assert graded.status_code == 200
+        assert graded.json()["questions"][0]["answer"]["explanation"]
+
+
+def test_tutor_requires_submitted_answer_and_keeps_grade_unchanged(
+    group_client, monkeypatch
+):
+    from backend.routers import learning
+
+    client, _ = group_client
+    login_owner(client)
+    attempt = client.post(
+        "/api/learning/attempts",
+        json={
+            "topicId": "react-rendering",
+            "questionCount": 1,
+            "durationSeconds": 60,
+        },
+    ).json()
+    question = attempt["questions"][0]
+    path = f"/api/learning/attempts/{attempt['id']}"
+    body = {"questionId": question["id"]}
+    assert client.post(path + "/tutor", json=body).status_code == 409
+    client.post(path + "/answers", json={"questionId": question["id"], "optionId": "a"})
+    before = client.get(path).json()
+
+    async def provider(stored_question, selected, message, history):
+        assert stored_question["id"] == question["id"]
+        assert stored_question["answer"]["correctOptionId"]
+        assert selected == "a"
+        return "A helpful explanation."
+
+    monkeypatch.setattr(learning, "explain_answer", provider)
+    reply = client.post(path + "/tutor", json=body)
+    assert reply.status_code == 200
+    assert reply.json()["reply"] == "A helpful explanation."
+    after = client.get(path).json()
+    assert after["correct"] == before["correct"]
+    assert after["questions"] == before["questions"]
+    assert (
+        client.post(path + "/tutor", json={"questionId": "unknown"}).status_code == 404
+    )
+    assert (
+        client.post(path + "/tutor", json={**body, "message": "x" * 1001}).status_code
+        == 422
+    )
+    invite = create_invite(client)
+    client.post("/api/auth/logout")
+    assert client.post(path + "/tutor", json=body).status_code == 401
+    assert (
+        client.post(
+            "/api/auth/register",
+            json={
+                "inviteCode": invite["code"],
+                "email": "tutor-other@example.com",
+                "password": "correct horse",
+            },
+        ).status_code
+        == 201
+    )
+    assert client.post(path + "/tutor", json=body).status_code == 404

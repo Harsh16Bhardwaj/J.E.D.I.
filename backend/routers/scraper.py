@@ -18,6 +18,7 @@ from backend.auth import CurrentUser, ServiceToken
 from backend.config import get_settings
 from backend.database import (
     Batch,
+    Group,
     ScrapeAttempt,
     ScrapeCandidate,
     ScrapeProviderUse,
@@ -2026,9 +2027,21 @@ async def _advance_locked_import(
                 else:
                     if not run.imported_batch_id:
                         raise HTTPException(409, "The imported batch is missing.")
+                    group = await session.get(Group, run.group_id)
+                    if group is None:
+                        raise HTTPException(409, "The scraper group is unavailable.")
+                    if not group.active_profile_version_id:
+                        raise HTTPException(
+                            409,
+                            (
+                                "Create and activate a ProfileVersion "
+                                "before normalization."
+                            ),
+                        )
                     normalized = await normalize_batch_service(
                         session,
                         run.imported_batch_id,
+                        profile_version_id=group.active_profile_version_id,
                         apply_inr_policy=True,
                         trigger="SCRAPER",
                         commit=False,
