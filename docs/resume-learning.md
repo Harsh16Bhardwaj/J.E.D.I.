@@ -43,8 +43,12 @@ scraper branch because they were already applied to the production database.
 Their restored files reconcile migration history; they are not new scraper
 features and must not be reapplied to an already-migrated database.
 
-Keep the question JSON files in the deployed Python package. `backend/pyproject.toml`
-includes `content/*.json` as package data. PDF extraction runs in a short-lived
+Keep the question JSON files and `scraper_taxonomy.toml` in the deployed Python
+package. `backend/pyproject.toml` declares both as package data, and `vercel.json`
+explicitly includes them in the backend function. The taxonomy is shared by job
+preview, resume parsing, skill comparisons, and scraper enrichment. Readiness
+checks load the vocabulary and question banks so missing assets fail readiness
+before users encounter feature errors. PDF extraction runs in a short-lived
 Python subprocess with a 15-second wall-clock limit, a Unix CPU limit, and a Linux
 512 MB address-space limit. Ensure the Python deployment permits subprocesses.
 Original PDFs are processed in memory and are not persisted by the application.

@@ -1,9 +1,12 @@
+import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from backend.config import Settings
 from backend.main import app
+from backend.routers import health
 from backend.routers.health import check_readiness
 
 client = TestClient(app)
@@ -52,6 +55,22 @@ def test_ready_health_hides_database_failures() -> None:
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "SERVICE_UNAVAILABLE"
     assert response.json()["error"]["message"] == "Service is not ready."
+
+
+@pytest.mark.parametrize("loader", ["vocabulary", "load_banks"])
+def test_readiness_rejects_missing_runtime_assets(monkeypatch, loader) -> None:
+    def missing_asset():
+        raise FileNotFoundError("Required runtime asset is missing")
+
+    monkeypatch.setattr(health, "vocabulary", lambda: {"react": "React"})
+    monkeypatch.setattr(health, loader, missing_asset)
+    assert asyncio.run(check_readiness()) is False
+
+
+def test_readiness_rejects_empty_question_bank_package(monkeypatch) -> None:
+    monkeypatch.setattr(health, "vocabulary", lambda: {"react": "React"})
+    monkeypatch.setattr(health, "load_banks", lambda: {})
+    assert asyncio.run(check_readiness()) is False
 
 
 def test_production_settings_reject_unsafe_values() -> None:

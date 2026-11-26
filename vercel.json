@@ -12,7 +12,7 @@
       "functions": {
         "main.py": {
           "excludeFiles": "{tests/**,**/__pycache__/**,**/.pytest_cache/**,**/.ruff_cache/**,**/*.pyc}",
-          "includeFiles": "model_bundles/**",
+          "includeFiles": "{model_bundles/**,content/**,scraper_taxonomy.toml}",
           "maxDuration": 300,
           "memory": 2048
         }

@@ -56,4 +56,4 @@ line-length = 88
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.setuptools.package-data]
-backend = ["content/*.json"]
+backend = ["content/*.json", "scraper_taxonomy.toml"]

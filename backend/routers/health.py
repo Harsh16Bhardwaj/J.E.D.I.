@@ -5,6 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from backend.services.learning import load_banks
+from backend.services.skill_vocabulary import vocabulary
+
 if __package__ == "routers":
     from config import get_settings
     from database import engine
@@ -37,8 +40,10 @@ REQUIRED_MIGRATIONS = (
 
 
 async def check_readiness() -> bool:
-    """Verify database access and the migrations required by this build."""
+    """Verify runtime assets, database access, and required migrations."""
     try:
+        if not vocabulary() or not load_banks():
+            return False
         async with asyncio.timeout(10), engine.connect() as connection:
             migration_applied = await connection.scalar(
                 text(
@@ -53,7 +58,7 @@ async def check_readiness() -> bool:
                 {"migrations": list(REQUIRED_MIGRATIONS)},
             )
         return migration_applied == len(REQUIRED_MIGRATIONS)
-    except (SQLAlchemyError, TimeoutError):
+    except (SQLAlchemyError, TimeoutError, OSError, ValueError, KeyError, TypeError):
         return False
 
 
